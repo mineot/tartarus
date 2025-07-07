@@ -1,4 +1,4 @@
-import db from '@/db';
+import db from '../db';
 
 export default async function registerCommand(name: string, command: string) {
   try {

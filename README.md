@@ -22,7 +22,7 @@ npm link
 
 ## ⚙️ Requirements
 
-- **Minimum Node.js version:** `18.x`  
+- **Minimum Node.js version:** `18.x`
 - [Download Node.js](https://nodejs.org/en/download)
 
 ---
@@ -97,12 +97,19 @@ Backups are saved in `backup/commands_backup.json`.
 
 ---
 
-## 🧑‍💻 Technologies Used
+## 📜 NPM Scripts
 
-- [TypeScript](https://www.typescriptlang.org/)
-- [Commander.js](https://github.com/tj/commander.js/)
-- [PouchDB](https://pouchdb.com/)
-- [Node.js](https://nodejs.org/)
+These development scripts help you build, test, and manage the CLI tool:
+
+| Script            | Description                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| `npm run build`   | Compiles the TypeScript code using esbuild into a single minified file (`dist/tartarus.js`). |
+| `npm run dev`     | Runs the CLI directly using ts-node (useful during development).                             |
+| `npm run format`  | Formats all `.ts` files in `src/` using Prettier.                                            |
+| `npm run prepare` | Automatically runs `build` when installing or linking this package.                          |
+| `npm run link`    | Builds and links the `tartarus` CLI globally on your system.                                 |
+| `npm run unlink`  | Unlinks the globally installed `tartarus` command.                                           |
+| `npm run update`  | Rebuilds and relinks the CLI — useful after making changes.                                  |
 
 ---
 

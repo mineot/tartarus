@@ -1,4 +1,4 @@
-import db from '@/db';
+import db from '../db';
 import { exec } from 'child_process';
 
 export default async function executeCommand(name: string) {

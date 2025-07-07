@@ -1,4 +1,4 @@
-import db from '@/db';
+import db from '../db';
 
 export default async function listCommand() {
   const result = await db.allDocs({ include_docs: true });

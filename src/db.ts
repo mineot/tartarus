@@ -1,4 +1,4 @@
-import { CommandDoc } from '@/types';
+import { CommandDoc } from './types';
 import path from 'path';
 import PouchDB from 'pouchdb';
 

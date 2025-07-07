@@ -1,12 +1,11 @@
-#!/usr/bin/env node
 import { Command } from 'commander';
 
-import executeCommand from '@/commands/execute';
-import exportCommand from '@/commands/export';
-import importCommand from '@/commands/import';
-import listCommand from '@/commands/list';
-import registerCommand from '@/commands/register';
-import removeCommand from '@/commands/remove';
+import executeCommand from './commands/execute';
+import exportCommand from './commands/export';
+import importCommand from './commands/import';
+import listCommand from './commands/list';
+import registerCommand from './commands/register';
+import removeCommand from './commands/remove';
 
 const program = new Command();
 
