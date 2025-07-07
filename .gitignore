@@ -1,0 +1,20 @@
+# Node modules
+node_modules/
+
+# Compiled TypeScript
+dist/
+
+# Local database and backups
+db/
+backup/
+
+# Logs
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Editor-specific
+.vscode/
+.idea/
