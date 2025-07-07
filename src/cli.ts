@@ -14,6 +14,12 @@ program.command('register').argument('<name>').argument('<cmd>').action(register
 program.command('exec').argument('<name>').action(executeCommand);
 program.command('list').action(listCommand);
 program.command('remove').argument('<name>').action(removeCommand);
-program.command('export').action(exportCommand);
-program.command('import').action(importCommand);
+program
+  .command('export')
+  .argument('<path>', 'Path to save exported JSON file')
+  .action(exportCommand);
+program
+  .command('import')
+  .argument('<path>', 'Path to the JSON file to import')
+  .action(importCommand);
 program.parse();

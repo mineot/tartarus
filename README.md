@@ -69,23 +69,27 @@ tartarus remove list_home
 
 ---
 
-### `export`
+### `export <file_path>`
 
-Export all registered commands into a JSON file inside the `backup/` folder:
+Export all registered commands to a specific file path:
 
 ```bash
-tartarus export
+tartarus export ~/my_backups/commands_001.json
 ```
+
+This will write the JSON backup to the exact location you specify. The directory will be created if it does not exist.
 
 ---
 
-### `import`
+### `import <file_path>`
 
-Import commands from `backup/commands_backup.json`:
+Import commands from a specific JSON file path:
 
 ```bash
-tartarus import
+tartarus import ~/my_backups/commands_001.json
 ```
+
+This will read the commands from the given path and store them in the local database.
 
 ---
 

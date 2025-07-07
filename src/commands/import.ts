@@ -1,13 +1,18 @@
 import db from '../db';
 import fs from 'fs';
 import path from 'path';
+import { CommandDoc } from '../types';
 
-export default async function exportCommands() {
-  const result = await db.allDocs({ include_docs: true });
-  const commands = result.rows.map((row) => row.doc).filter(Boolean);
-  const filePath = path.join(__dirname, '..', '..', 'backup', 'commands_backup.json');
+export default async function importCommand(filePath: string) {
+  const resolvedPath = path.resolve(filePath);
 
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(commands, null, 2));
-  console.log('✅ Backup exported to ${filePath}');
+  if (!fs.existsSync(resolvedPath)) {
+    console.error(`❌ File not found: ${resolvedPath}`);
+    return;
+  }
+
+  const data: CommandDoc[] = JSON.parse(fs.readFileSync(resolvedPath, 'utf-8'));
+  await db.bulkDocs(data);
+
+  console.log(`✅ Backup imported from: ${resolvedPath}`);
 }

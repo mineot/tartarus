@@ -2,12 +2,13 @@ import db from '../db';
 import fs from 'fs';
 import path from 'path';
 
-export default async function exportCommand() {
+export default async function exportCommand(filePath: string) {
   const result = await db.allDocs({ include_docs: true });
   const commands = result.rows.map((row) => row.doc).filter(Boolean);
-  const filePath = path.join(__dirname, '..', '..', 'backup', 'commands_backup.json');
 
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(commands, null, 2));
-  console.log('✅ Backup exported to ${filePath}');
+  const resolvedPath = path.resolve(filePath);
+  fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+  fs.writeFileSync(resolvedPath, JSON.stringify(commands, null, 2));
+
+  console.log(`✅ Backup exported to: ${resolvedPath}`);
 }
