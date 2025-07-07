@@ -1,12 +1,12 @@
 # 🧠 Tartarus
 
-**Tartarus** é uma ferramenta de linha de comando (CLI) desenvolvida em TypeScript para registrar, listar, executar e manter comandos personalizados do terminal de forma persistente. Os comandos são armazenados localmente usando o banco de dados [PouchDB](https://pouchdb.com/).
+**Tartarus** is a command-line tool (CLI) written in TypeScript that allows you to register, list, execute, and manage custom terminal commands persistently. All commands are stored locally using [PouchDB](https://pouchdb.com/).
 
 ---
 
-## 🚀 Instalação
+## 🚀 Installation
 
-Clone o repositório:
+Clone the repository:
 
 ```bash
 git clone https://github.com/mineot/tartarus.git
@@ -16,15 +16,22 @@ npm run build
 npm link
 ```
 
-> O `npm link` permite usar o comando `tartarus` globalmente no seu sistema.
+> The `npm link` command allows you to use `tartarus` globally on your system.
 
 ---
 
-## 📦 Comandos disponíveis
+## ⚙️ Requirements
 
-### `register <nome> <comando>`
+- **Minimum Node.js version:** `18.x`  
+- [Download Node.js](https://nodejs.org/en/download)
 
-Registra um novo comando:
+---
+
+## 📦 Available Commands
+
+### `register <name> <command>`
+
+Register a new command:
 
 ```bash
 tartarus register list_home "ls -ls ~"
@@ -32,9 +39,9 @@ tartarus register list_home "ls -ls ~"
 
 ---
 
-### `exec <nome>`
+### `exec <name>`
 
-Executa o comando salvo:
+Execute a registered command:
 
 ```bash
 tartarus exec list_home
@@ -44,7 +51,7 @@ tartarus exec list_home
 
 ### `list`
 
-Lista todos os comandos registrados:
+List all registered commands:
 
 ```bash
 tartarus list
@@ -52,9 +59,9 @@ tartarus list
 
 ---
 
-### `remove <nome>`
+### `remove <name>`
 
-Remove um comando salvo:
+Remove a registered command:
 
 ```bash
 tartarus remove list_home
@@ -64,7 +71,7 @@ tartarus remove list_home
 
 ### `export`
 
-Exporta todos os comandos registrados para um arquivo JSON na pasta `backup/`:
+Export all registered commands into a JSON file inside the `backup/` folder:
 
 ```bash
 tartarus export
@@ -74,7 +81,7 @@ tartarus export
 
 ### `import`
 
-Importa comandos de um arquivo `commands_backup.json` dentro da pasta `backup/`:
+Import commands from `backup/commands_backup.json`:
 
 ```bash
 tartarus import
@@ -82,15 +89,15 @@ tartarus import
 
 ---
 
-## 💾 Armazenamento
+## 💾 Storage
 
-Os comandos são armazenados localmente com [PouchDB](https://pouchdb.com/), usando arquivos no diretório `db/`.
+Commands are stored locally using [PouchDB](https://pouchdb.com/), in the `db/` directory.
 
-O backup é salvo em `backup/commands_backup.json`.
+Backups are saved in `backup/commands_backup.json`.
 
 ---
 
-## 🧑‍💻 Tecnologias utilizadas
+## 🧑‍💻 Technologies Used
 
 - [TypeScript](https://www.typescriptlang.org/)
 - [Commander.js](https://github.com/tj/commander.js/)
@@ -99,6 +106,6 @@ O backup é salvo em `backup/commands_backup.json`.
 
 ---
 
-## 📄 Licença
+## 📄 License
 
-Este projeto está licenciado sob a [Licença Apache 2.0](LICENSE).
+This project is licensed under the [Apache 2.0 License](LICENSE).

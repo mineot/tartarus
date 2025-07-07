@@ -1,14 +1,14 @@
 import db from '@/db';
 
-export default async function listCommands() {
+export default async function listCommand() {
   const result = await db.allDocs({ include_docs: true });
 
   if (!result.rows.length) {
-    console.log('📭 Nenhum comando registrado.');
+    console.log('📭 No commands registered.');
     return;
   }
 
-  console.log('📚 Comandos registrados:');
+  console.log('📚 Registered commands:');
 
   result.rows.forEach((row) => {
     if (row.doc) console.log(`- ${row.id}: ${row.doc.command}`);

@@ -1,14 +1,14 @@
 import db from '@/db';
 
-export default async function register(name: string, command: string) {
+export default async function registerCommand(name: string, command: string) {
   try {
     await db.put({ _id: name, command });
-    console.log(`✅ Comando "${name}" registrado.`);
+    console.log(`✅ Command "${name}" registered.`);
   } catch (err: any) {
     if (err.status === 409) {
-      console.error('❌ Já existe um comando com esse nome.');
+      console.error('❌ Command with this name already exists.');
     } else {
-      console.error('❌ Erro ao registrar:', err.message);
+      console.error('❌ Error registering:', err.message);
     }
   }
 }

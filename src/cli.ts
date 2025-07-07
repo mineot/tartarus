@@ -1,21 +1,20 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import register from '@/commands/register';
-import execCommand from '@/commands/execute';
-import listCommands from '@/commands/list';
+
+import executeCommand from '@/commands/execute';
+import exportCommand from '@/commands/export';
+import importCommand from '@/commands/import';
+import listCommand from '@/commands/list';
+import registerCommand from '@/commands/register';
 import removeCommand from '@/commands/remove';
-import exportCommands from '@/commands/export';
-import importCommands from '@/commands/import';
 
 const program = new Command();
 
-program.name('tartarus').description('CLI para comandos nomeados').version('1.0.0');
-
-program.command('register').argument('<name>').argument('<cmd>').action(register);
-program.command('exec').argument('<name>').action(execCommand);
-program.command('list').action(listCommands);
+program.name('tartarus').description('CLI for named commands').version('1.0.0');
+program.command('register').argument('<name>').argument('<cmd>').action(registerCommand);
+program.command('exec').argument('<name>').action(executeCommand);
+program.command('list').action(listCommand);
 program.command('remove').argument('<name>').action(removeCommand);
-program.command('export').action(exportCommands);
-program.command('import').action(importCommands);
-
+program.command('export').action(exportCommand);
+program.command('import').action(importCommand);
 program.parse();

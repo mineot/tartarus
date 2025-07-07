@@ -4,8 +4,8 @@ export default async function removeCommand(name: string) {
   try {
     const doc = await db.get(name);
     await db.remove(doc);
-    console.log(`✅ Comando "${name}" removido.`);
+    console.log(`✅ Command "${name}" removed.`);
   } catch {
-    console.error(`❌ Comando "${name}" não encontrado.`);
+    console.error(`❌ Command "${name}" not found.`);
   }
 }
