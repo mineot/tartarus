@@ -1,5 +1,5 @@
-import db from '../db';
-import { CommandDoc } from '../types';
+import db from '../../db';
+import { CommandDoc } from '../../types';
 
 export default async function clearCommand() {
   try {

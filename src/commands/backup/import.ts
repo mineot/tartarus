@@ -1,7 +1,7 @@
-import db from '../db';
+import db from '../../db';
 import fs from 'fs';
 import path from 'path';
-import { CommandDoc } from '../types';
+import { CommandDoc } from '../../types';
 
 export default async function importCommand(filePath: string) {
   const resolvedPath = path.resolve(filePath);

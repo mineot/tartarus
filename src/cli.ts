@@ -1,16 +1,16 @@
 import { Command } from 'commander';
 
-import addCommand from './commands/add';
-import addDocCommand from './commands/adddoc';
-import clearCommand from './commands/clear';
+import addCommand from './commands/crud/add';
+import addDocCommand from './commands/docs/add';
+import clearCommand from './commands/utils/clear';
 import executeCommand from './commands/execute';
-import exportCommand from './commands/export';
-import importCommand from './commands/import';
-import listCommand from './commands/list';
-import registerCommand from './commands/register';
-import remDocCommand from './commands/remdoc';
-import removeCommand from './commands/remove';
-import showDocCommand from './commands/showdoc';
+import exportCommand from './commands/backup/export';
+import importCommand from './commands/backup/import';
+import listCommand from './commands/crud/list';
+import registerCommand from './commands/crud/register';
+import remDocCommand from './commands/docs/remove';
+import removeCommand from './commands/crud/remove';
+import showDocCommand from './commands/docs/show';
 
 const program = new Command();
 
