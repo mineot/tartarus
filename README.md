@@ -93,6 +93,18 @@ This will read the commands from the given path and store them in the local data
 
 ---
 
+### `clear`
+
+Remove all registered commands from the local database:
+
+```bash
+tartarus clear
+```
+
+⚠️ This action is irreversible. Use with caution.
+
+---
+
 ## 💾 Storage
 
 Commands are stored locally using [PouchDB](https://pouchdb.com/), in the `db/` directory.
