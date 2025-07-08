@@ -1,13 +1,16 @@
 import { Command } from 'commander';
 
 import addCommand from './commands/add';
+import addDocCommand from './commands/adddoc';
 import clearCommand from './commands/clear';
 import executeCommand from './commands/execute';
 import exportCommand from './commands/export';
 import importCommand from './commands/import';
 import listCommand from './commands/list';
 import registerCommand from './commands/register';
+import remDocCommand from './commands/remdoc';
 import removeCommand from './commands/remove';
+import showDocCommand from './commands/showdoc';
 
 const program = new Command();
 
@@ -35,3 +38,13 @@ program
   .argument('<name>', 'Command name')
   .argument('<instruction>', 'Instruction to add')
   .action(addCommand);
+
+program
+  .command('adddoc')
+  .argument('<name>', 'Command name')
+  .argument('<text>', 'Description text')
+  .action(addDocCommand);
+
+program.command('remdoc').argument('<name>', 'Command name').action(remDocCommand);
+
+program.command('showdoc').argument('[name]', 'Command name (optional)').action(showDocCommand);

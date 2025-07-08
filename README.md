@@ -107,6 +107,43 @@ tartarus clear
 
 ---
 
+
+---
+
+### `adddoc <name> <text>`
+
+Attach a documentation string to a command:
+
+```bash
+tartarus adddoc test "Creates a folder and navigates into it."
+```
+
+This description will be stored with the command and can be viewed later.
+
+---
+
+### `remdoc <name>`
+
+Remove the documentation from a command:
+
+```bash
+tartarus remdoc test
+```
+
+---
+
+### `showdoc [name]`
+
+Display documentation for all commands, or a specific one:
+
+```bash
+tartarus showdoc
+tartarus showdoc test
+```
+
+This allows you to understand what each command is intended to do.
+
+
 ## 💾 Storage
 
 Commands are stored locally using [PouchDB](https://pouchdb.com/), in the `db/` directory.
