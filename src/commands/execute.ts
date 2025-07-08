@@ -1,17 +1,15 @@
 import db from '../db';
-import { exec } from 'child_process';
+import { execSync } from 'child_process';
 
-export default async function executeCommand(name: string) {
+export default async function execCommand(name: string) {
   try {
     const doc = await db.get(name);
-    exec(doc.command, (err, stdout, stderr) => {
-      if (err) {
-        console.error('❌ Error executing command:', err.message);
-        return;
-      }
-      console.log(stdout);
-    });
+    for (const cmd of doc.instructions) {
+      console.log(`➡️  Executing: ${cmd}`);
+      const output = execSync(cmd, { stdio: 'inherit', shell: '/bin/bash' });
+      console.log(`⬅️  Output: ${output}`);
+    }
   } catch {
-    console.error(`❌ Command "${name}" not found.`);
+    console.error(`❌ Command "${name}" not found or execution failed.`);
   }
 }

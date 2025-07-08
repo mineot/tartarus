@@ -41,11 +41,13 @@ tartarus register list_home "ls -ls ~"
 
 ### `exec <name>`
 
-Execute a registered command:
+Execute all instructions registered under a command (in sequence):
 
 ```bash
 tartarus exec list_home
 ```
+
+This runs each instruction in the order they were added.
 
 ---
 
@@ -132,3 +134,15 @@ These development scripts help you build, test, and manage the CLI tool:
 ## 📄 License
 
 This project is licensed under the [Apache 2.0 License](LICENSE).
+
+---
+
+### `add <name> <instruction>`
+
+Add a new instruction to an existing registered command:
+
+```bash
+tartarus add test "cd folder"
+```
+
+You can register a command with one instruction using `register`, and then keep appending more steps using `add`. When you run `exec`, all instructions will be executed **in order**.

@@ -1,5 +1,5 @@
 export interface CommandDoc {
   _id: string;
-  command: string;
+  instructions: string[];
   _rev?: string;
 }
