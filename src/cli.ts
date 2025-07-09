@@ -2,13 +2,12 @@ import { Command } from 'commander';
 
 import { registerCmdGroup } from './scripts/cmd';
 import { registerExecCommand } from './scripts/exec';
+import { registerDatabaseCommand } from './scripts/database';
 
-import { exportCommand } from './scripts/backup/export';
 import addDocCommand from './scripts/docs/add';
 import importCommand from './scripts/backup/import';
 import remDocCommand from './scripts/docs/remove';
 import showDocCommand from './scripts/docs/show';
-import { registerDatabaseCommand } from './scripts/database';
 
 const program = new Command();
 
@@ -24,13 +23,6 @@ registerExecCommand(program);
 registerDatabaseCommand(program);
 
 program.parse();
-
-// // BACKUP
-// program
-//   .command('export')
-//   .argument('<path>', 'Path to save exported JSON file')
-//   .description('Export all commands to a JSON file')
-//   .action(exportCommand);
 
 // program
 //   .command('import')
