@@ -1,12 +1,10 @@
 # 🧠 Tartarus
 
-**Tartarus** is a command-line tool (CLI) written in TypeScript that allows you to register, list, execute, and manage custom terminal commands persistently. All commands are stored locally using [PouchDB](https://pouchdb.com/).
+**Tartarus** is a powerful command-line tool written in TypeScript for organizing, documenting, executing, exporting, and importing named command sets. All commands are stored locally using [PouchDB](https://pouchdb.com/), and can be grouped and extended with multiple instructions.
 
 ---
 
 ## 🚀 Installation
-
-Clone the repository:
 
 ```bash
 git clone https://github.com/mineot/tartarus.git
@@ -27,173 +25,161 @@ npm link
 
 ---
 
-## 📦 Available Commands
+## 📦 Command Groups
 
-### `register <name> <command>`
+Tartarus commands are organized into groups for clarity and scalability:
 
-Register a new command:
+---
+
+### 📁 `cmd` – Command Management
+
+Manage command sets that contain one or more instructions.
+
+#### `tartarus cmd create <name> <command>`
+
+Create a new command with a single instruction.
 
 ```bash
-tartarus register list_home "ls -ls ~"
+tartarus cmd create test "mkdir folder"
+```
+
+#### `tartarus cmd append <name> <instruction>`
+
+Append a new instruction to an existing command.
+
+```bash
+tartarus cmd append test "cd folder"
+```
+
+#### `tartarus cmd subtract <name> <index>`
+
+Subtract an instruction from a command by its index (starting at 0).
+
+```bash
+tartarus cmd subtract test 0
+```
+
+#### `tartarus cmd remove <name>`
+
+Remove a command entirely from the database.
+
+```bash
+tartarus cmd remove test
+```
+
+#### `tartarus cmd show <name>`
+
+Display all instructions in a specific command.
+
+```bash
+tartarus cmd show test
+```
+
+#### `tartarus cmd list`
+
+List all registered command names and their first instruction.
+
+```bash
+tartarus cmd list
+```
+
+#### `tartarus cmd exec <name>`
+
+Execute all instructions of the specified command **in order**.
+
+```bash
+tartarus cmd exec test
 ```
 
 ---
 
-### `exec <name>`
+### 📝 `doc` – Documentation Management
 
-Execute all instructions registered under a command (in sequence):
+Manage optional descriptions for commands.
+
+#### `tartarus doc add <name> <text>`
+
+Add or update a description for a command.
 
 ```bash
-tartarus exec list_home
+tartarus doc add test "Creates a folder and navigates into it."
 ```
 
-This runs each instruction in the order they were added.
+#### `tartarus doc remove <name>`
 
----
-
-### `list`
-
-List all registered commands:
+Remove the description from a command.
 
 ```bash
-tartarus list
+tartarus doc remove test
 ```
 
----
+#### `tartarus doc show [name]`
 
-### `remove <name>`
-
-Remove a registered command:
+Show documentation for a specific command or all documented commands.
 
 ```bash
-tartarus remove list_home
-```
-
----
-
-### `export <file_path>`
-
-Export all registered commands to a specific file path:
-
-```bash
-tartarus export ~/my_backups/commands_001.json
-```
-
-This will write the JSON backup to the exact location you specify. The directory will be created if it does not exist.
-
----
-
-### `import <file_path>`
-
-Import commands from a specific JSON file path:
-
-```bash
-tartarus import ~/my_backups/commands_001.json
-```
-
-This will read the commands from the given path and store them in the local database.
-
----
-
-### `clear`
-
-Remove all registered commands from the local database:
-
-```bash
-tartarus clear
-```
-
-⚠️ This action is irreversible. Use with caution.
-
----
-
-
----
-
-### `adddoc <name> <text>`
-
-Attach a documentation string to a command:
-
-```bash
-tartarus adddoc test "Creates a folder and navigates into it."
-```
-
-This description will be stored with the command and can be viewed later.
-
----
-
-### `remdoc <name>`
-
-Remove the documentation from a command:
-
-```bash
-tartarus remdoc test
+tartarus doc show test
+tartarus doc show
 ```
 
 ---
 
-### `showdoc [name]`
+### 💾 `database` – Backup and Maintenance
 
-Display documentation for all commands, or a specific one:
+Manage data persistence and recovery.
+
+#### `tartarus db export <file_path>`
+
+Export all registered commands to a JSON file.
 
 ```bash
-tartarus showdoc
-tartarus showdoc test
+tartarus db export ~/my_backups/commands_001.json
 ```
 
-This allows you to understand what each command is intended to do.
+#### `tartarus db import <file_path>`
 
+Import commands from a JSON file.
 
+```bash
+tartarus db import ~/my_backups/commands_001.json
+```
+
+✅ **Note:** Ensure `_rev` fields are removed from the JSON before importing.
+
+#### `tartarus db clear`
+
+Delete all registered commands from the local database.
+
+```bash
+tartarus db clear
+```
+
+⚠️ This action is irreversible.
 
 ---
 
-### `rminst <name> <index>`
+## 🧱 Storage
 
-Remove an instruction from a command by its index:
-
-```bash
-tartarus rminst test 0
-```
-
-This will remove the instruction at position 0 from the `test` command. Indexes start from 0.
-
-
-## 💾 Storage
-
-Commands are stored locally using [PouchDB](https://pouchdb.com/), in the `db/` directory.
-
-Backups are saved in `backup/commands_backup.json`.
+- Commands are stored in the local `db/` directory.
+- Backups are saved as `.json` files in any path you specify.
+- Uses [PouchDB](https://pouchdb.com/) under the hood.
 
 ---
 
 ## 📜 NPM Scripts
 
-These development scripts help you build, test, and manage the CLI tool:
-
-| Script            | Description                                                                                  |
-| ----------------- | -------------------------------------------------------------------------------------------- |
-| `npm run build`   | Compiles the TypeScript code using esbuild into a single minified file (`dist/tartarus.js`). |
-| `npm run dev`     | Runs the CLI directly using ts-node (useful during development).                             |
-| `npm run format`  | Formats all `.ts` files in `src/` using Prettier.                                            |
-| `npm run prepare` | Automatically runs `build` when installing or linking this package.                          |
-| `npm run link`    | Builds and links the `tartarus` CLI globally on your system.                                 |
-| `npm run unlink`  | Unlinks the globally installed `tartarus` command.                                           |
-| `npm run update`  | Rebuilds and relinks the CLI — useful after making changes.                                  |
+| Script            | Description                                                                        |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| `npm run build`   | Builds the project using esbuild into a single minified file (`dist/tartarus.js`). |
+| `npm run dev`     | Runs the CLI directly with `ts-node`.                                              |
+| `npm run format`  | Formats the code using Prettier.                                                   |
+| `npm run prepare` | Automatically builds before linking or publishing.                                 |
+| `npm run link`    | Builds and links the CLI globally for testing.                                     |
+| `npm run unlink`  | Unlinks the global CLI installation.                                               |
+| `npm run update`  | Rebuilds and relinks in one step.                                                  |
 
 ---
 
 ## 📄 License
 
 This project is licensed under the [Apache 2.0 License](LICENSE).
-
----
-
-### `add <name> <instruction>`
-
-Add a new instruction to an existing registered command:
-
-```bash
-tartarus add test "cd folder"
-```
-
-You can register a command with one instruction using `register`, and then keep appending more steps using `add`. When you run `exec`, all instructions will be executed **in order**.
