@@ -78,11 +78,42 @@ export default async function listCommands() {
 }
 
 /**
+ * Displays the details of a command by its name.
+ * If the command is found, it lists all its instructions.
+ * If the command is not found, or if there are no instructions,
+ * appropriate feedback messages are displayed.
+ * @param {string} name - The name of the command to display.
+ */
+async function showCommand(name: string) {
+  try {
+    // Retrieve the command document by its name.
+    const commandDoc = await db.get(name);
+
+    // Check if there are no instructions and notify the user.
+    if (commandDoc.instructions.length === 0) {
+      Feedback.warn('No instructions available.');
+      return;
+    }
+
+    // Display the command name.
+    Feedback.message(`Command: ${commandDoc._id}\n`);
+
+    // Iterate over each instruction and display it.
+    commandDoc.instructions.forEach((instruction, index) => {
+      Feedback.message(`- Instruction ${index}: ${instruction}`);
+    });
+  } catch {
+    // Handle the case where the command is not found.
+    Feedback.error(`Command "${name}" could not be found.`);
+  }
+}
+
+/**
  * Registers the command group for the `cmd` command.
  * @param {import('commander').Command} program The Commander program.
  */
-export function registerCmdGroup(program: import('commander').Command) {
-  const command = program
+export function registerCmdGroup(program: import('commander').Command): void {
+  const cmd = program
     .command('cmd')
     .description('Manage named command sets: create, add instructions, or remove them.');
 
@@ -91,7 +122,7 @@ export function registerCmdGroup(program: import('commander').Command) {
    * @param {string} name The name of the new command.
    * @param {string} instruction The instruction to add to the new command.
    */
-  command
+  cmd
     .command('create')
     .argument('<name>', 'The name of the new command')
     .argument('<instruction>', 'The instruction to add to the new command')
@@ -102,7 +133,7 @@ export function registerCmdGroup(program: import('commander').Command) {
    * Removes a command by its name from the database.
    * @param {string} name The name of the command to remove.
    */
-  command
+  cmd
     .command('remove')
     .argument('<name>', 'The name of the command to remove')
     .description('Delete a command')
@@ -111,5 +142,15 @@ export function registerCmdGroup(program: import('commander').Command) {
   /**
    * Lists all commands registered in the database.
    */
-  command.command('list').description('List all commands').action(listCommands);
+  cmd.command('list').description('List all commands').action(listCommands);
+
+  /**
+   * Shows the instructions of a command by its name.
+   * @param {string} name The name of the command to show.
+   */
+  cmd
+    .command('show')
+    .argument('<name>', 'The name of the command to show')
+    .description('Show the instructions of a command')
+    .action(showCommand);
 }
