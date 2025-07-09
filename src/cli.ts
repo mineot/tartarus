@@ -1,11 +1,11 @@
 import { Command } from 'commander';
 
 import { registerCmdGroup } from './scripts/cmd';
+import { registerExecCommand } from './scripts/exec';
 
 import { exportCommand } from './scripts/backup/export';
 import addDocCommand from './scripts/docs/add';
 import clearCommand from './scripts/utils/clear';
-import executeCommand from './scripts/execute';
 import importCommand from './scripts/backup/import';
 import remDocCommand from './scripts/docs/remove';
 import showDocCommand from './scripts/docs/show';
@@ -20,6 +20,7 @@ program
   );
 
 registerCmdGroup(program);
+registerExecCommand(program);
 
 program.parse();
 
@@ -30,7 +31,6 @@ program.parse();
 //   .description('Export all commands to a JSON file')
 //   .action(exportCommand);
 
-// program.command('exec').argument('<name>').action(executeCommand);
 // program.command('clear').description('Remove all commands from the database').action(clearCommand);
 
 // program
