@@ -140,7 +140,7 @@ export async function importCommand(filePath: string): Promise<void> {
  * Registers the `database` command group.
  * @param {import('commander').Command} program - The Commander program to register the command group with.
  */
-export function registerDatabaseCommand(program: Command): void {
+export function registerDatabaseGroup(program: Command): void {
   // Define a new command group for database management.
   const database = program.command('db').description('Database management commands');
 

@@ -2,11 +2,8 @@ import { Command } from 'commander';
 
 import { registerCmdGroup } from './scripts/cmd';
 import { registerExecCommand } from './scripts/exec';
-import { registerDatabaseCommand } from './scripts/database';
-
-import addDocCommand from './scripts/docs/add';
-import remDocCommand from './scripts/docs/remove';
-import showDocCommand from './scripts/docs/show';
+import { registerDatabaseGroup } from './scripts/database';
+import { registerDocGroup } from './scripts/doc';
 
 const program = new Command();
 
@@ -19,16 +16,7 @@ program
 
 registerCmdGroup(program);
 registerExecCommand(program);
-registerDatabaseCommand(program);
+registerDatabaseGroup(program);
+registerDocGroup(program);
 
 program.parse();
-
-// program
-//   .command('adddoc')
-//   .argument('<name>', 'Command name')
-//   .argument('<text>', 'Description text')
-//   .action(addDocCommand);
-
-// program.command('remdoc').argument('<name>', 'Command name').action(remDocCommand);
-
-// program.command('showdoc').argument('[name]', 'Command name (optional)').action(showDocCommand);
