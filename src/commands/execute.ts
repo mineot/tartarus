@@ -1,6 +1,7 @@
 import db from '../db';
 import { execSync } from 'child_process';
 
+// TODO: AGUARDAR A EXECUÇÃO DE UM COMANDO ANTES DE IR PARA O OUTRO
 export default async function execCommand(name: string) {
   try {
     const doc = await db.get(name);
