@@ -82,6 +82,61 @@ export async function exportCommand(filePath: string): Promise<void> {
 }
 
 /**
+ * Imports commands from a JSON file into the database.
+ * The JSON file should contain an array of CommandDoc objects.
+ *
+ * @param {string} filePath The path to the JSON file containing the commands.
+ * @returns {Promise<void>} A promise that resolves when the import is completed.
+ */
+export async function importCommand(filePath: string): Promise<void> {
+  // Resolve the absolute path of the file.
+  const resolvedFilePath = path.resolve(filePath);
+
+  // Check if the file exists at the specified path.
+  if (!fs.existsSync(resolvedFilePath)) {
+    Feedback.warn(`File not found: ${resolvedFilePath}`);
+    return;
+  }
+
+  try {
+    // Read the content of the file as a UTF-8 encoded string.
+    const fileContent = fs.readFileSync(resolvedFilePath, { encoding: 'utf-8' });
+
+    // Check if the file content is a valid JSON string.
+    if (typeof fileContent !== 'string') {
+      Feedback.error(`The file at ${resolvedFilePath} does not contain a valid JSON string.`);
+      return;
+    }
+
+    // Parse the JSON string to an array of CommandDoc objects.
+    const commands = JSON.parse(fileContent);
+
+    // Check if the parsed value is an array of CommandDoc objects.
+    if (!Array.isArray(commands)) {
+      Feedback.error(
+        `The file at ${resolvedFilePath} does not contain a valid JSON array of CommandDoc objects.`
+      );
+      return;
+    }
+
+    // Clean the commands by removing the _rev property.
+    const cleaned = commands.map((cmd) => {
+      const { _rev, ...rest } = cmd;
+      return rest;
+    });
+
+    // Insert the parsed command documents into the database in bulk.
+    await db.bulkDocs(cleaned);
+
+    // Provide feedback of successful import.
+    Feedback.success(`Backup imported from: ${resolvedFilePath}`);
+  } catch (error: any) {
+    // Log an error message if the import operation fails.
+    Feedback.error(`Error importing the database: ${error.message}`);
+  }
+}
+
+/**
  * Registers the `database` command group.
  * @param {import('commander').Command} program - The Commander program to register the command group with.
  */
@@ -90,9 +145,8 @@ export function registerDatabaseCommand(program: Command): void {
   const database = program.command('db').description('Database management commands');
 
   /**
-   * Registers the `clear` command.
-   * This command clears all commands from the database.
-   * It fetches all documents, marks them for deletion, and performs a bulk delete operation.
+   * Clears all commands from the database.
+   * This command fetches all documents, marks them for deletion, and performs a bulk delete operation.
    * Provides feedback on the number of commands deleted or if the database was already empty.
    */
   database
@@ -101,8 +155,7 @@ export function registerDatabaseCommand(program: Command): void {
     .action(clearCommand);
 
   /**
-   * Registers the `export` command.
-   * This command exports all commands to a specified JSON file.
+   * Exports all commands to a specified JSON file.
    * The file path must be provided as an argument.
    */
   database
@@ -110,4 +163,14 @@ export function registerDatabaseCommand(program: Command): void {
     .argument('<path>', 'Path to save exported JSON file')
     .description('Export all commands to a JSON file')
     .action(exportCommand);
+
+  /**
+   * Imports commands from a JSON file.
+   * The file path must be provided as an argument.
+   */
+  database
+    .command('import')
+    .argument('<path>', 'Path to the JSON file to import')
+    .description('Import commands from a JSON file')
+    .action(importCommand);
 }

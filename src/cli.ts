@@ -5,7 +5,6 @@ import { registerExecCommand } from './scripts/exec';
 import { registerDatabaseCommand } from './scripts/database';
 
 import addDocCommand from './scripts/docs/add';
-import importCommand from './scripts/backup/import';
 import remDocCommand from './scripts/docs/remove';
 import showDocCommand from './scripts/docs/show';
 
@@ -23,11 +22,6 @@ registerExecCommand(program);
 registerDatabaseCommand(program);
 
 program.parse();
-
-// program
-//   .command('import')
-//   .argument('<path>', 'Path to the JSON file to import')
-//   .action(importCommand);
 
 // program
 //   .command('adddoc')
