@@ -1,10 +1,12 @@
 import { Command } from 'commander';
 
+// BACKUP
+import { exportCommand } from './commands/backup/export';
+
 import addCommand from './commands/crud/add';
 import addDocCommand from './commands/docs/add';
 import clearCommand from './commands/utils/clear';
 import executeCommand from './commands/execute';
-import exportCommand from './commands/backup/export';
 import importCommand from './commands/backup/import';
 import listCommand from './commands/crud/list';
 import registerCommand from './commands/crud/register';
@@ -16,16 +18,18 @@ const program = new Command();
 
 program.name('tartarus').description('CLI for named commands').version('1.0.0');
 
+// BACKUP
+program
+  .command('export')
+  .argument('<path>', 'Path to save exported JSON file')
+  .description('Export all commands to a JSON file')
+  .action(exportCommand);
+
 program.command('register').argument('<name>').argument('<cmd>').action(registerCommand);
 program.command('exec').argument('<name>').action(executeCommand);
 program.command('list').action(listCommand);
 program.command('remove').argument('<name>').action(removeCommand);
 program.command('clear').description('Remove all commands from the database').action(clearCommand);
-
-program
-  .command('export')
-  .argument('<path>', 'Path to save exported JSON file')
-  .action(exportCommand);
 
 program
   .command('import')
