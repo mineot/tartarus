@@ -1,5 +1,6 @@
-import db from '../db';
+import { Command } from 'commander';
 import { Feedback } from '../utils/feedback';
+import db from '../db';
 
 /**
  * Creates a new command with the given name and instruction.
@@ -18,7 +19,7 @@ async function createNewCommand(name: string, instruction: string) {
 
     // Create a new document with the given name and instruction.
     await db.put({ _id: name, instructions: [instruction] });
-    Feedback.success(`Command "${name}" created successfully`);
+    Feedback.success(`Command "${name}" with instruction "${instruction}" created successfully`);
   } catch (error: any) {
     // If there's an error, log it and alert the user.
     Feedback.error(`Failed to create command: ${error.message}`);
@@ -40,7 +41,7 @@ async function removeCommand(name: string) {
   } catch (error: any) {
     // Handle the case where the command is not found.
     if (error.status === 404) {
-      Feedback.notAllowed(`Command "${name}" not found`);
+      Feedback.warn(`Command "${name}" not found`);
     } else {
       // Log an error message if the removal fails for another reason.
       Feedback.error(`Failed to remove command "${name}": ${error.message}`);
@@ -71,7 +72,7 @@ export default async function listCommands() {
 
       // Iterate over each instruction in the command and print it.
       doc.instructions.forEach((instruction, index) => {
-        Feedback.message(`- Instruction ${index} => ${instruction}`);
+        Feedback.message(`- [${index}]: ${instruction}`);
       });
     }
   }
@@ -96,11 +97,11 @@ async function showCommand(name: string) {
     }
 
     // Display the command name.
-    Feedback.message(`Command: ${commandDoc._id}\n`);
+    Feedback.message(`Command: ${commandDoc._id}`);
 
     // Iterate over each instruction and display it.
     commandDoc.instructions.forEach((instruction, index) => {
-      Feedback.message(`- Instruction ${index}: ${instruction}`);
+      Feedback.message(`- [${index}]: ${instruction}`);
     });
   } catch {
     // Handle the case where the command is not found.
@@ -108,11 +109,58 @@ async function showCommand(name: string) {
   }
 }
 
+export async function addInstructionCommand(name: string, newInstruction: string): Promise<void> {
+  try {
+    const commandDoc = await db.get(name);
+    commandDoc.instructions.push(newInstruction);
+    await db.put(commandDoc);
+    Feedback.success(`Instruction "${newInstruction}" added to "${name}".`);
+  } catch (error: any) {
+    if (error.status === 404) {
+      Feedback.warn(`Command "${name}" not found`);
+    } else {
+      Feedback.error(`Failed to add instruction to "${name}": ${error.message}`);
+    }
+  }
+}
+
+/**
+ * Removes an instruction from a command set.
+ * @param {string} name The name of the command set to remove the instruction from.
+ * @param {string} instructionIndex The index of the instruction to remove.
+ * @returns {Promise<void>} A promise that resolves when the instruction has been removed.
+ */
+async function removeInstructionCommand(name: string, instructionIndex: string): Promise<void> {
+  try {
+    // Retrieve the command document by its name.
+    const commandDoc = await db.get(name);
+
+    // Parse the instruction index and validate it.
+    const index = parseInt(instructionIndex, 10);
+    if (isNaN(index) || index < 0 || index >= commandDoc.instructions.length) {
+      Feedback.error(`Invalid instruction index for "${name}".`);
+      return;
+    }
+
+    // Remove the instruction at the specified index.
+    const [removedInstruction] = commandDoc.instructions.splice(index, 1);
+
+    // Save the updated command document to the database.
+    await db.put(commandDoc);
+
+    // Notify the user of the successful removal.
+    Feedback.success(`Removed instruction "${removedInstruction}" from "${name}"`);
+  } catch {
+    // Handle the case where the command is not found.
+    Feedback.error(`Failed to remove instruction from "${name}".`);
+  }
+}
+
 /**
  * Registers the command group for the `cmd` command.
  * @param {import('commander').Command} program The Commander program.
  */
-export function registerCmdGroup(program: import('commander').Command): void {
+export function registerCmdGroup(program: Command): void {
   const cmd = program
     .command('cmd')
     .description('Manage named command sets: create, add instructions, or remove them.');
@@ -153,4 +201,28 @@ export function registerCmdGroup(program: import('commander').Command): void {
     .argument('<name>', 'The name of the command to show')
     .description('Show the instructions of a command')
     .action(showCommand);
+
+  /**
+   * Adds an instruction to a command by its name.
+   * @param {string} name The name of the command to add an instruction to.
+   * @param {string} instruction The instruction to add to the command.
+   */
+  cmd
+    .command('addinst')
+    .argument('<name>', 'The name of the command')
+    .argument('<instruction>', 'The instruction to add to the command')
+    .description('Add an instruction to a command')
+    .action(addInstructionCommand);
+
+  /**
+   * Removes an instruction from a command by its name.
+   * @param {string} name The name of the command to remove an instruction from.
+   * @param {string} instructionIndex The index of the instruction to remove.
+   */
+  cmd
+    .command('rminst')
+    .argument('<name>', 'The name of the command')
+    .argument('<instructionIndex>', 'The index of the instruction to remove')
+    .description('Remove an instruction from a command by its index')
+    .action(removeInstructionCommand);
 }
