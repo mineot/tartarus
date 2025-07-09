@@ -1,4 +1,4 @@
-import db from '../../db';
+import db from '../../../db';
 
 /**
  * Adds a new instruction to an existing command.

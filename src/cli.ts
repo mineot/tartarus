@@ -1,9 +1,9 @@
 import { Command } from 'commander';
 
 // CRUD
-import { registerCommand } from './commands/crud/register';
-import { addCommand } from './commands/crud/add';
-import { removeCommand } from './commands/crud/remove';
+import { registerCommand } from './commands/data/register';
+import { addCommand } from './commands/data/instructions/add';
+import { removeCommand } from './commands/data/remove';
 
 // BACKUP
 import { exportCommand } from './commands/backup/export';
@@ -12,9 +12,10 @@ import addDocCommand from './commands/docs/add';
 import clearCommand from './commands/utils/clear';
 import executeCommand from './commands/execute';
 import importCommand from './commands/backup/import';
-import listCommand from './commands/crud/list';
+import listCommand from './commands/data/list';
 import remDocCommand from './commands/docs/remove';
 import showDocCommand from './commands/docs/show';
+import removeInstruction from './commands/data/instructions/remove';
 
 const program = new Command();
 
@@ -64,3 +65,9 @@ program
 program.command('remdoc').argument('<name>', 'Command name').action(remDocCommand);
 
 program.command('showdoc').argument('[name]', 'Command name (optional)').action(showDocCommand);
+
+program
+  .command('rminst')
+  .argument('<name>', 'Command name')
+  .argument('<index>', 'Index of the instruction to remove (starting from 0)')
+  .action(removeInstruction);
