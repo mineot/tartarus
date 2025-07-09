@@ -144,6 +144,20 @@ tartarus showdoc test
 This allows you to understand what each command is intended to do.
 
 
+
+---
+
+### `rminst <name> <index>`
+
+Remove an instruction from a command by its index:
+
+```bash
+tartarus rminst test 0
+```
+
+This will remove the instruction at position 0 from the `test` command. Indexes start from 0.
+
+
 ## 💾 Storage
 
 Commands are stored locally using [PouchDB](https://pouchdb.com/), in the `db/` directory.

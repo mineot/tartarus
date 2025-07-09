@@ -21,6 +21,7 @@
   "type": "commonjs",
   "dependencies": {
     "commander": "^14.0.0",
+    "kleur": "^4.1.5",
     "pouchdb": "^9.0.0"
   },
   "devDependencies": {
