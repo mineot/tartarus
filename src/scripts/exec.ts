@@ -1,7 +1,8 @@
-import db from '../db';
+import { Command } from 'commander';
+import { CommandDoc } from '../types';
 import { execSync } from 'child_process';
 import { Feedback } from '../utils/feedback';
-import { Command } from 'commander';
+import db from '../db';
 
 /**
  * Executes all instructions registered for the given command.
@@ -11,7 +12,7 @@ import { Command } from 'commander';
 async function executeCommand(name: string): Promise<void> {
   try {
     // Retrieve the command document by its name.
-    const commandDoc = await db.get(name);
+    const commandDoc = (await db.get(name)) as CommandDoc;
 
     // Iterate over each instruction in the command document.
     for (const [index, instruction] of commandDoc.instructions.entries()) {

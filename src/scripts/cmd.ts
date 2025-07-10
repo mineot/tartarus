@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { CommandDoc } from '../types';
 import { Feedback } from '../utils/feedback';
 import db from '../db';
 
@@ -70,8 +71,10 @@ export default async function listCommands() {
       // Print the name of the command.
       Feedback.message(`\nCommand: ${doc._id}`);
 
+      const commandDoc = doc as CommandDoc;
+
       // Iterate over each instruction in the command and print it.
-      doc.instructions.forEach((instruction, index) => {
+      commandDoc.instructions.forEach((instruction, index) => {
         Feedback.message(`- [${index}]: ${instruction}`);
       });
     }
@@ -88,7 +91,7 @@ export default async function listCommands() {
 async function showCommand(name: string) {
   try {
     // Retrieve the command document by its name.
-    const commandDoc = await db.get(name);
+    const commandDoc = (await db.get(name)) as CommandDoc;
 
     // Check if there are no instructions and notify the user.
     if (commandDoc.instructions.length === 0) {
@@ -111,7 +114,7 @@ async function showCommand(name: string) {
 
 export async function addInstructionCommand(name: string, newInstruction: string): Promise<void> {
   try {
-    const commandDoc = await db.get(name);
+    const commandDoc = (await db.get(name)) as CommandDoc;
     commandDoc.instructions.push(newInstruction);
     await db.put(commandDoc);
     Feedback.success(`Instruction "${newInstruction}" added to "${name}".`);
@@ -133,7 +136,7 @@ export async function addInstructionCommand(name: string, newInstruction: string
 async function removeInstructionCommand(name: string, instructionIndex: string): Promise<void> {
   try {
     // Retrieve the command document by its name.
-    const commandDoc = await db.get(name);
+    const commandDoc = (await db.get(name)) as CommandDoc;
 
     // Parse the instruction index and validate it.
     const index = parseInt(instructionIndex, 10);

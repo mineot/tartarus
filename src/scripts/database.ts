@@ -63,7 +63,7 @@ export async function exportCommand(filePath: string): Promise<void> {
 
     // Extract the command documents from the result and store them in an array.
     const commands = result.rows.reduce((acc, row) => {
-      if (row.doc) acc.push(row.doc);
+      if (row.doc) acc.push(row.doc as CommandDoc);
       return acc;
     }, [] as CommandDoc[]);
 

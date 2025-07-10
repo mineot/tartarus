@@ -1,8 +1,15 @@
-import { CommandDoc } from './types';
-import path from 'path';
 import PouchDB from 'pouchdb';
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
 
-const dbPath = path.join(__dirname, '..', 'db', 'commands');
-const db = new PouchDB<CommandDoc>(dbPath);
+// Define a persistent database path in the user's home directory
+const dbPath = path.join(os.homedir(), '.tartarus', 'db', 'commands');
+
+// Ensure the directory exists
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+
+// Initialize the PouchDB database
+const db = new PouchDB(dbPath);
 
 export default db;

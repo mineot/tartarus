@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { CommandDoc } from '../types';
 import { Feedback } from '../utils/feedback';
 import db from '../db';
 
@@ -10,7 +11,7 @@ import db from '../db';
 async function addDocCommand(commandName: string, descriptionText: string): Promise<void> {
   try {
     // Retrieve the command document by its name.
-    const commandDoc = await db.get(commandName);
+    const commandDoc = (await db.get(commandName)) as CommandDoc;
 
     // Add the description to the command document.
     commandDoc.description = descriptionText;
@@ -33,7 +34,7 @@ async function addDocCommand(commandName: string, descriptionText: string): Prom
 async function removeDocCommand(commandName: string): Promise<void> {
   try {
     // Retrieve the command document by its name.
-    const commandDoc = await db.get(commandName);
+    const commandDoc = (await db.get(commandName)) as CommandDoc;
 
     // Check if the command document has a description.
     // If it does not have a description, print a message and do nothing else.
@@ -66,7 +67,7 @@ async function showDocCommand(name?: string) {
   if (name) {
     try {
       // Retrieve the command document by its name.
-      const doc = await db.get(name);
+      const doc = (await db.get(name)) as CommandDoc;
 
       // Check if the command document has a description.
       // If it does not have a description, print a message and do nothing else.
@@ -88,7 +89,9 @@ async function showDocCommand(name?: string) {
   const allDocs = await db.allDocs({ include_docs: true });
 
   // Filter the documents to keep only those with a description.
-  const described = allDocs.rows.map((row) => row.doc).filter((doc) => doc?.description);
+  const described = allDocs.rows
+    .map((row) => row.doc)
+    .filter((doc) => (doc as CommandDoc)?.description);
 
   // Check if there are no documented commands.
   if (described.length === 0) {
@@ -99,7 +102,7 @@ async function showDocCommand(name?: string) {
   // Display the description of each documented command.
   for (const doc of described) {
     Feedback.message(`"${doc?._id}" command documentation:`);
-    Feedback.message(`${doc?.description}\n`);
+    Feedback.message(`${(doc as CommandDoc)?.description}\n`);
   }
 }
 

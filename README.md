@@ -154,11 +154,23 @@ tartarus db clear
 
 ## 🧱 Storage
 
-- Commands are stored in the local `db/` directory.
-- Backups are saved as `.json` files in any path you specify.
-- Uses [PouchDB](https://pouchdb.com/) under the hood.
+Tartarus stores all your commands locally using [PouchDB](https://pouchdb.com/), in a consistent and isolated database.
 
----
+### 🗃️ Database location by OS
+
+| Operating System | Database Path                              |
+| ---------------- | ------------------------------------------ |
+| Linux            | `~/.tartarus/db/commands`                  |
+| macOS            | `/Users/your-user/.tartarus/db/commands`   |
+| Windows          | `C:\Users\your-user\.tartarus\db\commands` |
+
+- This ensures the database is user-specific, secure, and easy to back up.
+- You can inspect or remove the database manually if needed.
+
+### 📁 Backups
+
+- When you export your commands, a `.json` file is created at the path you specify.
+- This file contains all registered commands and can be imported later using `tartarus db import`.
 
 ## 🖥️ Local Installation
 
