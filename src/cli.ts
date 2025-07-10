@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 
-import { registerCmdGroup } from './scripts/cmd';
-import { registerDatabaseGroup } from './scripts/database';
-import { registerRunCommand } from './scripts/run';
+import { registerCMD } from './scripts/commands';
+import { registerDatabase } from './scripts/database';
+import { registerRun } from './scripts/run';
 
 const program = new Command();
 
@@ -13,8 +13,8 @@ program
     'Register, organize, and execute named shell command groups with descriptions and backups.'
   );
 
-registerCmdGroup(program);
-registerDatabaseGroup(program);
-registerRunCommand(program);
+registerCMD(program);
+registerDatabase(program);
+registerRun(program);
 
 program.parse();

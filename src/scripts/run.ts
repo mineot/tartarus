@@ -41,7 +41,7 @@ async function runCommand(name: string): Promise<void> {
  * Registers the `exec` command group.
  * @param {Command} program The Commander program to register the command group with.
  */
-export function registerRunCommand(program: Command): void {
+export function registerRun(program: Command): void {
   /**
    * Executes all instructions registered for the given command.
    * @param {string} commandName The name of the command to execute.
