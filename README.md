@@ -53,12 +53,12 @@ Subtract an instruction from a command by its index (starting at 0).
 tartarus cmd subtract test 0
 ```
 
-#### `tartarus cmd remove <name>`
+#### `tartarus cmd delete <name>`
 
-Remove a command entirely from the database.
+Delete a command entirely from the database.
 
 ```bash
-tartarus cmd remove test
+tartarus cmd delete test
 ```
 
 #### `tartarus cmd show <name>`
@@ -75,14 +75,6 @@ List all registered command names and their first instruction.
 
 ```bash
 tartarus cmd list
-```
-
-#### `tartarus cmd exec <name>`
-
-Execute all instructions of the specified command **in order**.
-
-```bash
-tartarus cmd exec test
 ```
 
 ---
@@ -113,7 +105,7 @@ Show documentation for a specific command or all documented commands.
 
 ```bash
 tartarus doc show test
-tartarus doc show
+tartarus doc show # to show all docs
 ```
 
 ---
@@ -149,6 +141,16 @@ tartarus db clear
 ```
 
 ⚠️ This action is irreversible.
+
+---
+
+### 🏎️ `tartarus run <name>`
+
+Execute all instructions of the specified command **in order**.
+
+```bash
+tartarus run test
+```
 
 ---
 

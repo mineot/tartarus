@@ -31,7 +31,7 @@ async function createNewCommand(name: string, instruction: string) {
  * Removes a command by its name from the database.
  * @param {string} name The name of the command to remove.
  */
-async function removeCommand(name: string) {
+async function deleteCommand(name: string) {
   try {
     // Retrieve the command document by its name.
     const command = await db.get(name);
@@ -182,31 +182,6 @@ export function registerCmdGroup(program: Command): void {
     .action(createNewCommand);
 
   /**
-   * Removes a command by its name from the database.
-   * @param {string} name The name of the command to remove.
-   */
-  cmd
-    .command('remove')
-    .argument('<name>', 'Name of the command to remove')
-    .description('Delete a command')
-    .action(removeCommand);
-
-  /**
-   * Lists all commands registered in the database.
-   */
-  cmd.command('list').description('List all commands').action(listCommands);
-
-  /**
-   * Shows the instructions of a command by its name.
-   * @param {string} name The name of the command to show.
-   */
-  cmd
-    .command('show')
-    .argument('<name>', 'Name of the command to show')
-    .description('Show the instructions of a command')
-    .action(showCommand);
-
-  /**
    * Adds an instruction to a command by its name.
    * @param {string} name The name of the command to add an instruction to.
    * @param {string} instruction The instruction to add to the command.
@@ -229,4 +204,29 @@ export function registerCmdGroup(program: Command): void {
     .argument('<instructionIndex>', 'Index of the instruction to be subtracted')
     .description('Subtract an instruction from a command')
     .action(removeInstructionCommand);
+
+  /**
+   * Removes a command by its name from the database.
+   * @param {string} name The name of the command to remove.
+   */
+  cmd
+    .command('delete')
+    .argument('<name>', 'Name of the command to remove')
+    .description('Delete a command')
+    .action(deleteCommand);
+
+  /**
+   * Shows the instructions of a command by its name.
+   * @param {string} name The name of the command to show.
+   */
+  cmd
+    .command('show')
+    .argument('<name>', 'Name of the command to show')
+    .description('Show the instructions of a command')
+    .action(showCommand);
+
+  /**
+   * Lists all commands registered in the database.
+   */
+  cmd.command('list').description('List all commands').action(listCommands);
 }

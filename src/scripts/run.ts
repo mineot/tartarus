@@ -4,14 +4,12 @@ import { execSync } from 'child_process';
 import { Feedback } from '../utils/feedback';
 import db from '../db';
 
-// TODO: change exec to run, semantically more effective
-
 /**
  * Executes all instructions registered for the given command.
  * @param {string} name The name of the command to execute.
  * @returns {Promise<void>} A promise that resolves when the execution is completed.
  */
-async function executeCommand(name: string): Promise<void> {
+async function runCommand(name: string): Promise<void> {
   try {
     // Retrieve the command document by its name.
     const commandDoc = (await db.get(name)) as CommandDoc;
@@ -43,14 +41,14 @@ async function executeCommand(name: string): Promise<void> {
  * Registers the `exec` command group.
  * @param {Command} program The Commander program to register the command group with.
  */
-export function registerExecCommand(program: Command): void {
+export function registerRunCommand(program: Command): void {
   /**
    * Executes all instructions registered for the given command.
    * @param {string} commandName The name of the command to execute.
    * @returns {Promise<void>} A promise that resolves when the execution is completed.
    */
   program
-    .command('exec <commandName>')
+    .command('run <commandName>')
     .description('Execute all instructions registered for the given command')
-    .action(executeCommand);
+    .action(runCommand);
 }

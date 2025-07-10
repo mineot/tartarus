@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 
 import { registerCmdGroup } from './scripts/cmd';
-import { registerExecCommand } from './scripts/exec';
+import { registerRunCommand } from './scripts/run';
 import { registerDatabaseGroup } from './scripts/database';
 import { registerDocGroup } from './scripts/doc';
 
@@ -15,8 +15,8 @@ program
   );
 
 registerCmdGroup(program);
-registerExecCommand(program);
-registerDatabaseGroup(program);
 registerDocGroup(program);
+registerDatabaseGroup(program);
+registerRunCommand(program);
 
 program.parse();
