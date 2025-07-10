@@ -5,6 +5,8 @@ import db from '../db';
 import fs from 'fs';
 import path from 'path';
 
+// TODO: allow cryptography?
+
 /**
  * Clears all commands from the database.
  * Fetches all documents, marks them for deletion, and then performs a bulk delete operation.

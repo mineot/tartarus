@@ -65,6 +65,7 @@ export default async function listCommands() {
 
   Feedback.message('Registered commands:');
 
+  // TODO: add here the description if exists
   // Iterate over each command document in the result.
   for (const { doc } of rows) {
     if (doc) {

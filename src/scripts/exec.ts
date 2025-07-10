@@ -4,6 +4,8 @@ import { execSync } from 'child_process';
 import { Feedback } from '../utils/feedback';
 import db from '../db';
 
+// TODO: change exec to run, semantically more effective
+
 /**
  * Executes all instructions registered for the given command.
  * @param {string} name The name of the command to execute.
