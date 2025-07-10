@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { registerCMD } from './scripts/commands';
 import { registerDatabase } from './scripts/database';
 import { registerRun } from './scripts/run';
+import { registerManual } from './scripts/manual';
 
 const program = new Command();
 
@@ -16,5 +17,6 @@ program
 registerCMD(program);
 registerDatabase(program);
 registerRun(program);
+registerManual(program);
 
 program.parse();
