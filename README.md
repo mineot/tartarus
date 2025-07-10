@@ -77,35 +77,33 @@ List all registered command names and their first instruction.
 tartarus cmd list
 ```
 
----
-
-### 📝 `doc` – Documentation Management
+#### 📝 `doc` – Documentation Management
 
 Manage optional descriptions for commands.
 
-#### `tartarus doc add <name> <text>`
+##### `tartarus cmd doc add <name> <text>`
 
 Add or update a description for a command.
 
 ```bash
-tartarus doc add test "Creates a folder and navigates into it."
+tartarus cmd doc add test "Creates a folder and navigates into it."
 ```
 
-#### `tartarus doc remove <name>`
+##### `tartarus cmd doc remove <name>`
 
 Remove the description from a command.
 
 ```bash
-tartarus doc remove test
+tartarus cmd doc remove test
 ```
 
-#### `tartarus doc show [name]`
+##### `tartarus cmd doc show [name]`
 
 Show documentation for a specific command or all documented commands.
 
 ```bash
-tartarus doc show test
-tartarus doc show # to show all docs
+tartarus cmd doc show test
+tartarus cmd doc show # to show all docs
 ```
 
 ---

@@ -110,7 +110,7 @@ async function showDocCommand(name?: string) {
  * Registers the command group for managing command documentation.
  * @param {Command} program - The Commander program to register the command group with.
  */
-export function registerDocGroup(program: Command): void {
+export function registerCmdDocGroup(program: Command): void {
   // Define a new command group for documentation management.
   const doc = program.command('doc').description('Manage command documentation');
 

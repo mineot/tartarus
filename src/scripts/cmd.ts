@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { CommandDoc } from '../types';
 import { Feedback } from '../utils/feedback';
+import { registerCmdDocGroup } from './cmd-doc';
 import db from '../db';
 
 /**
@@ -52,27 +53,35 @@ async function deleteCommand(name: string) {
 
 /**
  * Lists all commands registered in the database.
- * Prints a message with the number of registered commands if the database is empty.
- * Otherwise, prints the list of commands with their instructions.
+ * Provides a message if no commands are found.
+ * Otherwise, it displays each command, its description if available,
+ * and all associated instructions.
  */
 export default async function listCommands() {
+  // Retrieve all documents from the database, including their content.
   const { rows } = await db.allDocs({ include_docs: true });
 
+  // Check if there are no commands registered.
   if (rows.length === 0) {
     Feedback.info('No commands registered.');
     return;
   }
 
+  // Inform the user that registered commands will be displayed.
   Feedback.message('Registered commands:');
 
-  // TODO: add here the description if exists
   // Iterate over each command document in the result.
   for (const { doc } of rows) {
     if (doc) {
-      // Print the name of the command.
-      Feedback.message(`\nCommand: ${doc._id}`);
-
       const commandDoc = doc as CommandDoc;
+
+      // Print the name of the command.
+      Feedback.message(`\nCommand: ${commandDoc._id}\n`);
+
+      // If a description is available, display it.
+      if (commandDoc.description) {
+        Feedback.message(`Description: ${commandDoc.description}\n`);
+      }
 
       // Iterate over each instruction in the command and print it.
       commandDoc.instructions.forEach((instruction, index) => {
@@ -101,7 +110,12 @@ async function showCommand(name: string) {
     }
 
     // Display the command name.
-    Feedback.message(`Command: ${commandDoc._id}`);
+    Feedback.message(`Command: ${commandDoc._id}\n`);
+
+    if (commandDoc.description) {
+      // If a description is available, display it.
+      Feedback.message(`Description: ${commandDoc.description}\n`);
+    }
 
     // Iterate over each instruction and display it.
     commandDoc.instructions.forEach((instruction, index) => {
@@ -113,16 +127,31 @@ async function showCommand(name: string) {
   }
 }
 
+/**
+ * Adds a new instruction to the command set with the given name.
+ * @param {string} name The name of the command set to add the instruction to.
+ * @param {string} newInstruction The instruction to add to the command set.
+ * @returns {Promise<void>} A promise that resolves when the instruction has been added.
+ */
 export async function addInstructionCommand(name: string, newInstruction: string): Promise<void> {
   try {
+    // Retrieve the command document by its name.
     const commandDoc = (await db.get(name)) as CommandDoc;
+
+    // Add the new instruction to the command document's instructions array.
     commandDoc.instructions.push(newInstruction);
+
+    // Save the updated command document back to the database.
     await db.put(commandDoc);
+
+    // Notify the user of the successful addition of the instruction.
     Feedback.success(`Instruction "${newInstruction}" added to "${name}".`);
   } catch (error: any) {
+    // Handle the case where the command is not found.
     if (error.status === 404) {
       Feedback.warn(`Command "${name}" not found`);
     } else {
+      // Log an error message if the addition fails for another reason.
       Feedback.error(`Failed to add instruction to "${name}": ${error.message}`);
     }
   }
@@ -201,8 +230,8 @@ export function registerCmdGroup(program: Command): void {
   cmd
     .command('subtract')
     .argument('<name>', 'Name of the command')
-    .argument('<instructionIndex>', 'Index of the instruction to be subtracted')
-    .description('Subtract an instruction from a command')
+    .argument('<instructionIndex>', 'Index of the instruction to remove')
+    .description('Remove an instruction from a command')
     .action(removeInstructionCommand);
 
   /**
@@ -229,4 +258,9 @@ export function registerCmdGroup(program: Command): void {
    * Lists all commands registered in the database.
    */
   cmd.command('list').description('List all commands').action(listCommands);
+
+  /**
+   * Registers the command group for managing command documentation.
+   */
+  registerCmdDocGroup(cmd);
 }

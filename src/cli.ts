@@ -1,9 +1,8 @@
 import { Command } from 'commander';
 
 import { registerCmdGroup } from './scripts/cmd';
-import { registerRunCommand } from './scripts/run';
 import { registerDatabaseGroup } from './scripts/database';
-import { registerDocGroup } from './scripts/doc';
+import { registerRunCommand } from './scripts/run';
 
 const program = new Command();
 
@@ -15,7 +14,6 @@ program
   );
 
 registerCmdGroup(program);
-registerDocGroup(program);
 registerDatabaseGroup(program);
 registerRunCommand(program);
 
