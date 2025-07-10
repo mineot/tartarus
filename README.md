@@ -7,14 +7,8 @@
 ## 🚀 Installation
 
 ```bash
-git clone https://github.com/mineot/tartarus.git
-cd tartarus
-npm install
-npm run build
-npm link
+npm install -g @mineot/tartarus
 ```
-
-> The `npm link` command allows you to use `tartarus` globally on your system.
 
 ---
 
@@ -166,6 +160,18 @@ tartarus db clear
 
 ---
 
+## 🖥️ Local Installation
+
+```bash
+git clone https://github.com/mineot/tartarus.git
+cd tartarus
+npm install
+npm run build
+npm link
+```
+
+> The `npm link` command allows you to use `tartarus` globally on your system.
+
 ## 📜 NPM Scripts
 
 | Script            | Description                                                                        |
@@ -174,9 +180,6 @@ tartarus db clear
 | `npm run dev`     | Runs the CLI directly with `ts-node`.                                              |
 | `npm run format`  | Formats the code using Prettier.                                                   |
 | `npm run prepare` | Automatically builds before linking or publishing.                                 |
-| `npm run link`    | Builds and links the CLI globally for testing.                                     |
-| `npm run unlink`  | Unlinks the global CLI installation.                                               |
-| `npm run update`  | Rebuilds and relinks in one step.                                                  |
 
 ---
 
