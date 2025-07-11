@@ -108,6 +108,68 @@ tartarus cmd doc show # to show all docs
 
 ---
 
+### 📘 `man` – Manual Management
+
+Manage textual manuals (long-form documentation) for any command or concept.
+
+#### `tartarus man set_editor <editor>`
+
+Sets the default text editor that Tartarus will use for editing manuals. This must be set before using commands like create or edit.
+
+```bash
+tartarus man set_editor nano # or notepad
+```
+
+#### `tartarus man show_editor`
+
+Show the currently configured editor.
+
+```bash
+tartarus man show_editor
+```
+
+#### `tartarus man create <name>`
+
+Create a new manual. Opens the configured editor (e.g. nano, notepad, vim).
+
+```bash
+tartarus man create deploy-guide
+```
+
+#### `tartarus man edit <name>`
+
+Edit an existing manual in the configured editor.
+
+```bash
+tartarus man edit deploy-guide
+```
+
+#### `tartarus man delete <name>`
+
+Delete a manual from the database.
+
+```bash
+tartarus man delete deploy-guide
+```
+
+#### `tartarus man show <name>`
+
+Display the content of a manual in the terminal.
+
+```bash
+tartarus man show deploy-guide
+```
+
+#### `tartarus man list`
+
+List all existing manual names.
+
+```bash
+tartarus man list
+```
+
+---
+
 ### 💾 `database` – Backup and Maintenance
 
 Manage data persistence and recovery.
