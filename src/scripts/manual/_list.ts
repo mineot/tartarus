@@ -15,7 +15,7 @@ export async function listCommand() {
       return;
     }
 
-    Feedback.title('📚 Available Manuals:\n');
+    Feedback.title('📚 Available Manuals:');
     manuals.forEach((name) => Feedback.item(`${name}`));
   } catch (error: any) {
     Feedback.error(`Failed to list manuals: ${error.message}`);
