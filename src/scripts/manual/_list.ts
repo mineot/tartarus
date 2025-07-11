@@ -1,3 +1,5 @@
+import { Feedback } from '../../utils/feedback';
+import { MANUAL_PREFIX } from './__constants';
 import db from '../../db';
 
 export async function listCommand() {
@@ -5,17 +7,17 @@ export async function listCommand() {
     const result = await db.allDocs({ include_docs: false });
 
     const manuals = result.rows
-      .filter((row) => row.id.startsWith('manual:'))
-      .map((row) => row.id.replace('manual:', ''));
+      .filter((row) => row.id.startsWith(MANUAL_PREFIX))
+      .map((row) => row.id.replace(MANUAL_PREFIX, ''));
 
     if (manuals.length === 0) {
-      console.log('📭 No manuals found.');
+      Feedback.notFound('No manuals found.');
       return;
     }
 
-    console.log('📚 Available Manuals:\n');
-    manuals.forEach((name) => console.log(`- ${name}`));
+    Feedback.title('📚 Available Manuals:\n');
+    manuals.forEach((name) => Feedback.item(`${name}`));
   } catch (error: any) {
-    console.error(`❌ Failed to list manuals: ${error.message}`);
+    Feedback.error(`Failed to list manuals: ${error.message}`);
   }
 }

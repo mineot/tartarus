@@ -1,43 +1,26 @@
-import db from '../../db';
-import { CommandDoc } from '../../types';
 import { Feedback } from '../../utils/feedback';
+import db from '../../db';
 
-/**
- * Clears all commands from the database.
- * Fetches all documents, marks them for deletion, and then performs a bulk delete operation.
- * Provides feedback on the number of commands deleted or if the database was already empty.
- */
 export async function clearCommand() {
   try {
-    // Retrieve all documents from the database including their content.
-    const allDocs = await db.allDocs({ include_docs: true });
+    const result = await db.allDocs({ include_docs: true });
 
-    // Filter and map the documents to mark them for deletion.
-    const deletableDocs = allDocs.rows
+    const deletable = result.rows
       .map((row) => row.doc)
       .filter(
-        (
-          doc
-        ): doc is PouchDB.Core.IdMeta &
-          PouchDB.Core.RevisionIdMeta &
-          CommandDoc & { _deleted?: boolean } => {
-          // Ensure the document has valid _id and _rev properties.
-          return doc !== undefined && typeof doc._id === 'string' && typeof doc._rev === 'string';
-        }
+        (doc): doc is PouchDB.Core.ExistingDocument<any> =>
+          !!doc && typeof doc._id === 'string' && typeof doc._rev === 'string'
       )
       .map((doc) => ({ ...doc, _deleted: true }));
 
-    // Check if there are no documents to delete.
-    if (deletableDocs.length === 0) {
-      Feedback.info('No commands to delete. The database is empty.');
+    if (deletable.length === 0) {
+      Feedback.notFound('No documents to delete.');
       return;
     }
 
-    // Perform a bulk delete operation on the database.
-    await db.bulkDocs(deletableDocs);
-    Feedback.success(`Successfully deleted ${deletableDocs.length} command(s) from the database.`);
+    await db.bulkDocs(deletable);
+    Feedback.success(`Cleared ${deletable.length} documents from the database.`);
   } catch (error: any) {
-    // Log an error message if the operation fails.
-    Feedback.error(`Error clearing the database: ${error.message}`);
+    Feedback.error(`Failed to clear database: ${error.message}`);
   }
 }

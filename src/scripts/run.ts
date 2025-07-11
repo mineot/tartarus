@@ -17,7 +17,7 @@ async function runCommand(name: string): Promise<void> {
     // Iterate over each instruction in the command document.
     for (const [index, instruction] of commandDoc.instructions.entries()) {
       // Print the instruction with its index.
-      Feedback.message(`\n  [${index + 1}] ${instruction}`);
+      Feedback.text(`\n  [${index + 1}] ${instruction}`);
 
       // Execute the instruction using the `execSync` function.
       // The `{ stdio: 'inherit', shell: '/bin/bash' }` options allow the command

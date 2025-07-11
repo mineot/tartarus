@@ -1,10 +1,10 @@
 import { Command } from 'commander';
 import { createCommand } from './_create';
+import { deleteCommand } from './_delete';
 import { editCommand } from './_edit';
+import { listCommand } from './_list';
 import { setEditorApp, showEditorApp } from './_editor';
 import { showCommand } from './_show';
-import { deleteCommand } from './_delete';
-import { listCommand } from './_list';
 
 export function registerManual(program: Command): void {
   const man = program.command('man').description('Manual management commands');

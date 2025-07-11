@@ -1,33 +1,28 @@
-import db from '../../../db';
+import { COMMAND_PREFIX } from '../__constants';
 import { CommandDoc } from '../../../types';
 import { Feedback } from '../../../utils/feedback';
+import db from '../../../db';
 
-/**
- * Removes a description from a command.
- * @param {string} commandName - The name of the command to remove the description from.
- */
 export async function removeDocCommand(commandName: string): Promise<void> {
   try {
-    // Retrieve the command document by its name.
-    const commandDoc = (await db.get(commandName)) as CommandDoc;
+    const prefixName = `${COMMAND_PREFIX}${commandName}`;
+    const commandDoc = (await db.get(prefixName)) as CommandDoc;
 
-    // Check if the command document has a description.
-    // If it does not have a description, print a message and do nothing else.
     if (!commandDoc.description) {
-      Feedback.info(`No description to remove from "${commandName}".`);
+      Feedback.warn(`No description to remove from "${commandName}".`);
       return;
     }
 
-    // Remove the description from the command document.
     delete commandDoc.description;
 
-    // Save the updated command document back to the database.
     await db.put(commandDoc);
 
-    // Provide feedback that the description was successfully removed.
     Feedback.success(`Description removed from "${commandName}".`);
   } catch (error: any) {
-    // If there's an error, log it and alert the user.
-    Feedback.error(`Failed to remove description from "${commandName}": ${error.message}`);
+    if (error.status === 404) {
+      Feedback.notFound(`Command "${commandName}" not found`);
+    } else {
+      Feedback.error(`Failed to remove description from "${commandName}": ${error.message}`);
+    }
   }
 }

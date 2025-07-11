@@ -1,39 +1,33 @@
-import db from '../../db';
+import { COMMAND_PREFIX } from './__constants';
 import { CommandDoc } from '../../types';
 import { Feedback } from '../../utils/feedback';
+import db from '../../db';
 
-/**
- * Displays the details of a command by its name.
- * If the command is found, it lists all its instructions.
- * If the command is not found, or if there are no instructions,
- * appropriate feedback messages are displayed.
- * @param {string} name - The name of the command to display.
- */
 export async function showCommand(name: string) {
   try {
-    // Retrieve the command document by its name.
-    const commandDoc = (await db.get(name)) as CommandDoc;
+    const prefixName = `${COMMAND_PREFIX}${name}`;
+    const commandDoc = (await db.get(prefixName)) as CommandDoc;
 
-    // Check if there are no instructions and notify the user.
     if (commandDoc.instructions.length === 0) {
-      Feedback.warn('No instructions available.');
+      Feedback.notFound(`No instructions available for the command "${name}".`);
       return;
     }
 
-    // Display the command name.
-    Feedback.message(`Command: ${commandDoc._id}\n`);
+    Feedback.title(`Show Details for Command: ${name}`);
 
     if (commandDoc.description) {
-      // If a description is available, display it.
-      Feedback.message(`Description: ${commandDoc.description}\n`);
+      Feedback.enphased(commandDoc.description);
+      Feedback.break();
     }
 
-    // Iterate over each instruction and display it.
     commandDoc.instructions.forEach((instruction, index) => {
-      Feedback.message(`- [${index}]: ${instruction}`);
+      Feedback.item(`[${index}]: ${instruction}`);
     });
-  } catch {
-    // Handle the case where the command is not found.
-    Feedback.error(`Command "${name}" could not be found.`);
+  } catch (err: any) {
+    if (err.status == 404) {
+      Feedback.notFound(`Command "${name}" not found.`);
+    } else {
+      Feedback.error(err.message);
+    }
   }
 }
