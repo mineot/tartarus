@@ -26,7 +26,7 @@ async function runCommand(name: string): Promise<void> {
 
 export function registerRun(program: Command): void {
   program
-    .command('run <commandName>')
+    .command('run [commandName]')
     .description('Execute all instructions registered for the given command')
     .action(runCommand);
 }

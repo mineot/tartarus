@@ -13,13 +13,13 @@ export function registerDatabase(program: Command): void {
 
   database
     .command('export')
-    .argument('<path>', 'Path to save exported JSON file')
+    .argument('[path]', 'Path to save exported JSON file')
     .description('Export all commands to a JSON file')
     .action(exportCommand);
 
   database
     .command('import')
-    .argument('<path>', 'Path to the JSON file to import')
+    .argument('[path]', 'Path to the JSON file to import')
     .description('Import commands from a JSON file')
     .action(importCommand);
 }

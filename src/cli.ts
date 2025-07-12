@@ -9,8 +9,8 @@ import { registerManual } from 'src/scripts/manual';
 const program = new Command();
 
 program.name(meta.name).version(meta.version).description(meta.description);
-registerCMD(program);
 registerDatabase(program);
-registerRun(program);
 registerManual(program);
+registerCMD(program);
+registerRun(program);
 program.parse();

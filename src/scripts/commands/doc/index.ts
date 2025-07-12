@@ -8,14 +8,14 @@ export function registerCmdDoc(program: Command): void {
 
   doc
     .command('add')
-    .argument('<name>', 'Command name')
-    .argument('<text>', 'Description text')
+    .argument('[name]', 'Command name')
+    .argument('[text]', 'Description text')
     .description('Add a description to a command')
     .action(addDocCommand);
 
   doc
     .command('remove')
-    .argument('<name>', 'Command name')
+    .argument('[name]', 'Command name')
     .description('Remove a description from a command')
     .action(removeDocCommand);
 
