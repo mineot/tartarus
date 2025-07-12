@@ -1,7 +1,7 @@
-import { ConfigDoc } from '../../types';
-import { Feedback } from '../../utils/feedback';
-import { MANUAL_EDITOR_CONFIG_ID } from './__constants';
-import db from '../../db';
+import { ConfigDoc } from 'src/types';
+import { Feedback } from 'src/utils/feedback';
+import { MANUAL_EDITOR_CONFIG_ID } from 'src/scripts/manual/__constants';
+import db from 'src/db';
 
 export async function setEditorApp(editor: string): Promise<void> {
   if (!editor || !editor.trim()) {

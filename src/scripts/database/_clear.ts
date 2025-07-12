@@ -1,5 +1,5 @@
-import { Feedback } from '../../utils/feedback';
-import db from '../../db';
+import { Feedback } from 'src/utils/feedback';
+import db from 'src/db';
 
 export async function clearCommand() {
   try {

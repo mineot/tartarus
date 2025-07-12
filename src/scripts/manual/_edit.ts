@@ -1,8 +1,8 @@
-import { Feedback } from '../../utils/feedback';
-import { MANUAL_PREFIX } from './__constants';
-import { ManualDoc } from '../../types';
-import { tempFile } from './__temp_file';
-import db from '../../db';
+import { Feedback } from 'src/utils/feedback';
+import { MANUAL_PREFIX } from 'src/scripts/manual/__constants';
+import { ManualDoc } from 'src/types';
+import { tempFile } from 'src/scripts/manual/__temp_file';
+import db from 'src/db';
 
 export async function editCommand(name: string) {
   try {

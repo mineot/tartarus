@@ -1,7 +1,7 @@
-import db from '../../db';
+import { Feedback } from 'src/utils/feedback';
+import db from 'src/db';
 import fs from 'fs';
 import path from 'path';
-import { Feedback } from '../../utils/feedback';
 
 export async function importCommand(filePath: string) {
   try {

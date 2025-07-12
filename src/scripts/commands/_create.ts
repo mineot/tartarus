@@ -1,6 +1,6 @@
-import { COMMAND_PREFIX } from './__constants';
-import { Feedback } from '../../utils/feedback';
-import db from '../../db';
+import { COMMAND_PREFIX } from 'src/scripts/commands/__constants';
+import { Feedback } from 'src/utils/feedback';
+import db from 'src/db';
 
 export async function createCommand(name: string, instruction: string) {
   try {

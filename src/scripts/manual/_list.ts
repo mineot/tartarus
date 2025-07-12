@@ -1,6 +1,6 @@
-import { Feedback } from '../../utils/feedback';
-import { MANUAL_PREFIX } from './__constants';
-import db from '../../db';
+import { Feedback } from 'src/utils/feedback';
+import { MANUAL_PREFIX } from 'src/scripts/manual/__constants';
+import db from 'src/db';
 
 export async function listCommand() {
   try {

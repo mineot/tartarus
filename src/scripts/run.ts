@@ -1,9 +1,9 @@
 import { Command } from 'commander';
-import { COMMAND_PREFIX } from './commands/__constants';
-import { CommandDoc } from '../types';
+import { COMMAND_PREFIX } from 'src/scripts/commands/__constants';
+import { CommandDoc } from 'src/types';
 import { execSync } from 'child_process';
-import { Feedback } from '../utils/feedback';
-import db from '../db';
+import { Feedback } from 'src/utils/feedback';
+import db from 'src/db';
 
 async function runCommand(name: string): Promise<void> {
   try {

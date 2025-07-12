@@ -5,9 +5,10 @@
   "main": "index.js",
   "scripts": {
     "build": "node build.js",
-    "dev": "ts-node src/cli.ts",
+    "dev": "ts-node -r tsconfig-paths/register src/cli.ts",
     "format": "prettier --write \"src/**/*.ts\"",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "test": "jest"
   },
   "bin": {
     "tartarus": "./dist/tartarus.js"
@@ -50,11 +51,16 @@
   },
   "devDependencies": {
     "@types/commander": "^2.12.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.0.10",
     "@types/pouchdb": "^6.4.2",
     "esbuild": "^0.25.6",
+    "jest": "^30.0.4",
+    "pouchdb-adapter-memory": "^9.0.0",
     "prettier": "^3.6.2",
+    "ts-jest": "^29.4.0",
     "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.8.3"
   }
 }

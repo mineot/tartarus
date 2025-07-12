@@ -1,7 +1,7 @@
-import { COMMAND_PREFIX } from './__constants';
-import { CommandDoc } from '../../types';
-import { Feedback } from '../../utils/feedback';
-import db from '../../db';
+import { COMMAND_PREFIX } from 'src/scripts/commands/__constants';
+import { CommandDoc } from 'src/types';
+import { Feedback } from 'src/utils/feedback';
+import db from 'src/db';
 
 export async function subtractCommand(name: string, instructionIndex: string): Promise<void> {
   try {

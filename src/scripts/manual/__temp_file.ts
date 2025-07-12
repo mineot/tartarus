@@ -1,6 +1,6 @@
-import { Feedback } from '../../utils/feedback';
-import { getEditorAppOrFail } from './_editor';
-import { getManualTempFile } from './__constants';
+import { Feedback } from 'src/utils/feedback';
+import { getEditorAppOrFail } from 'src/scripts/manual/_editor';
+import { getManualTempFile } from 'src/scripts/manual/__constants';
 import { spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
