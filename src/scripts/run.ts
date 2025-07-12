@@ -11,7 +11,7 @@ async function runCommand(name: string): Promise<void> {
     const commandDoc = (await db.get(prefixName)) as CommandDoc;
 
     for (const [index, instruction] of commandDoc.instructions.entries()) {
-      Feedback.text(`\n  [${index + 1}] ${instruction}`);
+      Feedback.item(`\n  [${index + 1}] - ${instruction}`);
       execSync(instruction, { stdio: 'inherit', shell: '/bin/bash' });
     }
   } catch (error: any) {
