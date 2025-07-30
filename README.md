@@ -170,40 +170,6 @@ tartarus man list
 
 ---
 
-### 💾 `database` – Backup and Maintenance
-
-Manage data persistence and recovery.
-
-#### `tartarus db export <file_path>`
-
-Export all registered commands to a JSON file.
-
-```bash
-tartarus db export ~/my_backups/commands_001.json
-```
-
-#### `tartarus db import <file_path>`
-
-Import commands from a JSON file.
-
-```bash
-tartarus db import ~/my_backups/commands_001.json
-```
-
-✅ **Note:** Ensure `_rev` fields are removed from the JSON before importing.
-
-#### `tartarus db clear`
-
-Delete all registered commands from the local database.
-
-```bash
-tartarus db clear
-```
-
-⚠️ This action is irreversible.
-
----
-
 ### 🏎️ `tartarus run <name>`
 
 Execute all instructions of the specified command **in order**.
@@ -211,6 +177,38 @@ Execute all instructions of the specified command **in order**.
 ```bash
 tartarus run test
 ```
+
+---
+
+## 💾 Database - Backup and Maintenance
+
+Manage data persistence and recovery.
+
+### `>_` `tartarus db export <file_path>`
+
+Export all registered commands to a JSON file.
+
+```bash
+tartarus db export ~/my_backups/commands_001.json
+```
+
+### `>_` `tartarus db import <file_path>`
+
+Import commands from a JSON file.
+
+```bash
+tartarus db import ~/my_backups/commands_001.json
+```
+
+### `>_` `tartarus db clear`
+
+Delete all registered commands from the local database.
+
+```bash
+tartarus db clear
+```
+
+<div style="color:#C82909; font-size:22px;">⚠️ This action is irreversible.</div>
 
 ---
 
