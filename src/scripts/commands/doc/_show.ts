@@ -1,44 +1,53 @@
+import { Command } from 'commander';
 import { COMMAND_PREFIX } from 'src/utils/constants';
 import { CommandDoc } from 'src/types';
-import { Feedback } from 'src/utils/feedback';
 import db from 'src/db';
 
-export async function showDocCommand(name?: string) {
-  try {
-    if (name) {
-      const prefixName = `${COMMAND_PREFIX}${name}`;
-      const doc = (await db.get(prefixName)) as CommandDoc;
+import {
+  Args,
+  command,
+  TitledText,
+  FailThrow,
+  OperationReturn,
+  register,
+  ValidationReturn,
+} from 'src/utils/command';
 
-      if (!doc.description) {
-        Feedback.warn(`Command "${name}" has no description.`);
-        return;
-      }
+export const registerShowDocumentation = (program: Command) =>
+  register({
+    program,
+    commandName: 'show',
+    commandDescription: 'Show command documentation',
+    commandHelp: {
+      structure: [
+        {
+          name: 'name',
+          description: 'The name of the command to show documentation for.',
+        },
+      ],
+      example: `tartarus cmd doc show commandName`,
+    },
+    commandInstance: async (args: Args) =>
+      command(args, {
+        referenceName: 'cmd doc show',
+        validation: async (args: Args): ValidationReturn => {
+          if (args.length != 1) {
+            FailThrow('You must provide one argument: the command name.');
+          }
+        },
+        operation: async (args: Args): OperationReturn => {
+          const [commandName] = args;
+          const prefixName = `${COMMAND_PREFIX}${commandName}`;
+          const doc = (await db.get(prefixName)) as CommandDoc;
 
-      Feedback.title(`"${name}" command documentation:`);
-      Feedback.text(doc.description);
-    }
+          if (!doc.description) {
+            FailThrow('No documentation to show.');
+            return null;
+          }
 
-    const allDocs = await db.allDocs({ include_docs: true });
+          TitledText(`"${commandName}" documentation`, doc.description);
 
-    const described = allDocs.rows
-      .filter((row) => row.id.startsWith(COMMAND_PREFIX))
-      .map((row) => row.doc)
-      .filter((doc) => (doc as CommandDoc)?.description);
-
-    if (described.length === 0) {
-      Feedback.notFound('No documented commands found.');
-      return;
-    }
-
-    for (const doc of described) {
-      Feedback.title(`"${doc?._id.replace(COMMAND_PREFIX, '')}" command documentation:`);
-      Feedback.text(`${(doc as CommandDoc)?.description}\n`);
-    }
-  } catch (error: any) {
-    if (error.status === 404) {
-      Feedback.notFound(`Command "${name}" not found`);
-    } else {
-      Feedback.error(`Failed to show documentation for "${name}": ${error.message}`);
-    }
-  }
-}
+          return null;
+        },
+      }),
+  });

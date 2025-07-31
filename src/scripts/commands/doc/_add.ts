@@ -1,10 +1,18 @@
 import { Command } from 'commander';
 import { COMMAND_PREFIX } from 'src/utils/constants';
 import { CommandDoc } from 'src/types';
-import { register, command, OperatorReturn, Args } from 'src/utils/command';
 import db from 'src/db';
 
-export const registerAddDocumentationCommand = (program: Command) =>
+import {
+  Args,
+  command,
+  OperationReturn,
+  register,
+  FailThrow,
+  ValidationReturn,
+} from 'src/utils/command';
+
+export const registerAddDocumentation = (program: Command) =>
   register({
     program,
     commandName: 'add',
@@ -22,7 +30,14 @@ export const registerAddDocumentationCommand = (program: Command) =>
     commandInstance: (args: Args) =>
       command(args, {
         referenceName: 'cmd doc add',
-        operation: async (args: Args): OperatorReturn => {
+        validation: async (args: Args): ValidationReturn => {
+          if (args.length != 2) {
+            FailThrow(
+              'You must provide two arguments: the command name and the documentation text.'
+            );
+          }
+        },
+        operation: async (args: Args): OperationReturn => {
           const [commandName, descriptionText] = args;
           const prefixName = `${COMMAND_PREFIX}${commandName}`;
           const commandDoc = (await db.get(prefixName)) as CommandDoc;
@@ -30,7 +45,7 @@ export const registerAddDocumentationCommand = (program: Command) =>
           commandDoc.description = descriptionText;
           await db.put(commandDoc);
 
-          return null;
+          return `Documentation "${descriptionText}" has been added to the command "${commandName}".`;
         },
       }),
   });

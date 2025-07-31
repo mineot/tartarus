@@ -1,8 +1,10 @@
 import { Command } from 'commander';
 import kleur from 'kleur';
 
-export type OperatorReturn = Promise<string | null>;
 export type Args = string[];
+export type OperationReturn = Promise<string | null>;
+export type Result = string | null;
+export type ValidationReturn = Promise<void>;
 
 export interface Help {
   structure: { name: string; description: string }[];
@@ -19,43 +21,48 @@ export interface Register {
 
 export interface Setting {
   referenceName: string;
-  operation: (args: Args) => OperatorReturn;
+  noArguments?: boolean;
+  validation: (args: Args) => ValidationReturn;
+  operation: (args: Args) => OperationReturn;
 }
 
+export const FailThrow = (message: string) => {
+  throw { status: 500, message };
+};
+
+export const TitledText = (title: string, text: string) => {
+  console.log(`${kleur.bold(kleur.white(title))}: ${kleur.white(text)}\n`);
+};
+
 export async function command(args: Args, setting: Setting): Promise<void> {
-  const { referenceName, operation } = setting;
-  const firstArg = args[0];
-  const breakLine = '\n';
-  const lineRepetition = '─'.repeat(50);
+  const { referenceName, operation, validation, noArguments } = setting;
 
   try {
-    console.log(kleur.bold().white(`Execute the '${referenceName}' command:`));
-    console.log(kleur.white(lineRepetition.concat(breakLine)));
-
-    if (args.length === 0) {
-      throw { message: 'No arguments found' };
+    if (!noArguments && args.length === 0) {
+      FailThrow('Arguments not found');
     }
 
-    const result: string | null = await operation(args);
+    await validation(args);
+
+    const result: Result = await operation(args);
 
     if (result) {
-      console.log(result);
-      console.log(kleur.white(breakLine.concat(lineRepetition)));
+      console.log(kleur.green(`✅ ${result}`));
     }
-
-    console.log(kleur.green(`Command '${referenceName}' completed successfully`));
   } catch (error: any) {
     if (error.status === 404) {
+      const [firstArg] = args;
+
       console.log(
-        kleur
-          .bgMagenta()
-          .white(
-            `An error occurred while executing the '${referenceName}' command: '${firstArg}' was not found.`
-          )
+        kleur.magenta(
+          `⚠️ A problem occurred while running the command "${referenceName}": ❓ '${firstArg}' was not found.`
+        )
       );
+    } else if (error.status === 500) {
+      console.log(kleur.magenta(`⚠️ ${error.message}`));
     } else {
       console.error(
-        kleur.bgRed().white(`Error during execution the command ${referenceName}: ${error.message}`)
+        kleur.red(`🛑 Error during execution the command ${referenceName}: ${error.message}`)
       );
     }
   }

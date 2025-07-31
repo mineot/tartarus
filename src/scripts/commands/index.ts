@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import { createCommand } from './_create';
 import { deleteCommand } from './_delete';
 import { listCommand } from './_list';
-import { registerCmdDoc } from './doc';
+import { registerDocumentationCommandsToCommand } from './doc';
 import { showCommand } from './_show';
 import { subtractCommand } from './_subtract';
 
@@ -47,5 +47,5 @@ export function registerCMD(program: Command): void {
 
   cmd.command('list').description('List all commands').action(listCommand);
 
-  registerCmdDoc(cmd);
+  registerDocumentationCommandsToCommand(cmd);
 }
