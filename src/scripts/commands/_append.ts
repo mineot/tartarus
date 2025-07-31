@@ -1,4 +1,4 @@
-import { COMMAND_PREFIX } from 'src/scripts/commands/__constants';
+import { COMMAND_PREFIX } from 'src/utils/constants'; 
 import { CommandDoc } from 'src/types';
 import { Feedback } from 'src/utils/feedback';
 import db from 'src/db';

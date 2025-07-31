@@ -1,4 +1,4 @@
-import { addDocCommand } from './_add';
+import { registerAddDocumentationCommand } from './_add';
 import { Command } from 'commander';
 import { removeDocCommand } from './_remove';
 import { showDocCommand } from './_show';
@@ -6,12 +6,7 @@ import { showDocCommand } from './_show';
 export function registerCmdDoc(program: Command): void {
   const doc = program.command('doc').description('Manage command documentation');
 
-  doc
-    .command('add')
-    .argument('[name]', 'Command name')
-    .argument('[text]', 'Description text')
-    .description('Add a description to a command')
-    .action(addDocCommand);
+  registerAddDocumentationCommand(doc);
 
   doc
     .command('remove')

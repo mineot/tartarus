@@ -1,22 +1,31 @@
 import { Command } from 'commander';
 import kleur from 'kleur';
 
+export type OperatorReturn = Promise<string | null>;
+export type Args = string[];
+
+export interface Help {
+  structure: { name: string; description: string }[];
+  example: string;
+}
+
 export interface Register {
   program: Command;
   commandName: string;
   commandDescription: string;
-  commandInstance: (args: string[]) => Promise<void>;
+  commandHelp: Help;
+  commandInstance: (args: Args) => Promise<void>;
 }
 
 export interface Setting {
   referenceName: string;
-  operation: (args: string[]) => Promise<void>;
+  operation: (args: Args) => OperatorReturn;
 }
 
-export async function command(args: string[], setting: Setting): Promise<void> {
+export async function command(args: Args, setting: Setting): Promise<void> {
   const { referenceName, operation } = setting;
   const firstArg = args[0];
-  const breakLine = '\n\n';
+  const breakLine = '\n';
   const lineRepetition = '─'.repeat(50);
 
   try {
@@ -27,9 +36,13 @@ export async function command(args: string[], setting: Setting): Promise<void> {
       throw { message: 'No arguments found' };
     }
 
-    await operation(args);
+    const result: string | null = await operation(args);
 
-    console.log(kleur.white(breakLine.concat(lineRepetition)));
+    if (result) {
+      console.log(result);
+      console.log(kleur.white(breakLine.concat(lineRepetition)));
+    }
+
     console.log(kleur.green(`Command '${referenceName}' completed successfully`));
   } catch (error: any) {
     if (error.status === 404) {
@@ -50,7 +63,19 @@ export async function command(args: string[], setting: Setting): Promise<void> {
 
 export function register(param: Register): void {
   param.program
-    .command(`${param.commandName} [args...]`)
+    .command(`${param.commandName}`)
+    .argument('[args...]', 'Arguments')
     .description(param.commandDescription)
+    .allowUnknownOption(false)
+    .addHelpText(
+      'after',
+      `
+The 'args' arguments must follow this structure:
+
+${param.commandHelp.structure.map((help) => `- <${help.name}>: ${help.description}`).join('\n')}
+
+Example: ${param.commandHelp.example}
+`
+    )
     .action((args) => param.commandInstance(args));
 }

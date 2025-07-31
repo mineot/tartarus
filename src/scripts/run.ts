@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { COMMAND_PREFIX } from 'src/scripts/commands/__constants';
+import { COMMAND_PREFIX } from 'src/utils/constants';
 import { CommandDoc } from 'src/types';
 import { execSync } from 'child_process';
 import { Feedback } from 'src/utils/feedback';
@@ -34,7 +34,7 @@ export function registerRun(program: Command): void {
 // import { execCommand } from './exec';
 // import db from 'src/db';
 // import { Feedback } from 'src/utils/feedback';
-// import { COMMAND_PREFIX } from 'src/scripts/commands/__constants';
+// import { COMMAND_PREFIX } from 'src/utils/constants';
 // import { CommandDoc } from 'src/types';
 // import inquirer from 'inquirer';
 

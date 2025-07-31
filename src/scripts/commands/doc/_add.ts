@@ -1,22 +1,36 @@
-import { COMMAND_PREFIX } from 'src/scripts/commands/__constants';
+import { Command } from 'commander';
+import { COMMAND_PREFIX } from 'src/utils/constants';
 import { CommandDoc } from 'src/types';
-import { Feedback } from 'src/utils/feedback';
+import { register, command, OperatorReturn, Args } from 'src/utils/command';
 import db from 'src/db';
 
-export async function addDocCommand(commandName: string, descriptionText: string): Promise<void> {
-  try {
-    const prefixName = `${COMMAND_PREFIX}${commandName}`;
-    const commandDoc = (await db.get(prefixName)) as CommandDoc;
+export const registerAddDocumentationCommand = (program: Command) =>
+  register({
+    program,
+    commandName: 'add',
+    commandDescription: 'Add a documentation to a command',
+    commandHelp: {
+      structure: [
+        {
+          name: 'name',
+          description: 'The name of the command to which the documentation will be added.',
+        },
+        { name: 'doc', description: 'The documentation text' },
+      ],
+      example: `tartarus cmd doc add commandName "The command documentation"`,
+    },
+    commandInstance: (args: Args) =>
+      command(args, {
+        referenceName: 'cmd doc add',
+        operation: async (args: Args): OperatorReturn => {
+          const [commandName, descriptionText] = args;
+          const prefixName = `${COMMAND_PREFIX}${commandName}`;
+          const commandDoc = (await db.get(prefixName)) as CommandDoc;
 
-    commandDoc.description = descriptionText;
-    await db.put(commandDoc);
+          commandDoc.description = descriptionText;
+          await db.put(commandDoc);
 
-    Feedback.success(`Description added to "${commandName}".`);
-  } catch (error: any) {
-    if (error.status === 404) {
-      Feedback.notFound(`Command "${commandName}" not found`);
-    } else {
-      Feedback.error(`Failed to add description to "${commandName}": ${error.message}`);
-    }
-  }
-}
+          return null;
+        },
+      }),
+  });

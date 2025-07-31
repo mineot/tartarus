@@ -6,6 +6,7 @@
   "main": "index.js",
   "scripts": {
     "build": "node build.js",
+    "preview": "node dist/tartarus.js",
     "dev": "ts-node -r tsconfig-paths/register src/cli.ts",
     "format": "prettier --write \"src/**/*.ts\"",
     "prepare": "npm run build",
