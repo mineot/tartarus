@@ -1,20 +1,50 @@
-import { Feedback } from 'src/utils/feedback';
-import { MANUAL_PREFIX } from 'src/scripts/manual/__constants';
+import { Command } from 'commander';
+import { MANUAL_PREFIX } from 'src/utils/constants';
 import { ManualDoc } from 'src/types';
 import db from 'src/db';
 
-export async function showCommand(name: string) {
-  const id = `${MANUAL_PREFIX}${name}`;
+import {
+  Args,
+  command,
+  FailThrow,
+  OperationReturn,
+  register,
+  TitledText,
+  ValidationReturn,
+} from 'src/utils/command';
 
-  try {
-    const manual = (await db.get(id)) as ManualDoc;
+export const registerManShow = (program: Command) =>
+  register({
+    program,
+    commandName: 'show',
+    commandDescription: 'Show a manual',
+    commandHelp: {
+      structure: [
+        {
+          name: 'name',
+          description: 'Provide the name of the manual.',
+        },
+      ],
+      example: `tartarus man show manualName`,
+    },
+    commandInstance: (args: Args) =>
+      command(args, {
+        referenceName: 'man show',
+        validation: async (args: Args): ValidationReturn => {
+          if (args.length != 1) {
+            FailThrow('You must provide one argument: the manual name.');
+          }
+        },
+        operation: async (args: Args): OperationReturn => {
+          const [name] = args;
+          const id = `${MANUAL_PREFIX}${name}`;
+          const manual = (await db.get(id)) as ManualDoc;
 
-    Feedback.text(`📘 Manual: ${name}`);
-    Feedback.text(`🕒 Last updated: ${new Date(manual.updatedAt).toLocaleString()}`);
-    Feedback.text('──────────────────────────────────────\n');
-    Feedback.text(manual.content);
-    Feedback.text('\n──────────────────────────────────────');
-  } catch {
-    Feedback.notFound(`Manual "${name}" not found.`);
-  }
-}
+          TitledText('📘 Manual', name);
+          TitledText('🕒 Last updated', new Date(manual.updatedAt).toLocaleString());
+          console.log(manual.content);
+
+          return null;
+        },
+      }),
+  });

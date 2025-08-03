@@ -1,19 +1,44 @@
-import { Feedback } from 'src/utils/feedback';
-import { MANUAL_PREFIX } from 'src/scripts/manual/__constants';
+import { Command } from 'commander';
+import { MANUAL_PREFIX } from 'src/utils/constants';
 import db from 'src/db';
 
-export async function deleteCommand(name: string) {
-  try {
-    const id = `${MANUAL_PREFIX}${name}`;
-    const manual = await db.get(id);
-    await db.remove(manual);
+import {
+  Args,
+  command,
+  FailThrow,
+  OperationReturn,
+  register,
+  ValidationReturn,
+} from 'src/utils/command';
 
-    Feedback.success(`Manual "${name}" deleted.`);
-  } catch (error: any) {
-    if (error.status === 404) {
-      Feedback.notFound(`Manual "${name}" not found.`);
-    } else {
-      Feedback.error(`Failed to delete manual "${name}": ${error.message}`);
-    }
-  }
-}
+export const registerManDelete = (program: Command) =>
+  register({
+    program,
+    commandName: 'delete',
+    commandDescription: 'Delete a manual',
+    commandHelp: {
+      structure: [
+        {
+          name: 'name',
+          description: 'Provide the name of the manual.',
+        },
+      ],
+      example: `tartarus man delete manualName`,
+    },
+    commandInstance: (args: Args) =>
+      command(args, {
+        referenceName: 'man delete',
+        validation: async (args: Args): ValidationReturn => {
+          if (args.length != 1) {
+            FailThrow('You must provide one argument: the manual name.');
+          }
+        },
+        operation: async (args: Args): OperationReturn => {
+          const [name] = args;
+          const id = `${MANUAL_PREFIX}${name}`;
+          const manual = await db.get(id);
+          await db.remove(manual);
+          return `Manual "${name}" was deleted.`;
+        },
+      }),
+  });

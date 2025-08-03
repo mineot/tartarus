@@ -1,30 +1,61 @@
-import { Feedback } from 'src/utils/feedback';
-import { MANUAL_PREFIX } from 'src/scripts/manual/__constants';
+import { Command } from 'commander';
+import { MANUAL_PREFIX } from 'src/utils/constants';
 import { ManualDoc } from 'src/types';
-import { tempFile } from 'src/scripts/manual/__temp_file';
+import { tempFile } from 'src/scripts/manual/__tempfile';
 import db from 'src/db';
 
-export async function createCommand(name: string) {
-  try {
-    const id = `${MANUAL_PREFIX}${name}`;
+import {
+  Args,
+  command,
+  FailThrow,
+  OperationReturn,
+  register,
+  ValidationReturn,
+} from 'src/utils/command';
 
-    try {
-      await db.get(id);
-      Feedback.error(`Manual "${name}" already exists.`);
-      return;
-    } catch {
-      // Not found — ok to proceed
-    }
+export const registerManCreate = (program: Command) =>
+  register({
+    program,
+    commandName: 'create',
+    commandDescription: 'Create a new manual',
+    commandHelp: {
+      structure: [
+        {
+          name: 'name',
+          description: 'Provide the name of the manual.',
+        },
+      ],
+      example: `tartarus man create manualName`,
+    },
+    commandInstance: (args: Args) =>
+      command(args, {
+        referenceName: 'man create',
+        validation: async (args: Args): ValidationReturn => {
+          if (args.length != 1) {
+            FailThrow('You must provide one argument: the manual name.');
+          }
+        },
+        operation: async (args: Args): OperationReturn => {
+          const [name] = args;
+          const id = `${MANUAL_PREFIX}${name}`;
 
-    const manual: ManualDoc = {
-      _id: id,
-      content: (await tempFile(name, '# New Manual\n')) ?? '',
-      updatedAt: new Date().toISOString(),
-    };
+          try {
+            await db.get(id);
+            FailThrow(`Manual "${name}" already exists.`);
+            return null;
+          } catch {
+            // Not found — ok to proceed
+          }
 
-    await db.put(manual);
-    Feedback.success(`Manual "${name}" created.`);
-  } catch (error: any) {
-    Feedback.error(`Failed to create manual "${name}": ${error.message}`);
-  }
-}
+          const manual: ManualDoc = {
+            _id: id,
+            content: (await tempFile(name, '# New Manual\n')) ?? '',
+            updatedAt: new Date().toISOString(),
+          };
+
+          await db.put(manual);
+
+          return `Manual "${name}" was created.`;
+        },
+      }),
+  });
