@@ -1,23 +1,56 @@
+import { Command } from 'commander';
 import { COMMAND_PREFIX } from 'src/utils/constants';
-import { Feedback } from 'src/utils/feedback';
 import db from 'src/db';
 
-export async function createCommand(name: string, instruction: string) {
-  try {
-    const prefixName = `${COMMAND_PREFIX}${name}`;
-    const command = await db.get(prefixName).catch(() => null);
+import {
+  Args,
+  command,
+  FailThrow,
+  OperationReturn,
+  register,
+  ValidationReturn,
+} from 'src/utils/command';
 
-    if (command) {
-      Feedback.exists(`Command "${name}" already exists`);
-      return;
-    }
+export const registerCmdCreate = (program: Command) =>
+  register({
+    program,
+    commandName: 'create',
+    commandDescription: 'Create a command',
+    commandHelp: {
+      structure: [
+        {
+          name: 'name',
+          description: 'Provide the name of the command.',
+        },
+        {
+          name: 'instruction',
+          description: 'Provide the first instruction to add to the command.',
+        },
+      ],
+      example: `tartarus cmd create commandName "firstInstruction"`,
+    },
+    commandInstance: (args: Args) =>
+      command(args, {
+        referenceName: 'cmd create',
+        validation: async (args: Args): ValidationReturn => {
+          if (args.length != 2) {
+            FailThrow(
+              'You must provide two arguments: the command name and the first instruction.'
+            );
+          }
+        },
+        operation: async (args: Args): OperationReturn => {
+          const [name, instruction] = args;
+          const prefixName = `${COMMAND_PREFIX}${name}`;
+          const command = await db.get(prefixName).catch(() => null);
 
-    Feedback.title(`Create Command: ${name}`);
+          if (command) {
+            FailThrow(`Command "${name}" already exists`);
+          }
 
-    await db.put({ _id: prefixName, instructions: [instruction] });
+          await db.put({ _id: prefixName, instructions: [instruction] });
 
-    Feedback.success(`Command "${name}" with instruction "${instruction}" created successfully`);
-  } catch (error: any) {
-    Feedback.error(`Failed to create command: ${error.message}`);
-  }
-}
+          return `Command "${name}" with instruction "${instruction}" was created.`;
+        },
+      }),
+  });

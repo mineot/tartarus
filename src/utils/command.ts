@@ -34,6 +34,12 @@ export const TitledText = (title: string, text: string) => {
   console.log(`${kleur.bold(kleur.white(title))}: ${kleur.white(text)}\n`);
 };
 
+export const ItemText = (index: number, text: string) => {
+  console.log(`[${kleur.blue(index.toString())}]: ${kleur.white(text)}`);
+};
+
+export const BreakLine = () => console.log('\n');
+
 export async function command(args: Args, setting: Setting): Promise<void> {
   const { referenceName, operation, validation, noArguments } = setting;
 

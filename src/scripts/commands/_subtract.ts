@@ -1,30 +1,60 @@
+import { Command } from 'commander';
 import { COMMAND_PREFIX } from 'src/utils/constants';
 import { CommandDoc } from 'src/types';
-import { Feedback } from 'src/utils/feedback';
 import db from 'src/db';
 
-export async function subtractCommand(name: string, instructionIndex: string): Promise<void> {
-  try {
-    const prefixName = `${COMMAND_PREFIX}${name}`;
-    const commandDoc = (await db.get(prefixName)) as CommandDoc;
+import {
+  Args,
+  command,
+  FailThrow,
+  OperationReturn,
+  register,
+  ValidationReturn,
+} from 'src/utils/command';
 
-    const index = parseInt(instructionIndex, 10);
+export const registerCmdSubtract = (program: Command) =>
+  register({
+    program,
+    commandName: 'subtract',
+    commandDescription: 'Subtract an instruction to a command',
+    commandHelp: {
+      structure: [
+        {
+          name: 'name',
+          description: 'Provide the name of the command.',
+        },
+        {
+          name: 'index',
+          description: 'Provide the index of the instruction you want to remove.',
+        },
+      ],
+      example: `tartarus cmd subtract commandName instructionIndex`,
+    },
+    commandInstance: (args: Args) =>
+      command(args, {
+        referenceName: 'cmd subtract',
+        validation: async (args: Args): ValidationReturn => {
+          if (args.length != 2) {
+            FailThrow(
+              'You must provide two arguments: the command name and the index of the instruction you want to remove.'
+            );
+          }
+        },
+        operation: async (args: Args): OperationReturn => {
+          const [name, index] = args;
+          const prefixName = `${COMMAND_PREFIX}${name}`;
+          const commandDoc = (await db.get(prefixName)) as CommandDoc;
+          const idx = parseInt(index, 10);
 
-    if (isNaN(index) || index < 0 || index >= commandDoc.instructions.length) {
-      Feedback.warn(`Invalid instruction index for "${name}".`);
-      return;
-    }
+          if (isNaN(idx) || idx < 0 || idx >= commandDoc.instructions.length) {
+            FailThrow(`Invalid instruction index for "${name}".`);
+            return null;
+          }
 
-    const [removedInstruction] = commandDoc.instructions.splice(index, 1);
+          const [removedInstruction] = commandDoc.instructions.splice(idx, 1);
+          await db.put(commandDoc);
 
-    await db.put(commandDoc);
-
-    Feedback.success(`Removed instruction "${removedInstruction}" from "${name}"`);
-  } catch (error: any) {
-    if (error.status === 404) {
-      Feedback.notFound(`Command "${name}" not found`);
-    } else {
-      Feedback.error(`Failed to add instruction to "${name}": ${error.message}`);
-    }
-  }
-}
+          return `Removed instruction "${removedInstruction}" from "${name}"`;
+        },
+      }),
+  });

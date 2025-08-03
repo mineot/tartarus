@@ -4,7 +4,7 @@ import { registerListDocumentation } from './_list';
 import { registerRemoveDocumentation } from './_remove';
 import { registerShowDocumentation } from './_show';
 
-export function registerDocumentationCommandsToCommand(program: Command): void {
+export function registerDocumentation(program: Command): void {
   const doc = program.command('doc').description('Commands documentations');
   registerAddDocumentation(doc);
   registerRemoveDocumentation(doc);
