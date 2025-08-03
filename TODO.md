@@ -1,13 +1,9 @@
 # TODO
 
-- Criar uma classe que representa a saida padrão formatando todos os texto, hoje esta uma bagunça
-- Organizar a lista de comando, colocar tudo em uma mesma hierarquia (???)
-- Centralizar a chamada do banco e seus prefixos
-- Implementar internacionalização
-- Implementar testes unitários
+- Set unit test for all commands
 
 ## New Features
 
-- Adicionar o tab para autocompletar os comando no "run"
-- Criar o cofre, usando tecnologia externa (definir configurações, como pasta de entrada, saida, senha, etc)
-- Criar um organizador de arquivos
+- Add tab completion for commands in "run"
+- Create the vault using external technology (define settings such as input folder, output folder, password, etc.)
+- Create a file organizer
