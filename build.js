@@ -3,7 +3,7 @@ const esbuild = require('esbuild');
 
 esbuild
   .build({
-    entryPoints: ['src/cli.ts'],
+    entryPoints: ['src/main.ts'],
     bundle: true,
     minify: true,
     platform: 'node',

@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import db from 'src/db';
+import db from 'src/core/db';
 import fs from 'fs';
 import path from 'path';
 

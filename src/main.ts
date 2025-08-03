@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { meta } from 'src/meta';
+import { meta } from './core/meta';
 
 import { registerCMD } from 'src/scripts/commands';
 import { registerDatabase } from 'src/scripts/database';

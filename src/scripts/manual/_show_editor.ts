@@ -1,7 +1,7 @@
 import { Command } from 'commander';
-import { ConfigDoc } from 'src/types';
+import { ConfigDoc } from 'src/core/types';
 import { MANUAL_EDITOR_CONFIG_ID } from 'src/utils/constants';
-import db from 'src/db';
+import db from 'src/core/db';
 
 import {
   Args,

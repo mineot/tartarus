@@ -1,7 +1,7 @@
-import { ConfigDoc } from 'src/types';
+import { ConfigDoc } from 'src/core/types';
 import { getManualTempFile, MANUAL_EDITOR_CONFIG_ID } from '../../utils/constants';
 import { spawnSync } from 'child_process';
-import db from 'src/db';
+import db from 'src/core/db';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';

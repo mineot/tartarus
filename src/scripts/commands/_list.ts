@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { COMMAND_PREFIX } from 'src/utils/constants';
-import { CommandDoc } from 'src/types';
-import db from 'src/db';
+import { CommandDoc } from 'src/core/types';
+import db from 'src/core/db';
 
 import {
   Args,

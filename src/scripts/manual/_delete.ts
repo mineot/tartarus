@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { MANUAL_PREFIX } from 'src/utils/constants';
-import db from 'src/db';
+import db from 'src/core/db';
 
 import {
   Args,

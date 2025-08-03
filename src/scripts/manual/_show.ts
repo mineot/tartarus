@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { MANUAL_PREFIX } from 'src/utils/constants';
-import { ManualDoc } from 'src/types';
-import db from 'src/db';
+import { ManualDoc } from 'src/core/types';
+import db from 'src/core/db';
 
 import {
   Args,
