@@ -1,33 +1,63 @@
-import { Feedback } from 'src/utils/feedback';
+import { Command } from 'commander';
 import db from 'src/db';
 import fs from 'fs';
 import path from 'path';
 
-export async function importCommand(filePath: string) {
-  try {
-    const resolvedPath = path.resolve(filePath);
+import {
+  Args,
+  command,
+  FailThrow,
+  OperationReturn,
+  register,
+  ValidationReturn,
+} from 'src/utils/command';
 
-    if (!fs.existsSync(resolvedPath)) {
-      Feedback.notFound(`File not found: ${resolvedPath}`);
-      return;
-    }
+export const registerDbImport = (program: Command) =>
+  register({
+    program,
+    commandName: 'import',
+    commandDescription: 'Restoring database from JSON backup.',
+    commandHelp: {
+      structure: [
+        {
+          name: 'path',
+          description: 'Provide the path to the JSON file.',
+        },
+      ],
+      example: `tartarus db import backup.json`,
+    },
+    commandInstance: (args: Args) =>
+      command(args, {
+        referenceName: 'db import',
+        validation: async (args: Args): ValidationReturn => {
+          if (args.length != 1) {
+            FailThrow('You must provide one argument: the path to the JSON file.');
+          }
+        },
+        operation: async (args: Args): OperationReturn => {
+          const [filePath] = args;
+          const resolvedPath = path.resolve(filePath);
 
-    const fileContent = fs.readFileSync(resolvedPath, 'utf-8');
-    const docs = JSON.parse(fileContent);
+          if (!fs.existsSync(resolvedPath)) {
+            FailThrow(`File not found: ${resolvedPath}`);
+            return null;
+          }
 
-    if (!Array.isArray(docs)) {
-      Feedback.error(`Invalid backup format. Expected an array of documents.`);
-      return;
-    }
+          const fileContent = fs.readFileSync(resolvedPath, 'utf-8');
+          const docs = JSON.parse(fileContent);
 
-    const cleanDocs = docs.map((doc) => {
-      const { _rev, ...rest } = doc;
-      return rest;
-    });
+          if (!Array.isArray(docs)) {
+            FailThrow(`Invalid backup format. Expected an array of documents.`);
+            return null;
+          }
 
-    await db.bulkDocs(cleanDocs);
-    Feedback.success(`Backup imported from: ${resolvedPath}`);
-  } catch (error: any) {
-    Feedback.error(`Import failed: ${error.message}`);
-  }
-}
+          const cleanDocs = docs.map((doc) => {
+            const { _rev, ...rest } = doc;
+            return rest;
+          });
+
+          await db.bulkDocs(cleanDocs);
+          return `Backup imported from: ${resolvedPath}`;
+        },
+      }),
+  });

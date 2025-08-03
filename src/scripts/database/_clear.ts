@@ -1,26 +1,46 @@
-import { Feedback } from 'src/utils/feedback';
+import { Command } from 'commander';
 import db from 'src/db';
 
-export async function clearCommand() {
-  try {
-    const result = await db.allDocs({ include_docs: true });
+import {
+  Args,
+  command,
+  FailThrow,
+  OperationReturn,
+  register,
+  ValidationReturn,
+} from 'src/utils/command';
 
-    const deletable = result.rows
-      .map((row) => row.doc)
-      .filter(
-        (doc): doc is PouchDB.Core.ExistingDocument<any> =>
-          !!doc && typeof doc._id === 'string' && typeof doc._rev === 'string'
-      )
-      .map((doc) => ({ ...doc, _deleted: true }));
+export const registerDbClear = (program: Command) =>
+  register({
+    program,
+    commandName: 'clear',
+    commandDescription: 'Clear the database.',
+    commandHelp: {
+      structure: [],
+      example: `tartarus db clear`,
+    },
+    commandInstance: (args: Args) =>
+      command(args, {
+        referenceName: 'db clear',
+        noArguments: true,
+        validation: async (args: Args): ValidationReturn => {
+          if (args.length > 0) {
+            FailThrow('No arguments required.');
+          }
+        },
+        operation: async (): OperationReturn => {
+          const result = await db.allDocs({ include_docs: true });
 
-    if (deletable.length === 0) {
-      Feedback.notFound('No documents to delete.');
-      return;
-    }
+          const deletable = result.rows
+            .map((row) => row.doc)
+            .filter(
+              (doc): doc is PouchDB.Core.ExistingDocument<any> =>
+                !!doc && typeof doc._id === 'string' && typeof doc._rev === 'string'
+            )
+            .map((doc) => ({ ...doc, _deleted: true }));
 
-    await db.bulkDocs(deletable);
-    Feedback.success(`Cleared ${deletable.length} documents from the database.`);
-  } catch (error: any) {
-    Feedback.error(`Failed to clear database: ${error.message}`);
-  }
-}
+          await db.bulkDocs(deletable);
+          return `Database was cleared.`;
+        },
+      }),
+  });
