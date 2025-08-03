@@ -2,34 +2,56 @@ import { Command } from 'commander';
 import { COMMAND_PREFIX } from 'src/utils/constants';
 import { CommandDoc } from 'src/types';
 import { execSync } from 'child_process';
-import { Feedback } from 'src/utils/feedback';
 import db from 'src/db';
 
-async function runCommand(name: string): Promise<void> {
-  try {
-    const prefixName = `${COMMAND_PREFIX}${name}`;
-    const commandDoc = (await db.get(prefixName)) as CommandDoc;
+import {
+  Args,
+  BreakLine,
+  command,
+  FailThrow,
+  ItemText,
+  OperationReturn,
+  register,
+  ValidationReturn,
+} from 'src/utils/command';
 
-    for (const [index, instruction] of commandDoc.instructions.entries()) {
-      Feedback.item(`\n  [${index + 1}] - ${instruction}`);
-      execSync(instruction, { stdio: 'inherit', shell: '/bin/bash' });
-    }
-  } catch (error: any) {
-    if (error.status === 404) {
-      Feedback.notFound(`Command "${name}" not found`);
-      return;
-    }
+export const registerRun = (program: Command) =>
+  register({
+    program,
+    commandName: 'run',
+    commandDescription: 'Run a command',
+    commandHelp: {
+      structure: [
+        {
+          name: 'name',
+          description: 'Provide the name of the command.',
+        },
+      ],
+      example: `tartarus run commandName`,
+    },
+    commandInstance: (args: Args) =>
+      command(args, {
+        referenceName: 'run',
+        validation: async (args: Args): ValidationReturn => {
+          if (args.length != 1) {
+            FailThrow('You must provide one argument: the command name.');
+          }
+        },
+        operation: async (args: Args): OperationReturn => {
+          const [name] = args;
+          const prefixName = `${COMMAND_PREFIX}${name}`;
+          const commandDoc = (await db.get(prefixName)) as CommandDoc;
 
-    Feedback.error(`Error during execution: ${error.message}`);
-  }
-}
+          for (const [index, instruction] of commandDoc.instructions.entries()) {
+            ItemText(index, instruction);
+            execSync(instruction, { stdio: 'inherit', shell: '/bin/bash' });
+            BreakLine();
+          }
 
-export function registerRun(program: Command): void {
-  program
-    .command('run [commandName]')
-    .description('Execute all instructions registered for the given command')
-    .action(runCommand);
-}
+          return null;
+        },
+      }),
+  });
 
 // import { execCommand } from './exec';
 // import db from 'src/db';
