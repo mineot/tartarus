@@ -90,8 +90,18 @@ tartarus cmd doc list
 ### 🏎️ `run` – Run Command
 
 ```bash
-# Execute all instructions of the specified command **in order**.
+# Executes all instructions associated with the specified command, in the defined order.
 tartarus run test
+```
+
+```bash 
+# Displays a list of all registered commands, allowing the user to select and execute one sequentially.
+tartarus run
+```
+
+```bash
+# If the command is not found, a search is performed in the database for command names containing the term. If matches are found, the user can select one to execute, and its instructions will run sequentially.
+tartarus run te
 ```
 
 ---
