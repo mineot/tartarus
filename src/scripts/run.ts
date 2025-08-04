@@ -3,6 +3,7 @@ import { COMMAND_PREFIX } from 'src/utils/constants';
 import { CommandDoc } from 'src/core/types';
 import { execSync } from 'child_process';
 import db from 'src/core/db';
+import inquirer from 'inquirer';
 
 import {
   Args,
@@ -32,23 +33,67 @@ export const registerRun = (program: Command) =>
     commandInstance: (args: Args) =>
       command(args, {
         referenceName: 'run',
-        validation: async (args: Args): ValidationReturn => {
-          if (args.length != 1) {
-            FailThrow('You must provide one argument: the command name.');
-          }
-        },
+        noArguments: true,
+        validation: async (): ValidationReturn => {},
         operation: async (args: Args): OperationReturn => {
           const [name] = args;
-          const prefixName = `${COMMAND_PREFIX}${name}`;
-          const commandDoc = (await db.get(prefixName)) as CommandDoc;
-
-          for (const [index, instruction] of commandDoc.instructions.entries()) {
-            ItemText(index, instruction);
-            execSync(instruction, { stdio: 'inherit', shell: '/bin/bash' });
-            BreakLine();
-          }
-
-          return null;
+          return execution(name);
         },
       }),
   });
+
+async function execution(name: string | undefined): Promise<OperationReturn> {
+  try {
+    const prefixName = `${COMMAND_PREFIX}${name}`;
+    const commandDoc = (await db.get(prefixName)) as CommandDoc;
+
+    for (const [index, instruction] of commandDoc.instructions.entries()) {
+      ItemText(index, instruction);
+      execSync(instruction, { stdio: 'inherit', shell: '/bin/bash' });
+      BreakLine();
+    }
+
+    return null;
+  } catch (error: any) {
+    if (error.status === 404) {
+      return await buildQuestions(await findByName(name));
+    } else {
+      throw error;
+    }
+  }
+}
+
+async function buildQuestions(names: string[]): Promise<OperationReturn> {
+  const { choice } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'choice',
+      message: 'Choose a command to run:',
+      choices: names,
+    },
+  ]);
+
+  if (choice) {
+    return execution(choice);
+  }
+
+  return null;
+}
+
+async function findByName(name: string | undefined): Promise<string[]> {
+  const rows = (await db.allDocs({ include_docs: true })).rows.filter((row) =>
+    row.id.startsWith(COMMAND_PREFIX)
+  );
+
+  const items = rows
+    .filter((item) => (name === undefined ? true : item.doc?._id?.includes(name)))
+    .map((item) => item.doc?._id.replace(COMMAND_PREFIX, ''))
+    .filter((id): id is string => typeof id === 'string');
+
+  if (items.length === 0) {
+    FailThrow('No commands found.');
+    return [];
+  }
+
+  return items;
+}

@@ -5,5 +5,6 @@
 ## New Features
 
 - Add tab completion for commands in "run"
+- Disseminate the use of "inquirer.js" in the project
 - Create the vault using external technology (define settings such as input folder, output folder, password, etc.)
 - Create a file organizer
