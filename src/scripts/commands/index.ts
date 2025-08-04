@@ -8,7 +8,7 @@ import { registerCmdSubtract } from './_subtract';
 import { registerDocumentation } from './doc';
 
 export function registerCMD(program: Command): void {
-  const cmd = program.command('cmd').description('Manage commands');
+  const cmd = program.command('cmd').description('Command management');
   registerCmdCreate(cmd);
   registerCmdAppend(cmd);
   registerCmdSubtract(cmd);

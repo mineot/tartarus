@@ -19,7 +19,7 @@ export const registerRun = (program: Command) =>
   register({
     program,
     commandName: 'run',
-    commandDescription: 'Run a command',
+    commandDescription: 'Run command',
     commandHelp: {
       structure: [
         {

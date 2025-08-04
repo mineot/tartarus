@@ -1,6 +1,6 @@
 # 🧠 Tartarus
 
-**Tartarus** is a powerful command-line tool written in TypeScript for organizing, documenting, executing, exporting, and importing named command sets. All commands are stored locally using [PouchDB](https://pouchdb.com/), and can be grouped and extended with multiple instructions.
+**Tartarus** is a CLI tool to manage and run named sets of terminal commands, supporting documentation, manuals, exports, and sequences of instructions.
 
 ---
 
@@ -25,85 +25,73 @@ Tartarus commands are organized into groups for clarity and scalability:
 
 ---
 
-### 📁 `cmd` – Command Management
+### `>_` `cmd` – Command Management
 
 Manage command sets that contain one or more instructions.
 
-#### `tartarus cmd create <name> <command>`
-
-Create a new command with a single instruction.
-
 ```bash
+# Create a new command with a single instruction.
 tartarus cmd create test "mkdir folder"
 ```
 
-#### `tartarus cmd append <name> <instruction>`
-
-Append a new instruction to an existing command.
-
 ```bash
+# Append a new instruction to an existing command.
 tartarus cmd append test "cd folder"
 ```
 
-#### `tartarus cmd subtract <name> <index>`
-
-Subtract an instruction from a command by its index (starting at 0).
-
 ```bash
+# Subtract an instruction from a command by its index (starting at 0).
 tartarus cmd subtract test 0
 ```
 
-#### `tartarus cmd delete <name>`
-
-Delete a command entirely from the database.
-
 ```bash
+# Delete a command entirely from the database.
 tartarus cmd delete test
 ```
 
-#### `tartarus cmd show <name>`
-
-Display all instructions in a specific command.
-
 ```bash
+# Display all instructions in a specific command.
 tartarus cmd show test
 ```
 
-#### `tartarus cmd list`
-
-List all registered command names and their first instruction.
-
 ```bash
+# List all registered command names and their first instruction.
 tartarus cmd list
 ```
 
+---
+
 #### 📝 `doc` – Documentation Management
 
-Manage optional descriptions for commands.
-
-##### `tartarus cmd doc add <name> <text>`
-
-Add or update a description for a command.
+Manage optional documentation descriptions for commands.
 
 ```bash
+# Add or update a description for a command.
 tartarus cmd doc add test "Creates a folder and navigates into it."
 ```
 
-##### `tartarus cmd doc remove <name>`
-
-Remove the description from a command.
-
 ```bash
+# Remove the description from a command.
 tartarus cmd doc remove test
 ```
 
-##### `tartarus cmd doc show [name]`
-
-Show documentation for a specific command or all documented commands.
+```bash
+# Show documentation for a specific command.
+tartarus cmd doc show test
+```
 
 ```bash
-tartarus cmd doc show test
-tartarus cmd doc show # to show all docs
+# List all documented commands.
+tartarus cmd doc list
+```
+
+---
+
+### 🏎️ `run` – Run Command
+
+```bash
+# Execute all instructions of the specified command **in order**.
+tartarus run test
 ```
 
 ---
@@ -112,103 +100,67 @@ tartarus cmd doc show # to show all docs
 
 Manage textual manuals (long-form documentation) for any command or concept.
 
-#### `tartarus man set_editor <editor>`
-
-Sets the default text editor that Tartarus will use for editing manuals. This must be set before using commands like create or edit.
-
 ```bash
+# Sets the default text editor that Tartarus will use for editing manuals. This must be set before using commands like create or edit.
 tartarus man set_editor nano # or notepad
 ```
 
-#### `tartarus man show_editor`
-
-Show the currently configured editor.
-
 ```bash
+# Show the currently configured editor.
 tartarus man show_editor
 ```
 
-#### `tartarus man create <name>`
-
-Create a new manual. Opens the configured editor (e.g. nano, notepad, vim).
-
 ```bash
+# Create a new manual. Opens the configured editor (e.g. nano, notepad, vim).
 tartarus man create deploy-guide
 ```
 
-#### `tartarus man edit <name>`
-
-Edit an existing manual in the configured editor.
-
 ```bash
+# Edit an existing manual in the configured editor.
 tartarus man edit deploy-guide
 ```
 
-#### `tartarus man delete <name>`
-
-Delete a manual from the database.
-
 ```bash
+# Delete a manual from the database.
 tartarus man delete deploy-guide
 ```
 
-#### `tartarus man show <name>`
-
-Display the content of a manual in the terminal.
-
 ```bash
+# Display the content of a manual in the terminal.
 tartarus man show deploy-guide
 ```
 
-#### `tartarus man list`
-
-List all existing manual names.
-
 ```bash
+# List all existing manual names.
 tartarus man list
 ```
 
 ---
 
-### 🏎️ `tartarus run <name>`
-
-Execute all instructions of the specified command **in order**.
-
-```bash
-tartarus run test
-```
-
----
-
-## 💾 Database - Backup and Maintenance
+### 💾 `db` - Database Management
 
 Manage data persistence and recovery.
 
-### `>_` `tartarus db export <file_path>`
-
-Export all registered commands to a JSON file.
-
 ```bash
+# Export all registered commands to a JSON file.
 tartarus db export ~/my_backups/commands_001.json
 ```
 
-### `>_` `tartarus db import <file_path>`
-
-Import commands from a JSON file.
-
 ```bash
+# Import commands from a JSON file.
 tartarus db import ~/my_backups/commands_001.json
 ```
 
-### `>_` `tartarus db clear`
-
-Delete all registered commands from the local database.
-
 ```bash
+# Delete all registered commands from the local database.
+# ⚠️ This action is irreversible.
 tartarus db clear
 ```
 
-<div style="color:#C82909; font-size:22px;">⚠️ This action is irreversible.</div>
+#### 📁 Backups
+
+- When you export your commands, a `.json` file is created at the path you specify.
+- This file contains all registered commands and can be imported later using `tartarus db import`.
 
 ---
 
@@ -227,10 +179,7 @@ Tartarus stores all your commands locally using [PouchDB](https://pouchdb.com/),
 - This ensures the database is user-specific, secure, and easy to back up.
 - You can inspect or remove the database manually if needed.
 
-### 📁 Backups
-
-- When you export your commands, a `.json` file is created at the path you specify.
-- This file contains all registered commands and can be imported later using `tartarus db import`.
+---
 
 ## 🖥️ Local Installation
 
@@ -243,15 +192,6 @@ npm link
 ```
 
 > The `npm link` command allows you to use `tartarus` globally on your system.
-
-## 📜 NPM Scripts
-
-| Script            | Description                                                                        |
-| ----------------- | ---------------------------------------------------------------------------------- |
-| `npm run build`   | Builds the project using esbuild into a single minified file (`dist/tartarus.js`). |
-| `npm run dev`     | Runs the CLI directly with `ts-node`.                                              |
-| `npm run format`  | Formats the code using Prettier.                                                   |
-| `npm run prepare` | Automatically builds before linking or publishing.                                 |
 
 ---
 

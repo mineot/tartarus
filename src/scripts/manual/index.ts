@@ -8,7 +8,7 @@ import { registerManShow } from './_show';
 import { registerManShowEditor } from './_show_editor';
 
 export function registerManual(program: Command): void {
-  const man = program.command('man').description('Manual management.');
+  const man = program.command('man').description('Manual management');
   registerManSetEditor(man);
   registerManShowEditor(man);
   registerManCreate(man);

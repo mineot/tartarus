@@ -5,7 +5,7 @@ import { registerRemoveDocumentation } from './_remove';
 import { registerShowDocumentation } from './_show';
 
 export function registerDocumentation(program: Command): void {
-  const doc = program.command('doc').description('Commands documentations');
+  const doc = program.command('doc').description('Documentation management');
   registerAddDocumentation(doc);
   registerRemoveDocumentation(doc);
   registerListDocumentation(doc);

@@ -1,6 +1,6 @@
 # TODO
 
-- Set unit test for all commands
+- Create unit test for all commands
 
 ## New Features
 
