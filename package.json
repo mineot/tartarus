@@ -10,7 +10,7 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "prepare": "npm run build",
     "preview": "node dist/tartarus.js",
-    "publish": "npm run prepare && npm publish --access public",
+    "publish": "npm publish --access public",
     "test": "jest"
   },
   "bin": {
