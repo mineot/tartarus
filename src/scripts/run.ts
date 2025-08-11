@@ -1,13 +1,12 @@
 import { Command } from 'commander';
 import { COMMAND_PREFIX } from 'src/utils/constants';
 import { CommandDoc } from 'src/core/types';
-import { execSync } from 'child_process';
+import { execInstruction } from 'src/utils/shell';
 import db from 'src/core/db';
 import inquirer from 'inquirer';
 
 import {
   Args,
-  BreakLine,
   command,
   FailThrow,
   ItemText,
@@ -49,8 +48,7 @@ async function execution(name: string | undefined): Promise<OperationReturn> {
 
     for (const [index, instruction] of commandDoc.instructions.entries()) {
       ItemText(index, instruction);
-      execSync(instruction, { stdio: 'inherit', shell: '/bin/bash' });
-      BreakLine();
+      await execInstruction(instruction);
     }
 
     return null;
