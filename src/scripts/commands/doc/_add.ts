@@ -10,7 +10,7 @@ import {
   register,
   FailThrow,
   ValidationReturn,
-} from 'src/utils/command';
+} from 'src/utils/old-command';
 
 export const registerAddDocumentation = (program: Command) =>
   register({

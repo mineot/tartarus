@@ -1,7 +1,7 @@
 {
   "name": "@mineot/tartarus",
   "command": "tartarus",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "CLI to create, organize, document and execute named shell command sets.",
   "main": "index.js",
   "scripts": {

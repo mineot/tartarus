@@ -11,7 +11,7 @@ import {
   OperationReturn,
   register,
   ValidationReturn,
-} from 'src/utils/command';
+} from 'src/utils/old-command';
 
 export const registerShowDocumentation = (program: Command) =>
   register({

@@ -12,7 +12,7 @@ import {
   register,
   TitledText,
   ValidationReturn,
-} from 'src/utils/command';
+} from 'src/utils/old-command';
 
 export const registerCmdShow = (program: Command) =>
   register({
