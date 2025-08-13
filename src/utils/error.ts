@@ -33,8 +33,8 @@ export async function error(error: Error): Promise<void> {
   }
 
   if (status) {
-    console.log(WARNING_COLOR(`${WARNING_ICON} ${message}`));
+    console.log(WARNING_COLOR(`\n${WARNING_ICON} ${message}`));
   } else {
-    console.log(ERROR_COLOR(`${ERROR_ICON} ${message}`));
+    console.log(ERROR_COLOR(`\n${ERROR_ICON} ${message}`));
   }
 }
