@@ -1,57 +1,42 @@
 import { Command } from 'commander';
 import { COMMAND_PREFIX } from 'src/utils/constants';
 import { CommandDoc } from 'src/core/types';
+import { error, FailThrow } from 'src/utils/error';
 import { execInstruction } from 'src/utils/shell';
+import { output } from 'src/utils/outputs';
+import { register } from 'src/utils/register';
 import db from 'src/core/db';
 import inquirer from 'inquirer';
-
-import {
-  Args,
-  command,
-  FailThrow,
-  ItemText,
-  OperationReturn,
-  register,
-  ValidationReturn,
-} from 'src/utils/old-command';
 
 export const registerRun = (program: Command) =>
   register({
     program,
     commandName: 'run',
-    commandDescription: 'Run command',
-    commandHelp: {
-      structure: [
-        {
-          name: 'name',
-          description: 'Provide the name of the command.',
-        },
-      ],
-      example: `tartarus run commandName`,
+    commandDescription: 'Run an existing command',
+    commandArguments: [
+      {
+        name: 'name',
+        description: 'The name of the command.',
+      },
+    ],
+    commandInstance: async (args: any) => {
+      try {
+        await execution(args.name);
+      } catch (err: any) {
+        error(err);
+      }
     },
-    commandInstance: (args: Args) =>
-      command(args, {
-        referenceName: 'run',
-        noArguments: true,
-        validation: async (): ValidationReturn => {},
-        operation: async (args: Args): OperationReturn => {
-          const [name] = args;
-          return execution(name);
-        },
-      }),
   });
 
-async function execution(name: string | undefined): Promise<OperationReturn> {
+async function execution(name: string | undefined): Promise<void> {
   try {
     const prefixName = `${COMMAND_PREFIX}${name}`;
     const commandDoc = (await db.get(prefixName)) as CommandDoc;
 
     for (const [index, instruction] of commandDoc.instructions.entries()) {
-      ItemText(index, instruction);
+      output({ title: instruction, list: [] });
       await execInstruction(instruction);
     }
-
-    return null;
   } catch (error: any) {
     if (error.status === 404) {
       return await buildQuestions(await findByName(name));
@@ -61,7 +46,7 @@ async function execution(name: string | undefined): Promise<OperationReturn> {
   }
 }
 
-async function buildQuestions(names: string[]): Promise<OperationReturn> {
+async function buildQuestions(names: string[]): Promise<void> {
   const { choice } = await inquirer.prompt([
     {
       type: 'list',
@@ -74,8 +59,6 @@ async function buildQuestions(names: string[]): Promise<OperationReturn> {
   if (choice) {
     return execution(choice);
   }
-
-  return null;
 }
 
 async function findByName(name: string | undefined): Promise<string[]> {

@@ -1,44 +1,31 @@
 import { Command } from 'commander';
+import { done } from 'src/utils/outputs';
+import { error } from 'src/utils/error';
 import { MANUAL_PREFIX } from 'src/utils/constants';
+import { register } from 'src/utils/register';
 import db from 'src/core/db';
-
-import {
-  Args,
-  command,
-  FailThrow,
-  OperationReturn,
-  register,
-  ValidationReturn,
-} from 'src/utils/old-command';
 
 export const registerManDelete = (program: Command) =>
   register({
     program,
     commandName: 'delete',
     commandDescription: 'Delete a manual',
-    commandHelp: {
-      structure: [
-        {
-          name: 'name',
-          description: 'Provide the name of the manual.',
-        },
-      ],
-      example: `tartarus man delete manualName`,
+    commandArguments: [
+      {
+        name: 'name',
+        description: 'Provide the name of the manual.',
+        required: true,
+      },
+    ],
+    commandInstance: async (args: any) => {
+      try {
+        const { name } = args;
+        const id = `${MANUAL_PREFIX}${name}`;
+        const manual = await db.get(id);
+        await db.remove(manual);
+        done(`Manual "${name}" was deleted.`);
+      } catch (err: any) {
+        error(err);
+      }
     },
-    commandInstance: (args: Args) =>
-      command(args, {
-        referenceName: 'man delete',
-        validation: async (args: Args): ValidationReturn => {
-          if (args.length != 1) {
-            FailThrow('You must provide one argument: the manual name.');
-          }
-        },
-        operation: async (args: Args): OperationReturn => {
-          const [name] = args;
-          const id = `${MANUAL_PREFIX}${name}`;
-          const manual = await db.get(id);
-          await db.remove(manual);
-          return `Manual "${name}" was deleted.`;
-        },
-      }),
   });

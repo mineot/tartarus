@@ -1,46 +1,31 @@
 import { Command } from 'commander';
 import { ConfigDoc } from 'src/core/types';
+import { error, FailThrow } from 'src/utils/error';
 import { MANUAL_EDITOR_CONFIG_ID } from 'src/utils/constants';
+import { register } from 'src/utils/register';
+import { output } from 'src/utils/outputs';
 import db from 'src/core/db';
-
-import {
-  Args,
-  command,
-  FailThrow,
-  OperationReturn,
-  register,
-  TitledText,
-  ValidationReturn,
-} from 'src/utils/old-command';
 
 export const registerManShowEditor = (program: Command) =>
   register({
     program,
     commandName: 'show_editor',
     commandDescription: 'Show current manual editor',
-    commandHelp: {
-      structure: [],
-      example: `tartarus man show_editor`,
+    commandArguments: [],
+    commandInstance: async (args: any) => {
+      try {
+        const config = (await db.get(MANUAL_EDITOR_CONFIG_ID)) as ConfigDoc;
+        if (config.data && typeof config.data === 'string') {
+          output({
+            title: 'Current editor',
+            description: config.data,
+            list: [],
+          });
+        } else {
+          FailThrow('No editor configured. Use: tartarus man set_editor <editor>');
+        }
+      } catch (err: any) {
+        error(err);
+      }
     },
-    commandInstance: (args: Args) =>
-      command(args, {
-        referenceName: 'man show_editor',
-        noArguments: true,
-        validation: async (args: Args): ValidationReturn => {
-          if (args.length > 0) {
-            FailThrow('No arguments required.');
-          }
-        },
-        operation: async (): OperationReturn => {
-          const config = (await db.get(MANUAL_EDITOR_CONFIG_ID)) as ConfigDoc;
-
-          if (config.data && typeof config.data === 'string') {
-            TitledText('Current editor', config.data);
-          } else {
-            FailThrow('No editor configured. Use: tartarus man set_editor <editor>');
-          }
-
-          return null;
-        },
-      }),
   });
