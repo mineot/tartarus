@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --minify --outfile=dist/tartarus.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -17,9 +21,14 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "esbuild": "^0.25.0",
+    "eslint": "^10.0.2",
+    "globals": "^17.4.0",
+    "prettier": "^3.8.1",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.56.1"
   },
   "bugs": {
     "url": "https://github.com/mineot/tartarus/issues"
