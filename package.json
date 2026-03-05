@@ -1,0 +1,28 @@
+{
+  "name": "tartarus",
+  "version": "2.0.0",
+  "description": "",
+  "main": "dist/tartarus.js",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --minify --outfile=dist/tartarus.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mineot/tartarus.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "bugs": {
+    "url": "https://github.com/mineot/tartarus/issues"
+  },
+  "homepage": "https://github.com/mineot/tartarus#readme"
+}
