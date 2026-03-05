@@ -4,8 +4,8 @@
   "description": "",
   "main": "dist/tartarus.js",
   "scripts": {
-    "dev": "tsx src/index.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --minify --outfile=dist/tartarus.js",
+    "dev": "tsx src/main.ts",
+    "build": "esbuild src/main.ts --bundle --platform=node --target=node20 --minify --outfile=dist/tartarus.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
@@ -22,6 +22,7 @@
   "type": "commonjs",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/better-sqlite3": "^7.6.13",
     "esbuild": "^0.25.0",
     "eslint": "^10.0.2",
     "globals": "^17.4.0",
@@ -33,5 +34,10 @@
   "bugs": {
     "url": "https://github.com/mineot/tartarus/issues"
   },
-  "homepage": "https://github.com/mineot/tartarus#readme"
+  "homepage": "https://github.com/mineot/tartarus#readme",
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "kysely": "^0.28.11",
+    "sqlite3": "^5.1.7"
+  }
 }
