@@ -1,15 +1,13 @@
-import { Kysely, SqliteDialect } from "kysely";
-import { runMigrator } from "./core/migrator";
-import path from "node:path";
-import SQLite from "better-sqlite3";
-import type { DatabaseSchema } from "./core/schema";
-
-const databaseFilePath = path.resolve(process.cwd(), "tartarus.db");
+import { getDatabasePath } from './core/db-path';
+import { Kysely, SqliteDialect } from 'kysely';
+import { runMigrator } from './core/migrator';
+import SQLite from 'better-sqlite3';
+import type { DatabaseSchema } from './core/schema';
 
 export const database = new Kysely<DatabaseSchema>({
   dialect: new SqliteDialect({
-    database: new SQLite(databaseFilePath),
+    database: new SQLite(getDatabasePath()),
   }),
 });
 
-export const databaseReady = runMigrator(database);
+export const databaseMigrator = runMigrator(database);

@@ -4,8 +4,8 @@
   "description": "",
   "main": "dist/tartarus.js",
   "scripts": {
-    "dev": "tsx src/main.ts",
-    "build": "esbuild src/main.ts --bundle --platform=node --target=node20 --minify --outfile=dist/tartarus.js",
+    "dev": "TARTARUS_ENV=dev tsx src/main.ts",
+    "build": "rm -rf dist && esbuild src/main.ts --bundle --platform=node --target=node20 --minify --external:better-sqlite3 --outfile=dist/tartarus.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
