@@ -10,7 +10,9 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "paths": {
-      "@database": ["src/database/index.ts"]
+      "@database": ["src/database/index.ts"],
+      "@shared": ["src/shared/index.ts"],
+      "@commands": ["src/commands/index.ts"],
     }
   },
   "include": ["src"]

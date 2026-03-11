@@ -1,9 +1,9 @@
-import { database, databaseMigrator } from '@database';
+import { databaseMigrator } from '@database';
+import { runCommand } from '@commands';
 
 async function bootstrap(): Promise<void> {
   await databaseMigrator;
-  console.log('Tartarus');
-  await database.selectFrom('migrations').select('name').execute();
+  await runCommand();
 }
 
 bootstrap().catch((error: unknown) => {
