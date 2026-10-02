@@ -2,22 +2,16 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"tartarus/store"
+	"tartarus/repositories"
 )
 
 func main() {
 	fmt.Println("Welcome to Tartarus CLI")
 
-	s := store.Store{}
+	cmd := repositories.Command{}
+	cmd.Name = "Cmd 1"
 
-	if err := s.Open(); err != nil {
-		log.Fatalf("unable to open database: %v", err)
+	if err := cmd.Insert(); err != nil {
+		fmt.Println(err)
 	}
-
-	if err := s.RunMigrations(); err != nil {
-		log.Fatalf("unable run migrations: %v", err)
-	}
-
-	defer s.Close()
 }

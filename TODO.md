@@ -1,6 +1,6 @@
 # TODO
 
-- [] Create Store package
+- [] Create Store/Repository packages
 - [] Create Command package
 - [] Create Manual package
 - [] Create Import package

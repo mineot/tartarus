@@ -54,3 +54,37 @@ func (s *Store) Open() error {
 
 	return nil
 }
+
+func (s *Store) Query(query string, args ...any) (*sql.Rows, error) {
+	rows, err := s.db.Query(query, args...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	return rows, nil
+}
+
+func (s *Store) Exec(query string, args ...any) (sql.Result, error) {
+	result, err := s.db.Exec(query, args...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (s *Store) Begin() {
+	s.Begin()
+}
+
+func (s *Store) Rollback() {
+	s.Rollback()
+}
+
+func (s *Store) Commit() {
+	s.Commit()
+}
