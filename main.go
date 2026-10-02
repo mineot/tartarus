@@ -6,5 +6,4 @@ import (
 
 func main() {
 	fmt.Println("Welcome to Tartarus CLI")
-
 }
