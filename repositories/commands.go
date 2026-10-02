@@ -22,21 +22,23 @@ type Command struct {
 }
 
 func GetCommands() ([]Command, error) {
-	store := store.Store{}
+	st := store.Store{}
 
-	if err := store.Open(); err != nil {
+	if err := st.Open(); err != nil {
 		return nil, err
 	}
 
+	defer st.Close()
+
 	query := `select id, "name", created_at, updated_at from commands`
 
-	rows, err := store.Query(query)
+	rows, err := st.Query(query)
 
 	if err != nil {
 		return nil, err
 	}
 
-	defer store.Close()
+	defer rows.Close()
 
 	var commands []Command
 
@@ -55,25 +57,31 @@ func GetCommands() ([]Command, error) {
 		commands = append(commands, command)
 	}
 
-	return []Command{}, nil
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return commands, nil
 }
 
 func GetCommand(ID uint64) (Command, error) {
-	store := store.Store{}
+	st := store.Store{}
 
-	if err := store.Open(); err != nil {
+	if err := st.Open(); err != nil {
 		return Command{}, err
 	}
 
+	defer st.Close()
+
 	query := `select id, "name", created_at, updated_at from commands where id = ?`
 
-	rows, err := store.Query(query, ID)
+	rows, err := st.Query(query, ID)
 
 	if err != nil {
 		return Command{}, err
 	}
 
-	defer store.Close()
+	defer rows.Close()
 
 	var command Command
 
@@ -88,25 +96,31 @@ func GetCommand(ID uint64) (Command, error) {
 		}
 	}
 
+	if err := rows.Err(); err != nil {
+		return Command{}, err
+	}
+
 	return command, nil
 }
 
 func (c *Command) GetItems() ([]CommandItem, error) {
-	store := store.Store{}
+	st := store.Store{}
 
-	if err := store.Open(); err != nil {
+	if err := st.Open(); err != nil {
 		return nil, err
 	}
 
+	defer st.Close()
+
 	query := `select id, command_id, script, created_at, updated_at from command_items where command_id = ?`
 
-	rows, err := store.Query(query, c.ID)
+	rows, err := st.Query(query, c.ID)
 
 	if err != nil {
 		return nil, err
 	}
 
-	defer store.Close()
+	defer rows.Close()
 
 	var items []CommandItem
 
@@ -126,25 +140,31 @@ func (c *Command) GetItems() ([]CommandItem, error) {
 		items = append(items, item)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return items, nil
 }
 
 func (c *Command) GetItem(ID uint64) (CommandItem, error) {
-	store := store.Store{}
+	st := store.Store{}
 
-	if err := store.Open(); err != nil {
+	if err := st.Open(); err != nil {
 		return CommandItem{}, err
 	}
 
+	defer st.Close()
+
 	query := `select id, command_id, script, created_at, updated_at from command_items where command_id = ? and id = ?`
 
-	rows, err := store.Query(query, c.ID, ID)
+	rows, err := st.Query(query, c.ID, ID)
 
 	if err != nil {
 		return CommandItem{}, err
 	}
 
-	defer store.Close()
+	defer rows.Close()
 
 	var item CommandItem
 
@@ -160,6 +180,10 @@ func (c *Command) GetItem(ID uint64) (CommandItem, error) {
 		}
 	}
 
+	if err := rows.Err(); err != nil {
+		return CommandItem{}, err
+	}
+
 	return item, nil
 }
 
@@ -168,27 +192,30 @@ func (c *Command) Insert() error {
 		return errors.New("command name is required")
 	}
 
-	store := store.Store{}
+	st := store.Store{}
 
-	store.Begin()
+	if err := st.Open(); err != nil {
+		return err
+	}
 
-	if err := store.Open(); err != nil {
-		store.Rollback()
+	defer st.Close()
+
+	if err := st.Begin(); err != nil {
 		return err
 	}
 
 	query := `insert into commands (name, created_at, updated_at) values (?, ?, ?)`
 
-	result, err := store.Exec(query, c.Name, time.Now(), time.Now())
+	result, err := st.Exec(query, c.Name, time.Now(), time.Now())
 
 	if err != nil {
-		store.Rollback()
+		st.Rollback()
 		return err
 	}
 
-	store.Commit()
-
-	defer store.Close()
+	if err := st.Commit(); err != nil {
+		return err
+	}
 
 	ID, err := result.LastInsertId()
 
@@ -199,7 +226,6 @@ func (c *Command) Insert() error {
 	insertedCommand, err := GetCommand(uint64(ID))
 
 	if err != nil {
-		store.Rollback()
 		return err
 	}
 
@@ -220,27 +246,30 @@ func (c *Command) AppendItem(item CommandItem) error {
 		return errors.New("command script is required")
 	}
 
-	store := store.Store{}
+	st := store.Store{}
 
-	store.Begin()
+	if err := st.Open(); err != nil {
+		return err
+	}
 
-	if err := store.Open(); err != nil {
-		store.Rollback()
+	defer st.Close()
+
+	if err := st.Begin(); err != nil {
 		return err
 	}
 
 	query := `insert into command_items (command_id, script, created_at, updated_at) values (?, ?, ?, ?)`
 
-	_, err := store.Exec(query, c.ID, item.Script, time.Now(), time.Now())
+	_, err := st.Exec(query, c.ID, item.Script, time.Now(), time.Now())
 
 	if err != nil {
-		store.Rollback()
+		st.Rollback()
 		return err
 	}
 
-	store.Commit()
-
-	defer store.Close()
+	if err := st.Commit(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -254,35 +283,46 @@ func (c *Command) Update() error {
 		return errors.New("command name is required")
 	}
 
-	store := store.Store{}
+	st := store.Store{}
 
-	store.Begin()
+	if err := st.Open(); err != nil {
+		return err
+	}
 
-	if err := store.Open(); err != nil {
-		store.Rollback()
+	defer st.Close()
+
+	if err := st.Begin(); err != nil {
 		return err
 	}
 
 	query := `update commands set name = ?, updated_at = ? where id = ?`
 
-	result, err := store.Exec(query, c.Name, time.Now(), c.ID)
+	result, err := st.Exec(query, c.Name, time.Now(), c.ID)
 
 	if err != nil {
-		store.Rollback()
+		st.Rollback()
 		return err
 	}
 
-	store.Commit()
+	if err := st.Commit(); err != nil {
+		return err
+	}
 
-	defer store.Close()
-
-	ID, err := result.RowsAffected()
+	affected, err := result.RowsAffected()
 
 	if err != nil {
 		return err
 	}
 
-	updatedCommand, err := GetCommand(uint64(ID))
+	if affected == 0 {
+		return errors.New("command not found")
+	}
+
+	updatedCommand, err := GetCommand(c.ID)
+
+	if err != nil {
+		return err
+	}
 
 	c.ID = updatedCommand.ID
 	c.Name = updatedCommand.Name
@@ -305,27 +345,30 @@ func (c *Command) UpdateItem(item CommandItem) error {
 		return errors.New("command item script is required")
 	}
 
-	store := store.Store{}
+	st := store.Store{}
 
-	store.Begin()
+	if err := st.Open(); err != nil {
+		return err
+	}
 
-	if err := store.Open(); err != nil {
-		store.Rollback()
+	defer st.Close()
+
+	if err := st.Begin(); err != nil {
 		return err
 	}
 
 	query := `update command_items set script = ?, updated_at = ? where id = ? and command_id = ?`
 
-	_, err := store.Exec(query, item.Script, time.Now(), c.ID, item.ID)
+	_, err := st.Exec(query, item.Script, time.Now(), c.ID, item.ID)
 
 	if err != nil {
-		store.Rollback()
+		st.Rollback()
 		return err
 	}
 
-	store.Commit()
-
-	defer store.Close()
+	if err := st.Commit(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -335,36 +378,39 @@ func (c *Command) Delete() error {
 		return errors.New("command id is required")
 	}
 
-	store := store.Store{}
+	st := store.Store{}
 
-	store.Begin()
+	if err := st.Open(); err != nil {
+		return err
+	}
 
-	if err := store.Open(); err != nil {
-		store.Rollback()
+	defer st.Close()
+
+	if err := st.Begin(); err != nil {
 		return err
 	}
 
 	query := `delete from command_items where command_id = ?`
 
-	_, err := store.Exec(query, c.ID)
+	_, err := st.Exec(query, c.ID)
 
 	if err != nil {
-		store.Rollback()
+		st.Rollback()
 		return err
 	}
 
 	query = `delete from commands where id = ?`
 
-	_, err = store.Exec(query, c.ID)
+	_, err = st.Exec(query, c.ID)
 
 	if err != nil {
-		store.Rollback()
+		st.Rollback()
 		return err
 	}
 
-	store.Commit()
-
-	defer store.Close()
+	if err := st.Commit(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -378,27 +424,30 @@ func (c *Command) RemoveItem(ID uint64) error {
 		return errors.New("command id is required")
 	}
 
-	store := store.Store{}
+	st := store.Store{}
 
-	store.Begin()
+	if err := st.Open(); err != nil {
+		return err
+	}
 
-	if err := store.Open(); err != nil {
-		store.Rollback()
+	defer st.Close()
+
+	if err := st.Begin(); err != nil {
 		return err
 	}
 
 	query := `delete from command_items where command_id = ? and id = ?`
 
-	_, err := store.Exec(query, c.ID, ID)
+	_, err := st.Exec(query, c.ID, ID)
 
 	if err != nil {
-		store.Rollback()
+		st.Rollback()
 		return err
 	}
 
-	store.Commit()
-
-	defer store.Close()
+	if err := st.Commit(); err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"path/filepath"
@@ -10,16 +11,30 @@ import (
 )
 
 type Store struct {
-	db *sql.DB
+	db  *sql.DB
+	tx  *sql.Tx
+	ctx context.Context
 }
 
 func (s *Store) Close() error {
+	if s.tx != nil {
+		s.tx.Rollback()
+		s.tx = nil
+	}
+
+	if s.db == nil {
+		return nil
+	}
+
+	s.ctx.Done()
+
 	return s.db.Close()
 }
 
 func (s *Store) Open() error {
 	var err error
 	var path string
+	var ctx context.Context = context.Background()
 
 	if helpers.IsProduction() {
 		path, err = helpers.GetProductionStorePath("tartarus.db")
@@ -45,46 +60,63 @@ func (s *Store) Open() error {
 		return err
 	}
 
-	if err := db.Ping(); err != nil {
+	if err := db.PingContext(ctx); err != nil {
 		db.Close()
 		return err
 	}
 
 	s.db = db
+	s.ctx = ctx
 
 	return nil
 }
 
 func (s *Store) Query(query string, args ...any) (*sql.Rows, error) {
-	rows, err := s.db.Query(query, args...)
-
-	if err != nil {
-		return nil, err
+	if s.tx != nil {
+		return s.tx.QueryContext(s.ctx, query, args...)
 	}
 
-	defer rows.Close()
-
-	return rows, nil
+	return s.db.QueryContext(s.ctx, query, args...)
 }
 
 func (s *Store) Exec(query string, args ...any) (sql.Result, error) {
-	result, err := s.db.Exec(query, args...)
-
-	if err != nil {
-		return nil, err
+	if s.tx != nil {
+		return s.tx.ExecContext(s.ctx, query, args...)
 	}
 
-	return result, nil
+	return s.db.ExecContext(s.ctx, query, args...)
 }
 
-func (s *Store) Begin() {
-	s.Begin()
+func (s *Store) Begin() error {
+	tx, err := s.db.BeginTx(s.ctx, nil)
+
+	if err != nil {
+		return err
+	}
+
+	s.tx = tx
+
+	return nil
 }
 
-func (s *Store) Rollback() {
-	s.Rollback()
+func (s *Store) Commit() error {
+	if s.tx == nil {
+		return nil
+	}
+
+	err := s.tx.Commit()
+	s.tx = nil
+
+	return err
 }
 
-func (s *Store) Commit() {
-	s.Commit()
+func (s *Store) Rollback() error {
+	if s.tx == nil {
+		return nil
+	}
+
+	err := s.tx.Rollback()
+	s.tx = nil
+
+	return err
 }
