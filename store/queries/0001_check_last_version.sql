@@ -1,1 +1,4 @@
-select id, versionDate, versionNumber from migrations;
+SELECT id, versionDate, versionNumber
+FROM migrations
+ORDER BY versionNumber DESC, id DESC
+LIMIT 1;

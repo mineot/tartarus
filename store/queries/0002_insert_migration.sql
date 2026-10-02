@@ -1,0 +1,1 @@
+INSERT INTO migrations (versionDate, versionNumber) VALUES (?, ?);
