@@ -1,11 +1,11 @@
 # TODO
 
-- Create Store package
-- Create Command package
-- Create Manual package
-- Create Import package
-- Create Export package
-- Create View package
+- [] Create Store package
+- [] Create Command package
+- [] Create Manual package
+- [] Create Import package
+- [] Create Export package
+- [] Create View package
 
 ## New Features
 

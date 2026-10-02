@@ -1,0 +1,1 @@
+select id, versionDate, versionNumber from migrations;
