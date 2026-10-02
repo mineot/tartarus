@@ -21,10 +21,15 @@ type query struct {
 }
 
 var (
-	currentVersion int = 0
+	currentVersion int = 1
 
-	//go:embed migrations/0001_create_migrations_table.up.sql
-	createMigrationTableUp string
+	//go:embed migrations/0001_create_migrations_table.sql
+	createMigrationTable string
+
+	//go:embed migrations/0002_create_version_one.up.sql
+	createVersionOneUp string
+	//go:embed migrations/0002_create_version_one.down.sql
+	createVersionOneDown string
 
 	//go:embed queries/0001_check_last_version.sql
 	checkLastVersionQuery string
@@ -40,8 +45,12 @@ var (
 )
 
 func init() {
-	ups = map[uint64]string{}
-	downs = map[uint64]string{}
+	ups = map[uint64]string{
+		1: createVersionOneUp,
+	}
+	downs = map[uint64]string{
+		1: createVersionOneDown,
+	}
 }
 
 func migrationDate() string {
@@ -49,7 +58,7 @@ func migrationDate() string {
 }
 
 func (s *Store) RunMigrations() error {
-	if _, err := s.db.Exec(createMigrationTableUp); err != nil {
+	if _, err := s.db.Exec(createMigrationTable); err != nil {
 		return err
 	}
 

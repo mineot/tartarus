@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS command_items;
+DROP TABLE IF EXISTS commands;
+DROP TABLE IF EXISTS manuals;
