@@ -17,6 +17,7 @@ type CommandItem struct {
 type Command struct {
 	ID        uint64
 	Name      string
+	Items     []CommandItem
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -260,14 +261,18 @@ func (c *Command) AppendItem(item CommandItem) error {
 
 	query := `insert into command_items (command_id, script, created_at, updated_at) values (?, ?, ?, ?)`
 
-	_, err := st.Exec(query, c.ID, item.Script, time.Now(), time.Now())
-
-	if err != nil {
+	if _, err := st.Exec(query, c.ID, item.Script, time.Now(), time.Now()); err != nil {
 		st.Rollback()
 		return err
 	}
 
 	if err := st.Commit(); err != nil {
+		return err
+	}
+
+	var err error
+
+	if c.Items, err = c.GetItems(); err != nil {
 		return err
 	}
 
@@ -324,9 +329,7 @@ func (c *Command) Update() error {
 		return err
 	}
 
-	c.ID = updatedCommand.ID
 	c.Name = updatedCommand.Name
-	c.CreatedAt = updatedCommand.CreatedAt
 	c.UpdatedAt = updatedCommand.UpdatedAt
 
 	return nil
@@ -359,14 +362,18 @@ func (c *Command) UpdateItem(item CommandItem) error {
 
 	query := `update command_items set script = ?, updated_at = ? where id = ? and command_id = ?`
 
-	_, err := st.Exec(query, item.Script, time.Now(), c.ID, item.ID)
-
-	if err != nil {
+	if _, err := st.Exec(query, item.Script, time.Now(), c.ID, item.ID); err != nil {
 		st.Rollback()
 		return err
 	}
 
 	if err := st.Commit(); err != nil {
+		return err
+	}
+
+	var err error
+
+	if c.Items, err = c.GetItems(); err != nil {
 		return err
 	}
 
@@ -392,18 +399,14 @@ func (c *Command) Delete() error {
 
 	query := `delete from command_items where command_id = ?`
 
-	_, err := st.Exec(query, c.ID)
-
-	if err != nil {
+	if _, err := st.Exec(query, c.ID); err != nil {
 		st.Rollback()
 		return err
 	}
 
 	query = `delete from commands where id = ?`
 
-	_, err = st.Exec(query, c.ID)
-
-	if err != nil {
+	if _, err := st.Exec(query, c.ID); err != nil {
 		st.Rollback()
 		return err
 	}
@@ -438,14 +441,18 @@ func (c *Command) RemoveItem(ID uint64) error {
 
 	query := `delete from command_items where command_id = ? and id = ?`
 
-	_, err := st.Exec(query, c.ID, ID)
-
-	if err != nil {
+	if _, err := st.Exec(query, c.ID, ID); err != nil {
 		st.Rollback()
 		return err
 	}
 
 	if err := st.Commit(); err != nil {
+		return err
+	}
+
+	var err error
+
+	if c.Items, err = c.GetItems(); err != nil {
 		return err
 	}
 

@@ -22,34 +22,25 @@ type query struct {
 
 var (
 	currentVersion int = 1
+	ups            map[uint64]string
+	downs          map[uint64]string
 
-	//go:embed migrations/0001_create_migrations_table.sql
-	createMigrationTable string
+	//go:embed migrations/0000_drop_all_tables.sql
+	dropAllTables string
 
-	//go:embed migrations/0002_create_version_one.up.sql
-	createVersionOneUp string
-	//go:embed migrations/0002_create_version_one.down.sql
-	createVersionOneDown string
+	//go:embed migrations/0001_create_version_one.up.sql
+	upVersionOne string
 
-	//go:embed queries/0001_check_last_version.sql
-	checkLastVersionQuery string
-
-	//go:embed queries/0002_insert_migration.sql
-	insertMigrationQuery string
-
-	//go:embed queries/0003_delete_migration.sql
-	deleteMigrationQuery string
-
-	ups   map[uint64]string
-	downs map[uint64]string
+	//go:embed migrations/0001_create_version_one.down.sql
+	downVersionOne string
 )
 
 func init() {
 	ups = map[uint64]string{
-		1: createVersionOneUp,
+		1: upVersionOne,
 	}
 	downs = map[uint64]string{
-		1: createVersionOneDown,
+		1: downVersionOne,
 	}
 }
 
@@ -57,28 +48,7 @@ func migrationDate() string {
 	return time.Now().UTC().Format(time.RFC3339)
 }
 
-func (s *Store) RunMigrations() error {
-	if _, err := s.db.Exec(createMigrationTable); err != nil {
-		return err
-	}
-
-	var lastVersion Migration
-
-	err := s.db.QueryRow(checkLastVersionQuery).Scan(
-		&lastVersion.id,
-		&lastVersion.versionDate,
-		&lastVersion.versionNumber,
-	)
-
-	if errors.Is(err, sql.ErrNoRows) {
-		lastVersion.versionNumber = 0
-	} else if err != nil {
-		return err
-	}
-
-	stored := lastVersion.versionNumber
-	cur := uint64(currentVersion)
-
+func up(stored uint64, cur uint64, s *Store) error {
 	if stored < cur {
 		tx, err := s.db.Begin()
 
@@ -99,7 +69,9 @@ func (s *Store) RunMigrations() error {
 				return err
 			}
 
-			if _, err := tx.Exec(insertMigrationQuery, migrationDate(), v); err != nil {
+			query := `INSERT INTO migrations (versionDate, versionNumber) VALUES (?, ?)`
+
+			if _, err := tx.Exec(query, migrationDate(), v); err != nil {
 				tx.Rollback()
 				return err
 			}
@@ -108,6 +80,10 @@ func (s *Store) RunMigrations() error {
 		return tx.Commit()
 	}
 
+	return nil
+}
+
+func down(stored uint64, cur uint64, s *Store) error {
 	if stored > cur {
 		tx, err := s.db.Begin()
 
@@ -128,13 +104,88 @@ func (s *Store) RunMigrations() error {
 				return err
 			}
 
-			if _, err := tx.Exec(deleteMigrationQuery, v); err != nil {
+			query := `DELETE FROM migrations WHERE versionNumber = ?`
+
+			if _, err := tx.Exec(query, v); err != nil {
 				tx.Rollback()
 				return err
 			}
 		}
 
 		return tx.Commit()
+	}
+
+	return nil
+}
+
+func (s *Store) RunMigrations() error {
+	var err error
+
+	var query = `
+	CREATE TABLE IF NOT EXISTS migrations (
+		id				INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+		versionDate		TEXT NOT NULL,
+		versionNumber	INTEGER NOT NULL
+	)
+	`
+
+	if _, err = s.db.Exec(query); err != nil {
+		return err
+	}
+
+	var lastVersion Migration
+
+	query = `SELECT id, versionDate, versionNumber FROM migrations ORDER BY versionNumber DESC, id DESC LIMIT 1`
+
+	err = s.db.QueryRow(query).Scan(
+		&lastVersion.id,
+		&lastVersion.versionDate,
+		&lastVersion.versionNumber,
+	)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		lastVersion.versionNumber = 0
+	} else if err != nil {
+		return err
+	}
+
+	stored := lastVersion.versionNumber
+	cur := uint64(currentVersion)
+
+	if err = up(stored, cur, s); err != nil {
+		return err
+	}
+
+	if err = down(stored, cur, s); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) ResetMigrations() error {
+	if err := s.Open(); err != nil {
+		return err
+	}
+
+	defer s.Close()
+
+	if err := s.Begin(); err != nil {
+		return err
+	}
+
+	if _, err := s.Exec(dropAllTables); err != nil {
+		s.Rollback()
+		return err
+	}
+
+	if err := s.Commit(); err != nil {
+		return err
+	}
+
+	if err := s.RunMigrations(); err != nil {
+		s.Rollback()
+		return err
 	}
 
 	return nil

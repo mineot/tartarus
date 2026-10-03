@@ -22,52 +22,50 @@ func (s *Store) Close() error {
 		s.tx = nil
 	}
 
+	if s.ctx != nil {
+		s.ctx.Done()
+	}
+
 	if s.db == nil {
 		return nil
 	}
-
-	s.ctx.Done()
 
 	return s.db.Close()
 }
 
 func (s *Store) Open() error {
+	var ctx context.Context
+	var db *sql.DB
 	var err error
 	var path string
-	var ctx context.Context = context.Background()
 
 	if helpers.IsProduction() {
-		path, err = helpers.GetProductionStorePath("tartarus.db")
-
-		if err != nil {
+		if path, err = helpers.GetProductionStorePath("tartarus.db"); err != nil {
 			return err
 		}
 	} else {
-		path, err = helpers.GetDevelopmentStorePath("dev.db")
-
-		if err != nil {
+		if path, err = helpers.GetDevelopmentStorePath("dev.db"); err != nil {
 			return err
 		}
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err = os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
 
-	db, err := sql.Open("sqlite3", path)
-
-	if err != nil {
+	if db, err = sql.Open("sqlite3", path); err != nil {
 		return err
 	}
 
-	if err := db.PingContext(ctx); err != nil {
+	ctx = context.Background()
+
+	if err = db.PingContext(ctx); err != nil {
 		db.Close()
 		return err
 	}
 
 	s.db = db
 	s.ctx = ctx
-
 	return nil
 }
 
@@ -119,9 +117,4 @@ func (s *Store) Rollback() error {
 	s.tx = nil
 
 	return err
-}
-
-func (s *Store) Reset() error {
-	// TODO
-	return nil
 }
