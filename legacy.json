@@ -1,0 +1,51 @@
+[
+  {
+    "instructions": [
+      "rclone config reconnect gdrive-mineot:"
+    ],
+    "_id": "cmd:gdrive-refresh-connection",
+    "_rev": "1-8a67f21c1fd7c994618fb51666fba48d"
+  },
+  {
+    "instructions": [
+      "sudo apt update",
+      "sudo apt upgrade",
+      "sudo apt dist-upgrade",
+      "sudo apt full-upgrade",
+      "sudo apt autoremove",
+      "sudo snap refresh",
+      "composer global update"
+    ],
+    "description": "Atualização geral do Linux",
+    "_id": "cmd:linux_upgrade",
+    "_rev": "1-fb740d7179624500e7022de62361cc07"
+  },
+  {
+    "instructions": [
+      "sudo nordvpn connect Greece"
+    ],
+    "description": "Comando que conecta a NordVPN em um servidor na Grecia",
+    "_id": "cmd:vpn_gr",
+    "_rev": "1-86233f2d8bfea4df08d5485f49c9111c"
+  },
+  {
+    "instructions": [
+      "sudo nordvpn connect United_States"
+    ],
+    "description": "Comando que conecta a NordVPN em um servidor na América",
+    "_id": "cmd:vpn_us",
+    "_rev": "1-07462d9c5d67f1e879357cf604762b70"
+  },
+  {
+    "data": "nano",
+    "updatedAt": "2025-08-16T02:29:38.705Z",
+    "_id": "config:editor",
+    "_rev": "1-c50354400fbd8bc76f72590fbacb5083"
+  },
+  {
+    "content": "teste\n\nteste\n\nteste\n",
+    "updatedAt": "2025-12-13T21:38:20.346Z",
+    "_id": "manual:teste",
+    "_rev": "1-d05c447e7d7dc417d01369dba7f20312"
+  }
+]

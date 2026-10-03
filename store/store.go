@@ -120,3 +120,8 @@ func (s *Store) Rollback() error {
 
 	return err
 }
+
+func (s *Store) Reset() error {
+	// TODO
+	return nil
+}
