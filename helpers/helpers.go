@@ -36,6 +36,36 @@ func GetStorePath() (string, error) {
 	return developmentPath()
 }
 
+// ErrProduction is returned by SetDevStorePath in a build that has a version
+// injected by the Makefile.
+var ErrProduction = errors.New("helpers: the store path is fixed in a production build")
+
+// devStorePath overrides the development database when it is not empty.
+//
+// It exists so tests in other packages can reach a database at all: store's
+// path-taking constructor is unexported, so store.New, and therefore this
+// function, is the only door.
+var devStorePath string
+
+// SetDevStorePath points the development database at path. An empty path clears
+// the override and goes back to resolving the project root.
+//
+// It only takes effect in a development build. Once a version is injected, it
+// returns ErrProduction and the path stays the production one, so a released
+// binary cannot be made to open some other file.
+//
+// The override is a plain package variable with no locking. Call it before
+// starting concurrent work, which in practice means from a test helper.
+func SetDevStorePath(path string) error {
+	if isProduction() {
+		return ErrProduction
+	}
+
+	devStorePath = path
+
+	return nil
+}
+
 func isProduction() bool {
 	return version != devVersion
 }
@@ -51,6 +81,12 @@ func productionPath() (string, error) {
 }
 
 func developmentPath() (string, error) {
+	// The override short-circuits the search for the project root: it exists to
+	// point a test at a temp directory, which is not inside a project at all.
+	if devStorePath != "" {
+		return devStorePath, nil
+	}
+
 	wd, err := os.Getwd()
 
 	if err != nil {

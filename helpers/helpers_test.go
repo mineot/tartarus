@@ -162,3 +162,77 @@ func TestFindProjectRootPropagatesUnexpectedStatError(t *testing.T) {
 		t.Fatalf("erro inesperado, sem contexto: %v", err)
 	}
 }
+
+func TestSetDevStorePath(t *testing.T) {
+	setVersion(t, devVersion)
+
+	want := filepath.Join(t.TempDir(), "override.db")
+
+	if err := SetDevStorePath(want); err != nil {
+		t.Fatalf("SetDevStorePath: %v", err)
+	}
+
+	t.Cleanup(func() { devStorePath = "" })
+
+	got, err := GetStorePath()
+
+	if err != nil {
+		t.Fatalf("GetStorePath: %v", err)
+	}
+
+	if got != want {
+		t.Fatalf("esperava %q, obteve %q", want, got)
+	}
+}
+
+func TestSetDevStorePathEmptyClearsTheOverride(t *testing.T) {
+	setVersion(t, devVersion)
+
+	root := markRoot(t, t.TempDir())
+	t.Chdir(root)
+
+	if err := SetDevStorePath(filepath.Join(t.TempDir(), "override.db")); err != nil {
+		t.Fatalf("SetDevStorePath: %v", err)
+	}
+
+	t.Cleanup(func() { devStorePath = "" })
+
+	if err := SetDevStorePath(""); err != nil {
+		t.Fatalf("SetDevStorePath com string vazia: %v", err)
+	}
+
+	got, err := GetStorePath()
+
+	if err != nil {
+		t.Fatalf("GetStorePath: %v", err)
+	}
+
+	if want := filepath.Join(root, developmentDB); got != want {
+		t.Fatalf("esperava %q, obteve %q", want, got)
+	}
+}
+
+// TestSetDevStorePathIsRejectedInProduction is the test that makes the hook
+// acceptable: a released binary must not be redirectable to another file.
+func TestSetDevStorePathIsRejectedInProduction(t *testing.T) {
+	setVersion(t, "v1.0.4")
+	t.Setenv("HOME", t.TempDir())
+
+	err := SetDevStorePath(filepath.Join(t.TempDir(), "override.db"))
+
+	if !errors.Is(err, ErrProduction) {
+		t.Fatalf("esperava ErrProduction, obteve %v", err)
+	}
+
+	if devStorePath != "" {
+		t.Fatalf("o override não deveria ter sido gravado, ficou %q", devStorePath)
+	}
+
+	want := filepath.Join(os.Getenv("HOME"), productionDir, productionDB)
+
+	if got, err := GetStorePath(); err != nil {
+		t.Fatalf("GetStorePath: %v", err)
+	} else if got != want {
+		t.Fatalf("o caminho de produção mudou: esperava %q, obteve %q", want, got)
+	}
+}

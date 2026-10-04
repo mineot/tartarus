@@ -1,62 +1,71 @@
 package repositories
 
-// import (
-// 	"errors"
-// 	"tartarus/store"
-// 	"time"
-// )
+import (
+	"fmt"
+	"time"
 
-// type Manual struct {
-// 	ID        uint64
-// 	Name      string
-// 	Body      string
-// 	CreatedAt time.Time
-// 	UpdatedAt time.Time
-// }
+	"tartarus/store"
+)
 
-// func GetManuals() ([]Manual, error) {
-// 	st := store.Store{}
+// Manual is a document attached to a command, explaining what it does and how to
+// use it.
+type Manual struct {
+	ID        uint64
+	Name      string
+	Body      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
 
-// 	if err := st.Open(); err != nil {
-// 		return nil, err
-// 	}
+const selectManuals = `
+	SELECT id, name, body, created_at, updated_at
+	FROM manuals
+	ORDER BY id
+`
 
-// 	defer st.Close()
+// GetManuals returns every manual, in creation order.
+//
+// It reads through Store.Query rather than inside a WithTx: a read does not need
+// a transaction, and _txlock=immediate would take the write lock to begin with,
+// serializing readers against writers for nothing. The cost is that it cannot
+// run while a WithTx is in progress on the same Store, which returns
+// store.ErrUseTx. Read after the write has committed.
+//
+// The returned slice is nil when there are no manuals, so callers should test it
+// with len.
+func GetManuals(s *store.Store) ([]Manual, error) {
+	rows, err := s.Query(selectManuals)
 
-// 	query := `select id, name, body, created_at, updated_at from manuals`
+	if err != nil {
+		return nil, fmt.Errorf("repositories: selecting manuals: %w", err)
+	}
 
-// 	rows, err := st.Query(query)
+	defer rows.Close()
 
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	var manuals []Manual
 
-// 	defer rows.Close()
+	for rows.Next() {
+		var manual Manual
 
-// 	var manuals []Manual
+		if err = rows.Scan(
+			&manual.ID,
+			&manual.Name,
+			&manual.Body,
+			&manual.CreatedAt,
+			&manual.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("repositories: scanning manual: %w", err)
+		}
 
-// 	for rows.Next() {
-// 		var manual Manual
+		manuals = append(manuals, manual)
+	}
 
-// 		if err := rows.Scan(
-// 			&manual.ID,
-// 			&manual.Name,
-// 			&manual.Body,
-// 			&manual.CreatedAt,
-// 			&manual.UpdatedAt,
-// 		); err != nil {
-// 			return nil, err
-// 		}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("repositories: iterating manuals: %w", err)
+	}
 
-// 		manuals = append(manuals, manual)
-// 	}
-
-// 	if err := rows.Err(); err != nil {
-// 		return nil, err
-// 	}
-
-// 	return manuals, nil
-// }
+	return manuals, nil
+}
 
 // func GetManual(ID uint64) (Manual, error) {
 // 	st := store.Store{}

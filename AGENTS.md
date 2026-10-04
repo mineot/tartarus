@@ -47,14 +47,15 @@ not uncomment, fix or "repair" those files unless asked.
 | `store/migration.go` | Live. Rewritten for `WithTx` (see below). |
 | `store/migration_test.go` | Live. New. |
 | `repositories/commands.go` | Commented out. Types `Command`, `CommandItem` included. |
-| `repositories/manuals.go` | Commented out. Type `Manual` included. |
+| `repositories/manuals.go` | Live. `GetManuals` converted; the other five functions still commented. |
+| `repositories/manuals_test.go` | Live. New. |
 | `backup/import.go` | Commented out. |
 | `backup/export.go` | Commented out. |
 | `backup/backup.go` | Live. Only the JSON structs for the backup format. |
 | `backup/restore-legacy.go` | Live. Empty stub. |
-| `helpers/helpers.go` | Live. One public method, `GetStorePath`. |
+| `helpers/helpers.go` | Live. `GetStorePath` and `SetDevStorePath`. |
 | `helpers/helpers_test.go` | Live. New. |
-| `main.go` | Live. Opens the store, migrates, prints its path. |
+| `main.go` | Live. Opens the store, migrates, prints the path, lists manuals. |
 
 `store.New` is the only consumer of `helpers.GetStorePath`. The prod/dev policy
 stays in `helpers`; `store` only asks for the path, and `Store.Path` reports
@@ -218,6 +219,44 @@ transaction its caller had already started.
 - `down` only runs when the database is ahead of the binary, which means an older
   build was opened against a newer schema.
 
+## Repositories
+
+`repositories` sits on top of `store`. The old pattern was `store.Store{}` +
+`Open()` + `defer Close()` **per operation**, which is gone: the `Store` is opened
+once per process in `main.go` and passed in.
+
+```go
+func GetManuals(s *store.Store) ([]Manual, error) // converted
+```
+
+- **Reads go through `Store.Query`, not `WithTx`.** A read needs no transaction,
+  and `_txlock=immediate` would make `WithTx` take the write lock regardless,
+  serializing readers against writers for nothing.
+- Consequence, and it is a real one: a read cannot run while a `WithTx` is in
+  progress on the same `Store`. `Store.Query` returns `ErrUseTx`. Read after the
+  write commits.
+- **Writes go through `Store.WithTx`.** Not converted yet.
+- A read that has to happen **inside** a write must use `tx.QueryRow`, not
+  `s.Query`, for the reason above. `Manual.Insert` and `Manual.Update` both read
+  the row back after writing, so this is coming.
+- Errors are wrapped as `repositories: <what>: %w`, which keeps the `store`
+  sentinels matchable through `errors.Is`.
+
+## Testing outside `store`
+
+`store`'s tests use the unexported `newAt`, so they can point a `Store` at
+`t.TempDir()`. From another package that door does not exist, which is why
+`helpers` has a test-only override:
+
+```go
+func helpers.SetDevStorePath(path string) error // ErrProduction if a version is injected
+```
+
+It short-circuits the project-root search in `developmentPath`. It is refused in
+any build with a version injected, so a released binary cannot be redirected to a
+different file, and there is a test asserting exactly that. There is no locking on
+the variable, so tests using it must not run in parallel.
+
 ## Database schema
 
 Defined in `store/migrations/0001_create_version_one.up.sql`: `commands`,
@@ -232,15 +271,20 @@ In order of urgency. None of it has been dealt with yet.
    `st.ResetMigrations()`, which opened the store again. The old API had no
    guard, so this leaked a connection. The second `Open` is gone from
    `ResetMigrations`; confirm it is gone from the import rewrite too.
-2. **`repositories/` and `backup/` have to be converted to `WithTx`.** The old
-   pattern was `st := store.Store{}` + `Open()` + `defer Close()` per operation,
-   with a manual transaction. That becomes `store.WithTx(func(tx *store.Tx)
-   error { ... })`. Since `Store` is now a shared resource, decide who owns it: one
-   `Store` per operation still works, or one `Store` per process.
-3. **`Command.Delete` deletes `command_items` explicitly even though the FK now
+2. **The rest of `repositories/` and all of `backup/`.** `GetManuals` is the only
+   converted function. Still to do: `GetManual`, `Manual.Insert`, `Manual.Update`,
+   `Manual.Delete`, everything in `commands.go`, and both backup files. They all
+   still call `Open()`, `Begin()`, `Commit()` and `Rollback()`.
+3. **`Manual.Insert` and `Manual.Update` read the row back after writing.** With
+   `Store` shared, that read has to move inside the same `WithTx` using
+   `tx.QueryRow`, otherwise it lands on a connection that cannot see the write.
+   Both also copy the result field by field, which `*manual = fetched` would do
+   in one line.
+4. **`Command.Delete` deletes `command_items` explicitly even though the FK now
    cascades.** It is not wrong, just redundant. Worth deciding whether to keep
    the belt and braces or trust the constraint once the code is rewritten.
-4. **`main.go` does nothing** beyond opening, migrating and printing the path.
+5. **`main.go` still has no CLI surface.** It opens, migrates, prints the path and
+   lists manuals as a usage example.
 
 ## Style
 
