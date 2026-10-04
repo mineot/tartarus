@@ -74,7 +74,8 @@ func insertManual(t *testing.T, s *store.Store, name string, body string) (uint6
 func TestGetManualsOnEmptyDatabase(t *testing.T) {
 	s := newTestStore(t)
 
-	manuals, err := GetManuals(s)
+	r := New(s)
+	manuals, err := r.GetManuals()
 
 	if err != nil {
 		t.Fatalf("GetManuals: %v", err)
@@ -108,7 +109,8 @@ func TestGetManualsReturnsEveryManualInCreationOrder(t *testing.T) {
 		want = append(want, inserted{id: id, name: m.name, body: m.body, at: at})
 	}
 
-	manuals, err := GetManuals(s)
+	r := New(s)
+	manuals, err := r.GetManuals()
 
 	if err != nil {
 		t.Fatalf("GetManuals: %v", err)
@@ -153,7 +155,8 @@ func TestGetManualsIsRejectedInsideATransaction(t *testing.T) {
 	s := newTestStore(t)
 
 	err := s.WithTx(func(tx *store.Tx) error {
-		_, err := GetManuals(s)
+		r := New(s)
+		_, err := r.GetManuals()
 
 		return err
 	})
@@ -172,7 +175,8 @@ func TestGetManualsPropagatesAClosedStore(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	_, err := GetManuals(s)
+	r := New(s)
+	_, err := r.GetManuals()
 
 	if !errors.Is(err, store.ErrClosed) {
 		t.Fatalf("esperava store.ErrClosed, obteve %v", err)

@@ -31,7 +31,7 @@ const selectManuals = `
 // The returned slice is nil when there are no manuals, so callers should test it
 // with len.
 func (r *Repos) GetManuals() ([]Manual, error) {
-	rows, err := r.Str.Query(selectManuals)
+	rows, err := r.Store.Query(selectManuals)
 
 	if err != nil {
 		return nil, fmt.Errorf("repositories: selecting manuals: %w", err)

@@ -226,7 +226,7 @@ transaction its caller had already started.
 once per process in `main.go` and passed in.
 
 ```go
-func GetManuals(s *store.Store) ([]Manual, error) // converted
+func (r *Repos) GetManuals() ([]Manual, error) // converted
 ```
 
 - **Reads go through `Store.Query`, not `WithTx`.** A read needs no transaction,

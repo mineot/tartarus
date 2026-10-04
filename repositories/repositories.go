@@ -2,10 +2,12 @@ package repositories
 
 import "tartarus/store"
 
+// Repos centralizes access to the shared store.
 type Repos struct {
-	Str *store.Store
+	Store *store.Store
 }
 
-func New(str *store.Store) *Repos {
-	return &Repos{str}
+// New creates a new Repos backed by the given store.
+func New(s *store.Store) *Repos {
+	return &Repos{Store: s}
 }
