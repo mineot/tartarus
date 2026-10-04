@@ -3,12 +3,9 @@ package repositories
 import (
 	"fmt"
 	"time"
-
-	"tartarus/store"
 )
 
-// Manual is a document attached to a command, explaining what it does and how to
-// use it.
+// Manual is a document attached to a command, explaining what it does and how to use it.
 type Manual struct {
 	ID        uint64
 	Name      string
@@ -33,8 +30,8 @@ const selectManuals = `
 //
 // The returned slice is nil when there are no manuals, so callers should test it
 // with len.
-func GetManuals(s *store.Store) ([]Manual, error) {
-	rows, err := s.Query(selectManuals)
+func (r *Repos) GetManuals() ([]Manual, error) {
+	rows, err := r.Str.Query(selectManuals)
 
 	if err != nil {
 		return nil, fmt.Errorf("repositories: selecting manuals: %w", err)

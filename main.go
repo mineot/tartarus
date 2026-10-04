@@ -29,13 +29,15 @@ func main() {
 
 	fmt.Println(s.Path())
 
-	listManuals(s)
+	r := repositories.New(s)
+
+	listManuals(r)
 }
 
 // listManuals is an example of reading through a repository: a plain read, no
 // transaction, straight after the migrations are done.
-func listManuals(s *store.Store) {
-	manuals, err := repositories.GetManuals(s)
+func listManuals(r *repositories.Repos) {
+	manuals, err := r.GetManuals()
 
 	if err != nil {
 		log.Fatal(err)
