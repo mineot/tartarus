@@ -362,7 +362,7 @@ func (c *Command) UpdateItem(item CommandItem) error {
 
 	query := `update command_items set script = ?, updated_at = ? where id = ? and command_id = ?`
 
-	if _, err := st.Exec(query, item.Script, time.Now(), c.ID, item.ID); err != nil {
+	if _, err := st.Exec(query, item.Script, time.Now(), item.ID, c.ID); err != nil {
 		st.Rollback()
 		return err
 	}

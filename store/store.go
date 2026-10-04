@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"tartarus/helpers"
@@ -16,24 +17,42 @@ type Store struct {
 	ctx context.Context
 }
 
-func (s *Store) Close() error {
-	if s.tx != nil {
-		s.tx.Rollback()
-		s.tx = nil
-	}
-
-	if s.ctx != nil {
-		s.ctx.Done()
-	}
-
+func (s *Store) ensureOpen() error {
 	if s.db == nil {
-		return nil
+		return errors.New("store is not open")
 	}
 
-	return s.db.Close()
+	return nil
+}
+
+func (s *Store) Close() error {
+	var rollbackErr error
+	var closeErr error
+
+	if s.tx != nil {
+		rollbackErr = s.tx.Rollback()
+		s.tx = nil
+
+		if errors.Is(rollbackErr, sql.ErrTxDone) {
+			rollbackErr = nil
+		}
+	}
+
+	if s.db != nil {
+		closeErr = s.db.Close()
+		s.db = nil
+	}
+
+	s.ctx = nil
+
+	return errors.Join(rollbackErr, closeErr)
 }
 
 func (s *Store) Open() error {
+	if s.db != nil {
+		return errors.New("store is already open")
+	}
+
 	var ctx context.Context
 	var db *sql.DB
 	var err error
@@ -70,6 +89,10 @@ func (s *Store) Open() error {
 }
 
 func (s *Store) Query(query string, args ...any) (*sql.Rows, error) {
+	if err := s.ensureOpen(); err != nil {
+		return nil, err
+	}
+
 	if s.tx != nil {
 		return s.tx.QueryContext(s.ctx, query, args...)
 	}
@@ -78,6 +101,10 @@ func (s *Store) Query(query string, args ...any) (*sql.Rows, error) {
 }
 
 func (s *Store) Exec(query string, args ...any) (sql.Result, error) {
+	if err := s.ensureOpen(); err != nil {
+		return nil, err
+	}
+
 	if s.tx != nil {
 		return s.tx.ExecContext(s.ctx, query, args...)
 	}
@@ -86,6 +113,14 @@ func (s *Store) Exec(query string, args ...any) (sql.Result, error) {
 }
 
 func (s *Store) Begin() error {
+	if err := s.ensureOpen(); err != nil {
+		return err
+	}
+
+	if s.tx != nil {
+		return errors.New("transaction is already active")
+	}
+
 	tx, err := s.db.BeginTx(s.ctx, nil)
 
 	if err != nil {
