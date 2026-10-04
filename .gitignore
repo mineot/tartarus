@@ -1,2 +1,4 @@
-dev.db
-tartarus
+/dev.db
+/dev.db-wal
+/dev.db-shm
+/tartarus

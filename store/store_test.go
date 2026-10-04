@@ -13,10 +13,10 @@ const createItems = `CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, n
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 
-	s, err := New(context.Background(), filepath.Join(t.TempDir(), "test.db"))
+	s, err := newAt(context.Background(), filepath.Join(t.TempDir(), "test.db"))
 
 	if err != nil {
-		t.Fatalf("New: %v", err)
+		t.Fatalf("newAt: %v", err)
 	}
 
 	if _, err = s.Exec(createItems); err != nil {
@@ -146,6 +146,22 @@ func TestWithTxWithoutFunc(t *testing.T) {
 
 	if err := s.WithTx(nil); !errors.Is(err, ErrNoFunc) {
 		t.Fatalf("WithTx(nil) deveria devolver ErrNoFunc, obteve %v", err)
+	}
+}
+
+func TestPath(t *testing.T) {
+	want := filepath.Join(t.TempDir(), "test.db")
+
+	s, err := newAt(context.Background(), want)
+
+	if err != nil {
+		t.Fatalf("newAt: %v", err)
+	}
+
+	defer s.Close()
+
+	if got := s.Path(); got != want {
+		t.Fatalf("esperava %q, obteve %q", want, got)
 	}
 }
 

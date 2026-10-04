@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"tartarus/helpers"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -37,6 +39,10 @@ const (
 
 // Store owns the lifecycle of the connection to the database.
 //
+// The path is not a constructor argument: New asks helpers.GetStorePath for it,
+// so the prod/dev policy stays in helpers. Call Path to find out which file was
+// opened.
+//
 // Concurrency: a Store may be shared across goroutines, but the way to reach the
 // database goes through WithTx. While a transaction is in progress, Exec and
 // Query return ErrUseTx instead of waiting for the connection: with a single
@@ -47,20 +53,35 @@ const (
 // between the begin and the commit or rollback, which stops one operation's
 // transaction from leaking into the next.
 type Store struct {
-	db     *sql.DB
-	ctx    context.Context
+	db   *sql.DB
+	path string
+	ctx  context.Context
+
 	mu     sync.Mutex
 	inTx   atomic.Bool
 	closed atomic.Bool
 }
 
-// New opens path and returns a Store ready for use, creating the database
-// directory if it does not exist yet.
+// New opens the database for the current build and returns a Store ready for
+// use.
 //
 // The context is kept as the parent of every operation, so it should live as
 // long as the process rather than as long as a request: a request context
 // cancelled here takes the whole Store down with it.
-func New(ctx context.Context, path string) (*Store, error) {
+func New(ctx context.Context) (*Store, error) {
+	path, err := helpers.GetStorePath()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return newAt(ctx, path)
+}
+
+// newAt opens path and returns a Store ready for use, creating the database
+// directory if it does not exist yet. It is unexported so tests can point a
+// Store at a temp directory instead of the real database.
+func newAt(ctx context.Context, path string) (*Store, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -70,13 +91,13 @@ func New(ctx context.Context, path string) (*Store, error) {
 	}
 
 	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating directory for %s: %w", path, err)
 	}
 
 	db, err := sql.Open("sqlite3", dsn(path))
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("opening store at %s: %w", path, err)
 	}
 
 	db.SetMaxOpenConns(1)
@@ -85,10 +106,16 @@ func New(ctx context.Context, path string) (*Store, error) {
 
 	if err = db.PingContext(ctx); err != nil {
 		db.Close()
-		return nil, err
+		return nil, fmt.Errorf("connecting to store at %s: %w", path, err)
 	}
 
-	return &Store{db: db, ctx: ctx}, nil
+	return &Store{db: db, path: path, ctx: ctx}, nil
+}
+
+// Path returns the database file this Store opened. It is set at construction
+// and never changes, so it stays correct after Close.
+func (s *Store) Path() string {
+	return s.path
 }
 
 // dsn builds the SQLite connection parameters.

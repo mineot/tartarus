@@ -15,14 +15,23 @@ and export in JSON.
 ## Commands
 
 ```bash
+make build    # go build with -ldflags, injects the git version
+make run      # go run . with no ldflags, so it is always development
+make test     # go test -race ./...
+make vet
+make fmt      # gofmt -l .
+```
+
+Or the raw commands, which is what the Makefile runs:
+
+```bash
 go build ./...
 go vet ./...
-go test -race ./store/
+go test -race ./...
 gofmt -l .
 ```
 
-The project has tests **only** in `store/`. `repositories/` and `backup/` have
-none.
+Tests exist in `store/` and `helpers/`. `repositories/` and `backup/` have none.
 
 ## Current state: nearly everything is commented out on purpose
 
@@ -42,21 +51,62 @@ not uncomment, fix or "repair" those files unless asked.
 | `backup/export.go` | Commented out. |
 | `backup/backup.go` | Live. Only the JSON structs for the backup format. |
 | `backup/restore-legacy.go` | Live. Empty stub. |
-| `helpers/helpers.go` | Live. Dev/prod paths. |
-| `main.go` | Live. Only prints a banner. |
+| `helpers/helpers.go` | Live. One public method, `GetStorePath`. |
+| `helpers/helpers_test.go` | Live. New. |
+| `main.go` | Live. Opens the store and prints its path. |
 
-Consequence: `helpers` has no live consumer left. `GetProductionStorePath` and
-`GetDevelopmentStorePath` will be used by whoever calls `store.New`, not by the
-store itself.
+`store.New` is the only consumer of `helpers.GetStorePath`. The prod/dev policy
+stays in `helpers`; `store` only asks for the path, and `Store.Path` reports
+which file was opened.
+
+## Build mode and paths
+
+`helpers` owns the only policy in the project that answers "which database?".
+`store.New` calls it.
+
+```go
+func helpers.GetStorePath() (string, error) // ~/.tartarus/tartarus.db, or <project root>/dev.db
+```
+
+The mode comes from `helpers.version`, injected at link time by the Makefile:
+
+```makefile
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+go build -ldflags "-X tartarus/helpers.version=$(VERSION)"
+```
+
+- `make build` (or any `go build` with `-ldflags`) injects a version → **production**.
+- `go run .`, and a bare `go build .` with no `-ldflags`, leave `version` at its
+  declared default `"dev"` → **development**.
+
+There is **no automatic** way for a binary to tell how it was built: with no
+flags, `go build` and `go run` produce identical build info. The Makefile is the
+pre-build step. This replaced an older `IsProduction()` that sniffed the
+executable path for the substring `"go-build"` — that only worked for `go run`
+and sent a locally built binary to `~/.tartarus`, since `.gitignore` has always
+expected the binary at the project root.
+
+Two things to know before touching this:
+
+- `-X` only rewrites a `string` variable whose initializer is a constant, and
+  the import path in the flag has to be the full one (`tartarus/helpers`).
+- There is no build-step-free fallback. `runtime/debug.ReadBuildInfo()` with
+  `Main.Version == "(devel)"` can tell a local build from
+  `go install tartarus@v1.0`, but it cannot separate `go build` from `go run`, so
+  it is not a substitute. It would only work as a safety net so a mis-built
+  binary does not mistake itself for a release.
 
 ## The store
 
-`store.New(ctx, path)` owns the connection. There is no `Open()` anymore, no
-`Begin`/`Commit`/`Rollback`, and no `tx` field on the struct.
+`store.New(ctx)` owns the connection. There is no `Open()` anymore, no
+`Begin`/`Commit`/`Rollback`, and no `tx` field on the struct. The path is not a
+constructor argument: `New` asks `helpers.GetStorePath` for it, and `newAt` (the
+unexported path-taking constructor) is what the tests use.
 
 ```go
-func New(ctx context.Context, path string) (*Store, error)
-func (s *Store) Close() error                       // idempotent
+func New(ctx context.Context) (*Store, error)
+func (s *Store) Path() string                           // which file was opened
+func (s *Store) Close() error                           // idempotent
 func (s *Store) Exec(query string, args ...any) (sql.Result, error)
 func (s *Store) Query(query string, args ...any) (*sql.Rows, error)
 func (s *Store) WithTx(fn func(*Tx) error) error
@@ -65,6 +115,10 @@ func (t *Tx) Exec(query string, args ...any) (sql.Result, error)
 func (t *Tx) Query(query string, args ...any) (*sql.Rows, error)
 func (t *Tx) QueryRow(query string, args ...any) *sql.Row
 ```
+
+`New(ctx)` itself is not covered by tests: calling it touches the real database,
+and `helpers.version` has no exported override, so the suite exercises `newAt`
+instead.
 
 ### Transaction contract
 
@@ -105,8 +159,11 @@ error. A panic inside `fn` also rolls back, before it propagates.
 `_txlock=immediate`, and caps the pool at 1 connection. Before changing any of
 this:
 
-- **WAL is persistent.** The mode is written to the file header, so the root
-  `dev.db` is already in WAL and stays that way for every future open.
+- **WAL is persistent.** The mode is written to the file header, so the first
+  time the root `dev.db` is opened it turns WAL and stays that way for every
+  future open. It has already happened: header bytes 18/19 are `02 02`. Expect
+  `-wal` and `-shm` sidecar files next to it while a connection is open; they
+  are in `.gitignore` and disappear on clean close.
 - `_txlock=immediate` swaps `BEGIN` for `BEGIN IMMEDIATE`, which takes the write
   lock up front. Without it, a transaction that only reads can fail when it is
   promoted to a write, and the `_busy_timeout` does not cover that case.

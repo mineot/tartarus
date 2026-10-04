@@ -1,17 +1,22 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log"
+	"tartarus/store"
 )
 
 func main() {
 	fmt.Println("Welcome to Tartarus CLI")
 
-	// path, err := helpers.GetDevelopmentStorePath("test.json")
+	s, err := store.New(context.Background())
 
-	// if err != nil {
-	// 	panic(err)
-	// }
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// backup.Import(path)
+	defer s.Close()
+
+	fmt.Println(s.Path())
 }
