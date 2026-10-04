@@ -18,5 +18,13 @@ func main() {
 
 	defer s.Close()
 
+	if err = s.RunMigrations(); err != nil {
+		log.Fatal(err)
+	}
+
+	if err = s.ResetMigrations(); err != nil {
+		log.Fatal(err)
+	}
+
 	fmt.Println(s.Path())
 }

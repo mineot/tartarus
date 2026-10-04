@@ -130,12 +130,20 @@ func (s *Store) Path() string {
 // _txlock swaps the deferred BEGIN for a BEGIN IMMEDIATE, which takes the write
 // lock up front. Without it a transaction that only reads can fail when it is
 // promoted to a write, and _busy_timeout does not cover that case.
+//
+// _foreign_keys turns on referential enforcement, which is what makes
+// ON DELETE CASCADE and ON UPDATE CASCADE on command_items actually happen. It
+// has to be set here rather than in a migration: SQLite ignores PRAGMA
+// foreign_keys inside a transaction, and migrations run inside one, so a pragma
+// in the SQL was always a no-op. The pool holds a single connection, so the
+// setting cannot drift between operations.
 func dsn(path string) string {
 	var q = url.Values{}
 
 	q.Set("_busy_timeout", strconv.FormatInt(busyTimeout.Milliseconds(), 10))
 	q.Set("_journal_mode", "WAL")
 	q.Set("_txlock", "immediate")
+	q.Set("_foreign_keys", "on")
 
 	return path + "?" + q.Encode()
 }

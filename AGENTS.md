@@ -44,7 +44,8 @@ not uncomment, fix or "repair" those files unless asked.
 | `store/store.go` | Live. Rewritten (see below). |
 | `store/tx.go` | Live. New. |
 | `store/store_test.go` | Live. New. |
-| `store/migration.go` | Fully commented out, only `package store`. |
+| `store/migration.go` | Live. Rewritten for `WithTx` (see below). |
+| `store/migration_test.go` | Live. New. |
 | `repositories/commands.go` | Commented out. Types `Command`, `CommandItem` included. |
 | `repositories/manuals.go` | Commented out. Type `Manual` included. |
 | `backup/import.go` | Commented out. |
@@ -53,7 +54,7 @@ not uncomment, fix or "repair" those files unless asked.
 | `backup/restore-legacy.go` | Live. Empty stub. |
 | `helpers/helpers.go` | Live. One public method, `GetStorePath`. |
 | `helpers/helpers_test.go` | Live. New. |
-| `main.go` | Live. Opens the store and prints its path. |
+| `main.go` | Live. Opens the store, migrates, prints its path. |
 
 `store.New` is the only consumer of `helpers.GetStorePath`. The prod/dev policy
 stays in `helpers`; `store` only asks for the path, and `Store.Path` reports
@@ -155,9 +156,9 @@ error. A panic inside `fn` also rolls back, before it propagates.
 
 ### Connection configuration
 
-`store.go` builds the DSN with `_busy_timeout=5000`, `_journal_mode=WAL` and
-`_txlock=immediate`, and caps the pool at 1 connection. Before changing any of
-this:
+`store.go` builds the DSN with `_busy_timeout=5000`, `_journal_mode=WAL`,
+`_txlock=immediate` and `_foreign_keys=on`, and caps the pool at 1 connection.
+Before changing any of this:
 
 - **WAL is persistent.** The mode is written to the file header, so the first
   time the root `dev.db` is opened it turns WAL and stays that way for every
@@ -167,9 +168,17 @@ this:
 - `_txlock=immediate` swaps `BEGIN` for `BEGIN IMMEDIATE`, which takes the write
   lock up front. Without it, a transaction that only reads can fail when it is
   promoted to a write, and the `_busy_timeout` does not cover that case.
+- `_foreign_keys=on` is what makes
+  `command_items.command_id REFERENCES commands(id) ON DELETE CASCADE` real. It
+  has to come from the DSN: SQLite ignores `PRAGMA foreign_keys` inside a
+  transaction, and migrations run inside one, so the pragma that used to sit on
+  line 1 of `0001_create_version_one.up.sql` was always a no-op. Enforcement is
+  on now, which is a behaviour change for any code that was relying on writes
+  being unchecked.
 - The single-connection pool is what makes `SQLITE_BUSY` impossible. It is also
   what makes a leaked connection lock up the whole `Store`, which is why the
-  rollback on panic is not optional.
+  rollback on panic is not optional. It is also why the single connection means
+  the DSN pragmas cannot drift between operations.
 
 ### `Store.QueryRow` does not exist, on purpose
 
@@ -178,37 +187,60 @@ swallowed and surface in the `Scan` with the wrong message. If you need it
 outside a transaction, use the signature `QueryRow(...) (*sql.Row, error)`. On
 `Tx` it is safe and it exists.
 
+## Migrations
+
+`store/migration.go` is live. `currentVersion` is a compiled-in `int` (still 1),
+and `queries` maps a version to its `up`/`down` SQL, embedded from
+`store/migrations/`.
+
+```go
+func (s *Store) RunMigrations() error    // one WithTx
+func (s *Store) ResetMigrations() error  // one WithTx: drop + rebuild together
+```
+
+Both wrap an unexported `runMigrations(tx *Tx) error`, which assumes it is
+already inside a transaction. That indirection is not optional: a shared body
+that opened its own transaction would hit `ErrTxActive`, coming from the
+transaction its caller had already started.
+
+- `RunMigrations` is idempotent and safe to call on every start. `main.go` is the
+  only caller; `store.New` deliberately does **not** migrate, so opening a
+  connection never writes schema as a side effect.
+- `ResetMigrations` drops and rebuilds in **one** transaction. The old version
+  committed the drop first and migrated afterwards, which left a window where the
+  database had no schema, and left it that way for good if the migration failed.
+- The rollback path of `ResetMigrations` has **no test**. The guarantee rests on
+  it being a single transaction, not on an assertion. If that ever stops being
+  true, the test is missing.
+- Column names in the `migrations` table are `version_date` and `version_number`.
+  The `Migration` struct fields stay camelCase because they are private Go
+  fields, not columns.
+- `down` only runs when the database is ahead of the binary, which means an older
+  build was opened against a newer schema.
+
 ## Database schema
 
 Defined in `store/migrations/0001_create_version_one.up.sql`: `commands`,
-`command_items`, `manuals`, `migrations`.
+`command_items`, `manuals`, `migrations`. A freshly created database has none of
+them until `RunMigrations` has run — `store.New` only creates the file.
 
 ## Known outstanding work
 
 In order of urgency. None of it has been dealt with yet.
 
-1. **`PRAGMA foreign_keys = ON` in migration 0001 is a no-op.** SQLite ignores
-   that pragma inside a transaction, and `up()` runs everything inside one. So
-   the referential integrity of `command_items.command_id REFERENCES commands(id)
-   ON DELETE CASCADE` **has never actually been applied**. `_foreign_keys=on` in
-   the DSN would fix it, but it turns on enforcement that is currently off and
-   may expose bugs in the code that has not been rewritten yet. Handle it
-   together with re-enabling `migration.go`.
-2. **`store/migration.go` is commented out and incompatible with the new API.**
-   The direct `s.db` accesses (lines 53, 88, 132, 140 at `HEAD`) have to become
-   calls to a wrapper or to the `*Tx`. `ResetMigrations` (166-192) has to become
-   a `WithTx` — it still calls `s.Open()`, `s.Begin()`, `s.Commit()` and
-   `s.Rollback()`, none of which exist anymore.
-3. **`backup/import.go` has a double `Open` bug.** It called `st.Open()` and then
+1. **`backup/import.go` has a double `Open` bug.** It called `st.Open()` and then
    `st.ResetMigrations()`, which opened the store again. The old API had no
-   guard, so this leaked a connection. It will disappear in the rewrite, but
-   worth confirming.
-4. **`repositories/` and `backup/` have to be converted to `WithTx`.** The old
+   guard, so this leaked a connection. The second `Open` is gone from
+   `ResetMigrations`; confirm it is gone from the import rewrite too.
+2. **`repositories/` and `backup/` have to be converted to `WithTx`.** The old
    pattern was `st := store.Store{}` + `Open()` + `defer Close()` per operation,
    with a manual transaction. That becomes `store.WithTx(func(tx *store.Tx)
    error { ... })`. Since `Store` is now a shared resource, decide who owns it: one
    `Store` per operation still works, or one `Store` per process.
-5. **`main.go` does nothing** beyond the banner.
+3. **`Command.Delete` deletes `command_items` explicitly even though the FK now
+   cascades.** It is not wrong, just redundant. Worth deciding whether to keep
+   the belt and braces or trust the constraint once the code is rewritten.
+4. **`main.go` does nothing** beyond opening, migrating and printing the path.
 
 ## Style
 
