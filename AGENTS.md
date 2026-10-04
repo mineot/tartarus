@@ -31,7 +31,7 @@ go test -race ./...
 gofmt -l .
 ```
 
-Tests exist in `store/` and `helpers/`. `repositories/` and `backup/` have none.
+Tests exist in `store/`, `helpers/`, and `repositories/`. `backup/` has none.
 
 ## Current state: nearly everything is commented out on purpose
 
@@ -46,9 +46,10 @@ not uncomment, fix or "repair" those files unless asked.
 | `store/store_test.go` | Live. New. |
 | `store/migration.go` | Live. Rewritten for `WithTx` (see below). |
 | `store/migration_test.go` | Live. New. |
-| `repositories/commands.go` | Commented out. Types `Command`, `CommandItem` included. |
+| `repositories/commands.go` | Live. Full CRUD for commands and command items converted. |
 | `repositories/manuals.go` | Live. `GetManuals`, `GetManual`, `InsertManual`, `UpdateManual`, `DeleteManual` converted. |
 | `repositories/manuals_test.go` | Live. New. |
+| `repositories/commands_test.go` | Live. New. |
 | `backup/import.go` | Commented out. |
 | `backup/export.go` | Commented out. |
 | `backup/backup.go` | Live. Only the JSON structs for the backup format. |
@@ -275,10 +276,8 @@ In order of urgency. None of it has been dealt with yet.
    `st.ResetMigrations()`, which opened the store again. The old API had no
    guard, so this leaked a connection. The second `Open` is gone from
    `ResetMigrations`; confirm it is gone from the import rewrite too.
-2. **The rest of `repositories/` and all of `backup/`.** `GetManuals` is the only
-   converted function. Still to do: `GetManual`, `Manual.Insert`, `Manual.Update`,
-   `Manual.Delete`, everything in `commands.go`, and both backup files. They all
-   still call `Open()`, `Begin()`, `Commit()` and `Rollback()`.
+2. **`backup/`.** All repository operations for manuals and commands are converted.
+   Still to do: both backup files. They still call `Open()`, `Begin()`, `Commit()` and `Rollback()`.
 3. **`Manual.Insert` and `Manual.Update` read the row back after writing.** With
    `Store` shared, that read has to move inside the same `WithTx` using
    `tx.QueryRow`, otherwise it lands on a connection that cannot see the write.
