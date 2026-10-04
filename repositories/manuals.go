@@ -1,8 +1,11 @@
 package repositories
 
 import (
+	"errors"
 	"fmt"
 	"time"
+
+	"tartarus/store"
 )
 
 // Manual is a document attached to a command, explaining what it does and how to use it.
@@ -14,11 +17,42 @@ type Manual struct {
 	UpdatedAt time.Time
 }
 
-const selectManuals = `
-	SELECT id, name, body, created_at, updated_at
-	FROM manuals
-	ORDER BY id
+var (
+	ErrManualNotFound    = errors.New("manual not found")
+	ErrManualNameRequired = errors.New("manual name is required")
+	ErrManualBodyRequired = errors.New("manual body is required")
+	ErrManualIDRequired   = errors.New("manual id is required")
+)
+
+const (
+	selectManuals = `
+SELECT id, name, body, created_at, updated_at
+FROM manuals
+ORDER BY id
 `
+
+	selectManualQuery = `
+SELECT id, name, body, created_at, updated_at
+FROM manuals
+WHERE id = ?
+`
+
+	insertManualQuery = `
+INSERT INTO manuals (name, body, created_at, updated_at)
+VALUES (?, ?, ?, ?)
+`
+
+	updateManualQuery = `
+UPDATE manuals
+SET name = ?, body = ?, updated_at = ?
+WHERE id = ?
+`
+
+	deleteManualQuery = `
+DELETE FROM manuals
+WHERE id = ?
+`
+)
 
 // GetManuals returns every manual, in creation order.
 //
@@ -64,193 +98,175 @@ func (r *Repos) GetManuals() ([]Manual, error) {
 	return manuals, nil
 }
 
-// func GetManual(ID uint64) (Manual, error) {
-// 	st := store.Store{}
+// GetManual returns the manual with the given id.
+// If no manual is found, it returns an empty Manual and nil error.
+func (r *Repos) GetManual(id uint64) (Manual, error) {
+	rows, err := r.Store.Query(selectManualQuery, id)
 
-// 	if err := st.Open(); err != nil {
-// 		return Manual{}, err
-// 	}
+	if err != nil {
+		return Manual{}, fmt.Errorf("repositories: selecting manual: %w", err)
+	}
 
-// 	defer st.Close()
+	defer rows.Close()
 
-// 	query := `select id, name, body, created_at, updated_at from manuals where id = ?`
+	var manual Manual
 
-// 	rows, err := st.Query(query, ID)
+	if rows.Next() {
+		if err := rows.Scan(
+			&manual.ID,
+			&manual.Name,
+			&manual.Body,
+			&manual.CreatedAt,
+			&manual.UpdatedAt,
+		); err != nil {
+			return Manual{}, fmt.Errorf("repositories: scanning manual: %w", err)
+		}
+	}
 
-// 	if err != nil {
-// 		return Manual{}, err
-// 	}
+	if err := rows.Err(); err != nil {
+		return Manual{}, fmt.Errorf("repositories: iterating manual: %w", err)
+	}
 
-// 	defer rows.Close()
+	return manual, nil
+}
 
-// 	var manual Manual
+// InsertManual validates and persists a new manual.
+// On success, m is populated with the inserted values (ID, timestamps).
+func (r *Repos) InsertManual(m *Manual) error {
+	if m.Name == "" {
+		return ErrManualNameRequired
+	}
 
-// 	if rows.Next() {
-// 		if err := rows.Scan(
-// 			&manual.ID,
-// 			&manual.Name,
-// 			&manual.Body,
-// 			&manual.CreatedAt,
-// 			&manual.UpdatedAt,
-// 		); err != nil {
-// 			return Manual{}, err
-// 		}
-// 	}
+	if m.Body == "" {
+		return ErrManualBodyRequired
+	}
 
-// 	if err := rows.Err(); err != nil {
-// 		return Manual{}, err
-// 	}
+	now := time.Now().UTC()
 
-// 	return manual, nil
-// }
+	var id int64
 
-// func (m *Manual) Insert() error {
-// 	if m.Name == "" {
-// 		return errors.New("manual name is required")
-// 	}
+	err := r.Store.WithTx(func(tx *store.Tx) error {
+		res, err := tx.Exec(insertManualQuery, m.Name, m.Body, now, now)
 
-// 	if m.Body == "" {
-// 		return errors.New("manual body is required")
-// 	}
+		if err != nil {
+			return err
+		}
 
-// 	st := store.Store{}
+		id, err = res.LastInsertId()
 
-// 	if err := st.Open(); err != nil {
-// 		return err
-// 	}
+		if err != nil {
+			return err
+		}
 
-// 	defer st.Close()
+		var inserted Manual
 
-// 	if err := st.Begin(); err != nil {
-// 		return err
-// 	}
+		row := tx.QueryRow(selectManualQuery, uint64(id))
 
-// 	query := `insert into manuals (name, body, created_at, updated_at) values (?, ?, ?, ?)`
+		if err := row.Scan(
+			&inserted.ID,
+			&inserted.Name,
+			&inserted.Body,
+			&inserted.CreatedAt,
+			&inserted.UpdatedAt,
+		); err != nil {
+			return err
+		}
 
-// 	result, err := st.Exec(query, m.Name, m.Body, time.Now(), time.Now())
+		m.ID = inserted.ID
+		m.Name = inserted.Name
+		m.Body = inserted.Body
+		m.CreatedAt = inserted.CreatedAt
+		m.UpdatedAt = inserted.UpdatedAt
 
-// 	if err != nil {
-// 		st.Rollback()
-// 		return err
-// 	}
+		return nil
+	})
 
-// 	if err := st.Commit(); err != nil {
-// 		return err
-// 	}
+	if err != nil {
+		return fmt.Errorf("repositories: inserting manual: %w", err)
+	}
 
-// 	ID, err := result.LastInsertId()
+	return nil
+}
 
-// 	if err != nil {
-// 		return err
-// 	}
+// UpdateManual validates and updates an existing manual.
+// If no row is affected, it returns "manual not found".
+func (r *Repos) UpdateManual(m *Manual) error {
+	if m.ID == 0 {
+		return ErrManualIDRequired
+	}
 
-// 	insertedCommand, err := GetManual(uint64(ID))
+	if m.Name == "" {
+		return ErrManualNameRequired
+	}
 
-// 	if err != nil {
-// 		return err
-// 	}
+	if m.Body == "" {
+		return ErrManualBodyRequired
+	}
 
-// 	m.ID = insertedCommand.ID
-// 	m.Name = insertedCommand.Name
-// 	m.Body = insertedCommand.Body
-// 	m.CreatedAt = insertedCommand.CreatedAt
-// 	m.UpdatedAt = insertedCommand.UpdatedAt
+	now := time.Now().UTC()
 
-// 	return nil
-// }
+	err := r.Store.WithTx(func(tx *store.Tx) error {
+		res, err := tx.Exec(updateManualQuery, m.Name, m.Body, now, m.ID)
 
-// func (m *Manual) Update() error {
-// 	if m.ID == 0 {
-// 		return errors.New("manual id is required")
-// 	}
+		if err != nil {
+			return err
+		}
 
-// 	if m.Name == "" {
-// 		return errors.New("manual name is required")
-// 	}
+		affected, err := res.RowsAffected()
 
-// 	if m.Body == "" {
-// 		return errors.New("manual body is required")
-// 	}
+		if err != nil {
+			return err
+		}
 
-// 	st := store.Store{}
+		if affected == 0 {
+			return ErrManualNotFound
+		}
 
-// 	if err := st.Open(); err != nil {
-// 		return err
-// 	}
+		var updated Manual
 
-// 	defer st.Close()
+		row := tx.QueryRow(selectManualQuery, m.ID)
 
-// 	if err := st.Begin(); err != nil {
-// 		return err
-// 	}
+		if err := row.Scan(
+			&updated.ID,
+			&updated.Name,
+			&updated.Body,
+			&updated.CreatedAt,
+			&updated.UpdatedAt,
+		); err != nil {
+			return err
+		}
 
-// 	query := `update manuals set name = ?, body = ?, updated_at = ? where id = ?`
+		m.ID = updated.ID
+		m.Name = updated.Name
+		m.Body = updated.Body
+		m.CreatedAt = updated.CreatedAt
+		m.UpdatedAt = updated.UpdatedAt
 
-// 	result, err := st.Exec(query, m.Name, m.Body, time.Now(), m.ID)
+		return nil
+	})
 
-// 	if err != nil {
-// 		st.Rollback()
-// 		return err
-// 	}
+	if err != nil {
+		return fmt.Errorf("repositories: updating manual: %w", err)
+	}
 
-// 	if err := st.Commit(); err != nil {
-// 		return err
-// 	}
+	return nil
+}
 
-// 	affected, err := result.RowsAffected()
+// DeleteManual removes the manual with the given id.
+// If the id does not exist, it returns nil (idempotent).
+func (r *Repos) DeleteManual(id uint64) error {
+	if id == 0 {
+		return ErrManualIDRequired
+	}
 
-// 	if err != nil {
-// 		return err
-// 	}
+	err := r.Store.WithTx(func(tx *store.Tx) error {
+		_, err := tx.Exec(deleteManualQuery, id)
+		return err
+	})
 
-// 	if affected == 0 {
-// 		return errors.New("command not found")
-// 	}
+	if err != nil {
+		return fmt.Errorf("repositories: deleting manual: %w", err)
+	}
 
-// 	updatedCommand, err := GetManual(m.ID)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	m.ID = updatedCommand.ID
-// 	m.Name = updatedCommand.Name
-// 	m.Body = updatedCommand.Body
-// 	m.CreatedAt = updatedCommand.CreatedAt
-// 	m.UpdatedAt = updatedCommand.UpdatedAt
-
-// 	return nil
-// }
-
-// func (m *Manual) Delete() error {
-// 	if m.ID == 0 {
-// 		return errors.New("manual id is required")
-// 	}
-
-// 	st := store.Store{}
-
-// 	if err := st.Open(); err != nil {
-// 		return err
-// 	}
-
-// 	defer st.Close()
-
-// 	if err := st.Begin(); err != nil {
-// 		return err
-// 	}
-
-// 	query := `delete from manuals where id = ?`
-
-// 	_, err := st.Exec(query, m.ID)
-
-// 	if err != nil {
-// 		st.Rollback()
-// 		return err
-// 	}
-
-// 	if err := st.Commit(); err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
+	return nil
+}

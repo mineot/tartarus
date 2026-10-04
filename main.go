@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 
-	"tartarus/repositories"
 	"tartarus/store"
 )
 
@@ -28,24 +27,4 @@ func main() {
 	}
 
 	fmt.Println(s.Path())
-
-	r := repositories.New(s)
-
-	listManuals(r)
-}
-
-// listManuals is an example of reading through a repository: a plain read, no
-// transaction, straight after the migrations are done.
-func listManuals(r *repositories.Repos) {
-	manuals, err := r.GetManuals()
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("\n%d manual(s)\n", len(manuals))
-
-	for _, m := range manuals {
-		fmt.Printf("  %d\t%s\n", m.ID, m.Name)
-	}
 }

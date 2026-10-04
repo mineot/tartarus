@@ -47,7 +47,7 @@ not uncomment, fix or "repair" those files unless asked.
 | `store/migration.go` | Live. Rewritten for `WithTx` (see below). |
 | `store/migration_test.go` | Live. New. |
 | `repositories/commands.go` | Commented out. Types `Command`, `CommandItem` included. |
-| `repositories/manuals.go` | Live. `GetManuals` converted; the other five functions still commented. |
+| `repositories/manuals.go` | Live. `GetManuals`, `GetManual`, `InsertManual`, `UpdateManual`, `DeleteManual` converted. |
 | `repositories/manuals_test.go` | Live. New. |
 | `backup/import.go` | Commented out. |
 | `backup/export.go` | Commented out. |
@@ -226,7 +226,11 @@ transaction its caller had already started.
 once per process in `main.go` and passed in.
 
 ```go
-func (r *Repos) GetManuals() ([]Manual, error) // converted
+func (r *Repos) GetManuals() ([]Manual, error)           // converted
+func (r *Repos) GetManual(id uint64) (Manual, error)       // converted
+func (r *Repos) InsertManual(m *Manual) error              // converted
+func (r *Repos) UpdateManual(m *Manual) error              // converted
+func (r *Repos) DeleteManual(id uint64) error              // converted
 ```
 
 - **Reads go through `Store.Query`, not `WithTx`.** A read needs no transaction,
