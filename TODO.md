@@ -1,10 +1,7 @@
 # TODO
 
-- [x] Create Store/Repository packages
-- [x] Create Command package
-- [x] Create Manual package
-- [ ] Create Import package
-- [ ] Create Export package
+- [x] Create Store/Repository packages (Commands and Manual)
+- [x] Create Import / Export / Restore from Backup package
 - [ ] Create View package
 
 ## New Features
