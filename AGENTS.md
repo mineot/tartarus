@@ -50,9 +50,10 @@ not uncomment, fix or "repair" those files unless asked.
 | `repositories/manuals.go` | Live. Full CRUD for manuals converted. |
 | `repositories/manuals_test.go` | Live. New. |
 | `repositories/commands_test.go` | Live. New. |
-| `backup/import.go` | Commented out. |
+| `backup/import.go` | Live. Rewritten (see below). |
 | `backup/export.go` | Live. Rewritten (see below). |
 | `backup/export_test.go` | Live. New. |
+| `backup/import_test.go` | Live. New. |
 | `backup/backup.go` | Live. Only the JSON structs for the backup format. |
 | `backup/restore-legacy.go` | Live. Empty stub. |
 | `helpers/helpers.go` | Live. `GetStorePath` and `SetDevStorePath`. |
@@ -315,11 +316,11 @@ func Export(r *repositories.Repos, path string) error
 
 Three things about it are deliberate:
 
-- **It takes `*repositories.Repos`, not `*store.Store`.** `backup` reads through
-  the repository layer and never touches `store` directly, which is what keeps the
-  layering one-way. The cost is that a nil `Repos`, or a `Repos` with a nil
-  `Store`, panics on the first call — item 8 in the outstanding work below, still
-  open.
+- **It takes `*repositories.Repos`, not `*store.Store`.** `backup` reads rows through
+  the repository layer and does not reach for `store` except to migrate, which is
+  what keeps the layering one-way. The cost is that a nil `Repos`, or a `Repos`
+  with a nil `Store`, panics on the first call — item 6 in the outstanding work
+  below, still open.
 - **It never starts a transaction.** Reads go through `Store.Query`, so it must
   not be called from inside a `store.WithTx` callback: those reads return
   `store.ErrUseTx`. `export_test.go` asserts exactly that, and asserts that a
@@ -340,7 +341,60 @@ absent, so files written before the field existed still load.
 
 `backup/import.go` is not converted yet. When it is, `Description` has to be
 carried through on all three structs. `Export` has no caller until `main.go`
-grows a CLI surface (item 5).
+grows a CLI surface (item 3).
+
+## Import
+
+`backup/import.go` is converted, and takes the same `*repositories.Repos` as
+`Export`. The old version called `store.Store.Open()`, `Begin()`, `Commit()` and
+`Rollback()`, and called `Open()` **twice** — once itself and once inside
+`ResetMigrations` — which leaked a connection. That is gone by construction now:
+there is one `Store`, owned by the caller, and `ResetMigrations` is a method on it
+that opens no second connection.
+
+Four things about it are deliberate:
+
+- **It destroys the database.** `ResetMigrations` runs before the first insert, so
+  an import always replaces and never merges. Importing on top of existing rows
+  would collide with the `UNIQUE` on `commands.name`, `manuals.name` and
+  `command_items.script` anyway.
+- **The reset is also what makes a failed import recoverable.** The inserts are
+  not atomic — every `repositories` write opens its own transaction, and there is
+  no `InsertCommandTx` to compose them into one — so a bad row halfway leaves a
+  partial database. Re-running is still safe, because the reset at the top clears
+  that partial state before the constraints can collide with it. A single
+  transaction would be the better answer and needs new repository methods.
+- **The file is validated before the reset, not after.** Every check in
+  `validate` is one the database would reject on insert; running them first is the
+  difference between a rejected file and a rejected file that also destroyed the
+  previous data. `import_test.go` asserts that the pre-existing row survives all
+  seven rejection cases. The duplicate checks are there because the constraints
+  are global: `command_items.script` is unique across the whole table, so two
+  different commands cannot hold the same script, and the script set therefore
+  cannot be reset per command.
+- **Ids and timestamps in the file are ignored.** `Insert*` stamps
+  `time.Now().UTC()` and lets SQLite assign ids from `AUTOINCREMENT`, so imported
+  rows carry import time and freshly numbered ids. The old code set `CreatedAt`
+  on the struct it passed in, which was already dead — the repository overwrites
+  it from the row it reads back. The round-trip test deliberately does not compare
+  ids across the two databases; it compares names, bodies, scripts and
+  descriptions, and separately asserts that each imported item's `command_id`
+  matches the command it is nested under.
+
+That last point is where the old code was actually **wrong**, not just wasteful:
+it built each item with `CommandID: cmd.ID`, the id from the file, which after a
+reset points at whatever row happens to sit at that id now — silently attaching
+items to the wrong command. `Import` passes the `c.ID` that `InsertCommand` just
+assigned. `AppendCommandItem` overwrites `item.CommandID` with the row it reads
+back regardless, so passing the wrong id would have been caught, but only after a
+failed insert, not before.
+
+Like `Export`, `Import` must not be called from inside a `store.WithTx` callback,
+but it fails with a **different sentinel**: `Export`'s reads return
+`store.ErrUseTx`, while `Import` reaches `Store.WithTx` through `ResetMigrations`
+and gets `store.ErrTxActive`. Both are asserted.
+
+Neither has a caller until `main.go` grows a CLI surface (item 3).
 
 ## Testing outside `store`
 
@@ -389,44 +443,42 @@ them until `RunMigrations` has run — `store.New` only creates the file.
 
 In order of urgency. None of it has been dealt with yet.
 
-1. **`backup/import.go` has a double `Open` bug.** It called `st.Open()` and then
-   `st.ResetMigrations()`, which opened the store again. The old API had no
-   guard, so this leaked a connection. The second `Open` is gone from
-   `ResetMigrations`; confirm it is gone from the import rewrite too.
-2. **`backup/import.go` is not converted.** `backup/export.go` is (see below).
-   `import.go` still calls `Open()`, `Begin()`, `Commit()` and `Rollback()`.
-3. **`Command.Delete` deletes `command_items` explicitly even though the FK now
+Items 1 and 2 used to live here: the double `Open` in `import.go`, and the
+unconverted `import.go` itself. Both are resolved — see the `## Import` section.
+
+1. **`Command.Delete` deletes `command_items` explicitly even though the FK now
    cascades.** It is not wrong, just redundant. Worth deciding whether to keep the
    belt and braces or trust the constraint.
-4. **The root `dev.db` predates the `description` column.** It recorded version 1
+2. **The root `dev.db` predates the `description` column.** It recorded version 1
    before that column was added, so `RunMigrations` will not give it the column.
    `ResetMigrations` fixes it and destroys the data. Not urgent: the file is
    gitignored and `dev.db` is a scratch database.
-5. **`main.go` still has no CLI surface.** It opens, migrates, prints the path and
-   lists manuals as a usage example.
-6. **`s.Close()` from inside a `WithTx` callback deadlocks.** `WithTx` holds
+3. **`main.go` still has no CLI surface.** It opens, migrates, prints the path and
+   lists manuals as a usage example. Both `backup` entry points are dead code
+   until this changes.
+4. **`s.Close()` from inside a `WithTx` callback deadlocks.** `WithTx` holds
    `s.mu` for the whole callback and `Close` takes `s.mu`, and `sync.Mutex` is not
    reentrant. There is no guard and the doc comment does not warn about it. This
    is the most dangerous of the list, because the same rollback-on-panic rule that
    keeps the store alive after an aborted callback is what makes `mu` span the
    callback in the first place. Either document it or return `ErrTxActive` from
    `Close` when `inTx` is set.
-7. **`command_items.script` is `UNIQUE` globally, not per command.** Two different
+5. **`command_items.script` is `UNIQUE` globally, not per command.** Two different
    commands cannot hold the same script. Almost certainly it should be
    `UNIQUE(command_id, script)`. This is an edit to migration 1, so it inherits
    the caveat in the next item: it will not reach an existing database.
-8. **`Repositories` has no interface and no nil guard.** `Repos.Store` is an
+6. **`Repositories` has no interface and no nil guard.** `Repos.Store` is an
    exported `*store.Store`, so `repositories.New(nil)` compiles and panics on the
    first call. Rewriting `backup/` against a small interface is the natural moment
    to fix both halves at once.
-9. **Coverage gaps, in rough order of value.** `down()` has never been executed,
+7. **Coverage gaps, in rough order of value.** `down()` has never been executed,
    since it needs a database ahead of the binary, and neither have its
    `missing down migration` branch or `up()`'s `missing up migration` branch. Also
    untested: `newAt` with an empty path, `Path()` after `Close` (documented as
    still correct, but nothing holds it there), and a `WithTx` from a second
    goroutine, which currently only exercises the `inTx` fast path and not the
    `mu` window behind it.
-10. **Naming and doc gaps in `repositories`.** `manuals.go` uses
+8. **Naming and doc gaps in `repositories`.** `manuals.go` uses
     `selectManualQuery` where `commands.go` uses `selectCommand`; `Command`,
     `CommandItem` and all ten error sentinels have no doc comment, while every
     exported name in `store` has one. `GetCommand`/`GetManual` do not reject

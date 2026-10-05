@@ -1,9 +1,5 @@
 # TODO
 
-- [ ] Melhorar os comentários
-- [ ] Aplicar melhorias nos backups
-- [ ] Implementar backup restore from legacy
-
 - [x] Create Store/Repository packages
 - [x] Create Command package
 - [x] Create Manual package
