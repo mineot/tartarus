@@ -33,8 +33,10 @@ var (
 )
 
 const (
+	// busyTimeout is the maximum time to wait for a connection to become free.
 	busyTimeout = 5 * time.Second
-	dirPerm     = 0755
+	// dirPerm is the permission bits for the database directory.
+	dirPerm = 0755
 )
 
 // Store owns the lifecycle of the connection to the database.
@@ -168,7 +170,13 @@ func (s *Store) Exec(query string, args ...any) (sql.Result, error) {
 		return nil, err
 	}
 
-	return s.db.ExecContext(s.ctx, query, args...)
+	res, err := s.db.ExecContext(s.ctx, query, args...)
+
+	if err != nil {
+		return nil, fmt.Errorf("store: executing statement: %w", err)
+	}
+
+	return res, nil
 }
 
 // Query runs a query outside a transaction.
@@ -181,7 +189,13 @@ func (s *Store) Query(query string, args ...any) (*sql.Rows, error) {
 		return nil, err
 	}
 
-	return s.db.QueryContext(s.ctx, query, args...)
+	rows, err := s.db.QueryContext(s.ctx, query, args...)
+
+	if err != nil {
+		return nil, fmt.Errorf("store: running query: %w", err)
+	}
+
+	return rows, nil
 }
 
 // WithTx opens a transaction, hands a *Tx to fn, and decides the outcome from
@@ -228,7 +242,7 @@ func (s *Store) WithTx(fn func(*Tx) error) error {
 	tx, err := s.db.BeginTx(s.ctx, nil)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("store: beginning transaction: %w", err)
 	}
 
 	s.inTx.Store(true)
@@ -249,7 +263,11 @@ func (s *Store) WithTx(fn func(*Tx) error) error {
 
 	committed = true
 
-	return tx.Commit()
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("store: committing transaction: %w", err)
+	}
+
+	return nil
 }
 
 // Close closes the connection. It is idempotent: closing twice returns nil, so a

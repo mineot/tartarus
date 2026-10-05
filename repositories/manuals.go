@@ -19,7 +19,7 @@ type Manual struct {
 }
 
 var (
-	ErrManualNotFound    = errors.New("manual not found")
+	ErrManualNotFound     = errors.New("manual not found")
 	ErrManualNameRequired = errors.New("manual name is required")
 	ErrManualBodyRequired = errors.New("manual body is required")
 	ErrManualIDRequired   = errors.New("manual id is required")

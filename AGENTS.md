@@ -142,6 +142,15 @@ err := store.WithTx(func(tx *store.Tx) error {
 `fn` returning `nil` commits; returning an error rolls back and returns the
 error. A panic inside `fn` also rolls back, before it propagates.
 
+Every error that leaves package `store` carries the `store: ` prefix, either from
+a sentinel or from a `fmt.Errorf("store: <what>: %w", err)` wrapper. `Store.Exec`,
+`Store.Query`, `WithTx`'s `BeginTx` and `Commit` all wrap; the `Tx` methods do
+**not**, deliberately, since a caller inside a callback already has the
+transaction scope in hand and would otherwise get `repositories: inserting
+command: store: executing statement: ...` on every database error. The
+asymmetry is deliberate, not an oversight — if you change one side, change the
+other and update this paragraph.
+
 ### Concurrency contract
 
 - A `Store` may be shared across goroutines, but **concurrency goes through
@@ -308,6 +317,27 @@ any build with a version injected, so a released binary cannot be redirected to 
 different file, and there is a test asserting exactly that. There is no locking on
 the variable, so tests using it must not run in parallel.
 
+### Test files carry no comments
+
+Every `_test.go` file is comment-free, and that is deliberate. The rationale for
+the test helpers lives in this file instead, in the sections above:
+
+| Helper | Why it exists |
+| --- | --- |
+| `repositories.newTestStore` | the only door into a database from outside `store`, and why it must not run in parallel |
+| `repositories.nullable` | the only way to write SQL NULL, which the repository's own write path cannot produce |
+| `repositories.insertTestCommand`, `insertTestCommandItem`, `insertManual` | set up rows the repository API would not allow |
+| `store.newEmptyStore` | `store.newTestStore` creates an `items` table, which gets in the way of asserting on what `RunMigrations` builds |
+| `helpers.setVersion`, `markRoot` | swap the link-time version and plant a `go.mod` marker |
+
+If a helper needs a "why" that is not in this file, add it here. Do not put it
+back in the test.
+
+Failure messages in tests are English, matching the style rule below. The
+**fixture data** inserted by tests is still Portuguese (`"compila o projeto"`,
+`"descricao nova"`), which is inconsistent and can be translated whenever it
+bothers someone.
+
 ## Database schema
 
 Defined in `store/migrations/0001_create_version_one.up.sql`: `commands`,
@@ -333,9 +363,37 @@ In order of urgency. None of it has been dealt with yet.
    gitignored and `dev.db` is a scratch database.
 5. **`main.go` still has no CLI surface.** It opens, migrates, prints the path and
    lists manuals as a usage example.
+6. **`s.Close()` from inside a `WithTx` callback deadlocks.** `WithTx` holds
+   `s.mu` for the whole callback and `Close` takes `s.mu`, and `sync.Mutex` is not
+   reentrant. There is no guard and the doc comment does not warn about it. This
+   is the most dangerous of the list, because the same rollback-on-panic rule that
+   keeps the store alive after an aborted callback is what makes `mu` span the
+   callback in the first place. Either document it or return `ErrTxActive` from
+   `Close` when `inTx` is set.
+7. **`command_items.script` is `UNIQUE` globally, not per command.** Two different
+   commands cannot hold the same script. Almost certainly it should be
+   `UNIQUE(command_id, script)`. This is an edit to migration 1, so it inherits
+   the caveat in the next item: it will not reach an existing database.
+8. **`Repositories` has no interface and no nil guard.** `Repos.Store` is an
+   exported `*store.Store`, so `repositories.New(nil)` compiles and panics on the
+   first call. Rewriting `backup/` against a small interface is the natural moment
+   to fix both halves at once.
+9. **Coverage gaps, in rough order of value.** `down()` has never been executed,
+   since it needs a database ahead of the binary, and neither have its
+   `missing down migration` branch or `up()`'s `missing up migration` branch. Also
+   untested: `newAt` with an empty path, `Path()` after `Close` (documented as
+   still correct, but nothing holds it there), and a `WithTx` from a second
+   goroutine, which currently only exercises the `inTx` fast path and not the
+   `mu` window behind it.
+10. **Naming and doc gaps in `repositories`.** `manuals.go` uses
+    `selectManualQuery` where `commands.go` uses `selectCommand`; `Command`,
+    `CommandItem` and all ten error sentinels have no doc comment, while every
+    exported name in `store` has one. `GetCommand`/`GetManual` do not reject
+    `id == 0` although every `Update*`/`Delete*` does, and `GetCommands` does not
+    document the nil slice that `GetManuals` documents.
 
 ## Style
 
-- Comments and error messages are in English.
+- Comments and error messages are in English, in tests too.
 - SQL always uses `?` placeholders, never string interpolation.
 - Errors are always wrapped or returned; no `panic` on a normal path.

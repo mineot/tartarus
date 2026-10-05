@@ -17,12 +17,15 @@ import (
 var version = "dev"
 
 const (
+	// devVersion is the value injected by the Makefile.
 	devVersion = "dev"
-
+	// productionDir is the directory under which the production database is
 	productionDir = ".tartarus"
-	productionDB  = "tartarus.db"
+	// productionDB is the name of the production database
+	productionDB = "tartarus.db"
+	// developmentDB is the name of the development database
 	developmentDB = "dev.db"
-
+	// projectMarker is the marker for the project root
 	projectMarker = "go.mod"
 )
 
@@ -66,10 +69,12 @@ func SetDevStorePath(path string) error {
 	return nil
 }
 
+// isProduction returns true if the current build is a production build.
 func isProduction() bool {
 	return version != devVersion
 }
 
+// productionPath returns the path to the production database.
 func productionPath() (string, error) {
 	home, err := os.UserHomeDir()
 
@@ -80,6 +85,7 @@ func productionPath() (string, error) {
 	return filepath.Join(home, productionDir, productionDB), nil
 }
 
+// developmentPath returns the path to the development database.
 func developmentPath() (string, error) {
 	// The override short-circuits the search for the project root: it exists to
 	// point a test at a temp directory, which is not inside a project at all.

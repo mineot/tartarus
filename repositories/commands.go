@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// CommandItem is a single item in a command
 type CommandItem struct {
 	ID          uint64
 	CommandID   uint64
@@ -16,11 +17,11 @@ type CommandItem struct {
 	UpdatedAt   time.Time
 }
 
+// Command is a command to be executed
 type Command struct {
 	ID          uint64
 	Name        string
 	Description string
-	Items       []CommandItem
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -512,10 +513,10 @@ func (r *Repos) RemoveCommandItem(commandID, itemID uint64) error {
 		_, err := tx.Exec(deleteCommandItem, itemID, commandID)
 		return err
 	})
-	
+
 	if err != nil {
 		return fmt.Errorf("repositories: removing command item: %w", err)
 	}
-	
+
 	return nil
 }

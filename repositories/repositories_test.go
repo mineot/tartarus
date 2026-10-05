@@ -8,16 +8,6 @@ import (
 	"testing"
 )
 
-// newTestStore points the development database at a temp directory and returns a
-// migrated Store.
-//
-// It goes through helpers.SetDevStorePath instead of a path argument because the
-// store's path-taking constructor is unexported, leaving store.New as the only
-// door into a database from out here. Each call gets its own file, so tests do
-// not share state and do not need a reset in between.
-//
-// helpers.SetDevStorePath writes a package level variable with no locking, so
-// this must not be called from a test running in parallel.
 func newTestStore(t *testing.T) *store.Store {
 	t.Helper()
 

@@ -57,7 +57,7 @@ func TestWithTxCommit(t *testing.T) {
 	}
 
 	if got := count(t, s); got != 2 {
-		t.Fatalf("esperava 2 itens confirmados, obteve %d", got)
+		t.Fatalf("want 2 committed items, got %d", got)
 	}
 }
 
@@ -76,11 +76,11 @@ func TestWithTxRollback(t *testing.T) {
 	})
 
 	if !errors.Is(err, failure) {
-		t.Fatalf("WithTx deveria devolver %v, obteve %v", failure, err)
+		t.Fatalf("WithTx should return %v, got %v", failure, err)
 	}
 
 	if got := count(t, s); got != 0 {
-		t.Fatalf("rollback deveria ter zerado a tabela, obteve %d", got)
+		t.Fatalf("rollback should have emptied the table, got %d", got)
 	}
 }
 
@@ -94,7 +94,7 @@ func TestExecDuringTxIsRejected(t *testing.T) {
 		}
 
 		if _, err := s.Exec(`INSERT INTO items (name) VALUES (?)`, "b"); !errors.Is(err, ErrUseTx) {
-			return errors.New("Exec do Store dentro de WithTx deveria devolver ErrUseTx")
+			return errors.New("Store.Exec inside WithTx should return ErrUseTx")
 		}
 
 		return nil
@@ -116,7 +116,7 @@ func TestNestedWithTxIsRejected(t *testing.T) {
 	})
 
 	if !errors.Is(err, ErrTxActive) {
-		t.Fatalf("WithTx aninhado deveria devolver ErrTxActive, obteve %v", err)
+		t.Fatalf("nested WithTx should return ErrTxActive, got %v", err)
 	}
 }
 
@@ -128,15 +128,15 @@ func TestOperationsAfterClose(t *testing.T) {
 	}
 
 	if err := s.Close(); err != nil {
-		t.Fatalf("Close deveria ser idempotente, obteve %v", err)
+		t.Fatalf("Close should be idempotent, got %v", err)
 	}
 
 	if _, err := s.Exec(`INSERT INTO items (name) VALUES (?)`, "a"); !errors.Is(err, ErrClosed) {
-		t.Fatalf("Exec após Close deveria devolver ErrClosed, obteve %v", err)
+		t.Fatalf("Exec after Close should return ErrClosed, got %v", err)
 	}
 
 	if err := s.WithTx(func(tx *Tx) error { return nil }); !errors.Is(err, ErrClosed) {
-		t.Fatalf("WithTx após Close deveria devolver ErrClosed, obteve %v", err)
+		t.Fatalf("WithTx after Close should return ErrClosed, got %v", err)
 	}
 }
 
@@ -145,7 +145,7 @@ func TestWithTxWithoutFunc(t *testing.T) {
 	defer s.Close()
 
 	if err := s.WithTx(nil); !errors.Is(err, ErrNoFunc) {
-		t.Fatalf("WithTx(nil) deveria devolver ErrNoFunc, obteve %v", err)
+		t.Fatalf("WithTx(nil) should return ErrNoFunc, got %v", err)
 	}
 }
 
@@ -161,7 +161,7 @@ func TestPath(t *testing.T) {
 	defer s.Close()
 
 	if got := s.Path(); got != want {
-		t.Fatalf("esperava %q, obteve %q", want, got)
+		t.Fatalf("want %q, got %q", want, got)
 	}
 }
 
@@ -172,7 +172,7 @@ func TestPanicInsideWithTxReleasesConnection(t *testing.T) {
 	func() {
 		defer func() {
 			if recover() == nil {
-				t.Error("o pânico de dentro de WithTx deveria propagar")
+				t.Error("the panic from inside WithTx should propagate")
 			}
 		}()
 
@@ -193,13 +193,13 @@ func TestPanicInsideWithTxReleasesConnection(t *testing.T) {
 	select {
 	case err := <-done:
 		if err != nil {
-			t.Fatalf("Store travou depois do pânico: %v", err)
+			t.Fatalf("Store locked up after the panic: %v", err)
 		}
 
 		if got := count(t, s); got != 1 {
-			t.Fatalf("apenas o insert fora da transação deveria ter sobrado, obteve %d", got)
+			t.Fatalf("only the insert outside the transaction should have survived, got %d", got)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("Store travou: a conexão não foi devolvida após o pânico")
+		t.Fatal("Store locked up: the connection was not returned after the panic")
 	}
 }

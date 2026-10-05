@@ -13,10 +13,6 @@ func nowForTest() time.Time {
 	return time.Now().UTC()
 }
 
-// newEmptyStore returns a Store pointing at a database with no tables at all.
-//
-// newTestStore creates an items table, which would get in the way of asserting
-// on what RunMigrations builds from scratch.
 func newEmptyStore(t *testing.T) *Store {
 	t.Helper()
 
@@ -31,7 +27,6 @@ func newEmptyStore(t *testing.T) *Store {
 	return s
 }
 
-// tableNames lists the user tables, sorted, with SQLite's internal ones left out.
 func tableNames(t *testing.T, s *Store) []string {
 	t.Helper()
 
@@ -62,8 +57,6 @@ func tableNames(t *testing.T, s *Store) []string {
 	return names
 }
 
-// rowCount counts the rows of a table chosen by the caller, so the query is never
-// built by string interpolation.
 func rowCount(t *testing.T, s *Store, table string) int {
 	t.Helper()
 
@@ -105,7 +98,7 @@ func TestRunMigrationsCreatesSchema(t *testing.T) {
 	s := newEmptyStore(t)
 
 	if got := tableNames(t, s); len(got) != 0 {
-		t.Fatalf("esperava um banco sem tabelas, obteve %v", got)
+		t.Fatalf("want a database with no tables, got %v", got)
 	}
 
 	if err := s.RunMigrations(); err != nil {
@@ -115,11 +108,11 @@ func TestRunMigrationsCreatesSchema(t *testing.T) {
 	want := []string{"command_items", "commands", "manuals", "migrations"}
 
 	if got := tableNames(t, s); !slices.Equal(got, want) {
-		t.Fatalf("esperava %v, obteve %v", want, got)
+		t.Fatalf("want %v, got %v", want, got)
 	}
 
 	if got := rowCount(t, s, "migrations"); got != 1 {
-		t.Fatalf("esperava 1 versão registrada, obteve %d", got)
+		t.Fatalf("want 1 recorded version, got %d", got)
 	}
 
 	const selectVersion = `SELECT version_number FROM migrations`
@@ -133,7 +126,7 @@ func TestRunMigrationsCreatesSchema(t *testing.T) {
 	defer rows.Close()
 
 	if !rows.Next() {
-		t.Fatal("esperava uma linha de migrations, não veio nenhuma")
+		t.Fatal("want a row in migrations, got none")
 	}
 
 	var version int
@@ -143,7 +136,7 @@ func TestRunMigrationsCreatesSchema(t *testing.T) {
 	}
 
 	if want := int(currentVersion); version != want {
-		t.Fatalf("esperava a versão %d, obteve %d", want, version)
+		t.Fatalf("want version %d, got %d", want, version)
 	}
 }
 
@@ -151,21 +144,21 @@ func TestRunMigrationsIsIdempotent(t *testing.T) {
 	s := newEmptyStore(t)
 
 	if err := s.RunMigrations(); err != nil {
-		t.Fatalf("primeira RunMigrations: %v", err)
+		t.Fatalf("first RunMigrations: %v", err)
 	}
 
 	if err := s.RunMigrations(); err != nil {
-		t.Fatalf("segunda RunMigrations: %v", err)
+		t.Fatalf("second RunMigrations: %v", err)
 	}
 
 	if got := rowCount(t, s, "migrations"); got != 1 {
-		t.Fatalf("a segunda chamada deveria ser um no-op, obteve %d versões", got)
+		t.Fatalf("the second call should be a no-op, got %d versions", got)
 	}
 
 	want := []string{"command_items", "commands", "manuals", "migrations"}
 
 	if got := tableNames(t, s); !slices.Equal(got, want) {
-		t.Fatalf("esperava %v, obteve %v", want, got)
+		t.Fatalf("want %v, got %v", want, got)
 	}
 }
 
@@ -187,7 +180,7 @@ func TestResetMigrationsRecreatesSchema(t *testing.T) {
 	}
 
 	if got := rowCount(t, s, "commands"); got != 1 {
-		t.Fatalf("esperava 1 command antes do reset, obteve %d", got)
+		t.Fatalf("want 1 command before the reset, got %d", got)
 	}
 
 	if err := s.ResetMigrations(); err != nil {
@@ -197,21 +190,18 @@ func TestResetMigrationsRecreatesSchema(t *testing.T) {
 	want := []string{"command_items", "commands", "manuals", "migrations"}
 
 	if got := tableNames(t, s); !slices.Equal(got, want) {
-		t.Fatalf("esperava %v, obteve %v", want, got)
+		t.Fatalf("want %v, got %v", want, got)
 	}
 
 	if got := rowCount(t, s, "commands"); got != 0 {
-		t.Fatalf("o reset deveria ter esvaziado commands, obteve %d", got)
+		t.Fatalf("the reset should have emptied commands, got %d", got)
 	}
 
 	if got := rowCount(t, s, "migrations"); got != 1 {
-		t.Fatalf("esperava a versão 1 re-registrada, obteve %d", got)
+		t.Fatalf("want version 1 registered again, got %d", got)
 	}
 }
 
-// TestForeignKeysAreEnabled is the regression test for the pragma that never
-// worked: foreign keys used to be turned on inside the migration, where SQLite
-// ignores it. They now come from the DSN.
 func TestForeignKeysAreEnabled(t *testing.T) {
 	s := newEmptyStore(t)
 
@@ -228,7 +218,7 @@ func TestForeignKeysAreEnabled(t *testing.T) {
 	defer rows.Close()
 
 	if !rows.Next() {
-		t.Fatal("PRAGMA foreign_keys não devolveu nada")
+		t.Fatal("PRAGMA foreign_keys returned nothing")
 	}
 
 	var enabled int
@@ -238,12 +228,10 @@ func TestForeignKeysAreEnabled(t *testing.T) {
 	}
 
 	if enabled != 1 {
-		t.Fatalf("esperava foreign_keys ligado, obteve %d", enabled)
+		t.Fatalf("want foreign_keys on, got %d", enabled)
 	}
 }
 
-// TestForeignKeyRejectsOrphanItem is the other half: an item pointing at a
-// command that does not exist has to be refused.
 func TestForeignKeyRejectsOrphanItem(t *testing.T) {
 	s := newEmptyStore(t)
 
@@ -260,20 +248,18 @@ func TestForeignKeyRejectsOrphanItem(t *testing.T) {
 	})
 
 	if err == nil {
-		t.Fatal("um command_items com command_id inexistente deveria ter falhado")
+		t.Fatal("a command_items row with a nonexistent command_id should have failed")
 	}
 
 	if !strings.Contains(err.Error(), "FOREIGN KEY") {
-		t.Fatalf("esperava um erro de FOREIGN KEY, obteve %v", err)
+		t.Fatalf("want a FOREIGN KEY error, got %v", err)
 	}
 
 	if got := rowCount(t, s, "command_items"); got != 0 {
-		t.Fatalf("o insert recusado não deveria sobrar, obteve %d", got)
+		t.Fatalf("the refused insert should not have survived, got %d", got)
 	}
 }
 
-// TestForeignKeyCascadeDeletesItems checks the ON DELETE CASCADE that only takes
-// effect with enforcement on.
 func TestForeignKeyCascadeDeletesItems(t *testing.T) {
 	s := newEmptyStore(t)
 
@@ -297,7 +283,7 @@ func TestForeignKeyCascadeDeletesItems(t *testing.T) {
 	}
 
 	if got := rowCount(t, s, "command_items"); got != 1 {
-		t.Fatalf("esperava 1 command_item, obteve %d", got)
+		t.Fatalf("want 1 command_item, got %d", got)
 	}
 
 	const deleteCommand = `DELETE FROM commands WHERE id = 1`
@@ -311,10 +297,10 @@ func TestForeignKeyCascadeDeletesItems(t *testing.T) {
 	}
 
 	if got := rowCount(t, s, "command_items"); got != 0 {
-		t.Fatalf("o cascade deveria ter apagado o command_item, obteve %d", got)
+		t.Fatalf("the cascade should have deleted the command_item, got %d", got)
 	}
 
 	if got := rowCount(t, s, "commands"); got != 0 {
-		t.Fatalf("esperava 0 commands, obteve %d", got)
+		t.Fatalf("want 0 commands, got %d", got)
 	}
 }

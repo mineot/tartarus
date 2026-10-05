@@ -9,7 +9,6 @@ import (
 	"testing"
 )
 
-// setVersion swaps the link-time variable for the duration of a test.
 func setVersion(t *testing.T, v string) {
 	t.Helper()
 
@@ -19,7 +18,6 @@ func setVersion(t *testing.T, v string) {
 	t.Cleanup(func() { version = previous })
 }
 
-// markRoot creates a project marker at dir and returns dir.
 func markRoot(t *testing.T, dir string) string {
 	t.Helper()
 
@@ -61,7 +59,7 @@ func TestGetStorePathProduction(t *testing.T) {
 	want := filepath.Join(os.Getenv("HOME"), productionDir, productionDB)
 
 	if got != want {
-		t.Fatalf("esperava %q, obteve %q", want, got)
+		t.Fatalf("want %q, got %q", want, got)
 	}
 }
 
@@ -80,7 +78,7 @@ func TestGetStorePathDevelopment(t *testing.T) {
 	want := filepath.Join(root, developmentDB)
 
 	if got != want {
-		t.Fatalf("esperava %q, obteve %q", want, got)
+		t.Fatalf("want %q, got %q", want, got)
 	}
 }
 
@@ -99,23 +97,21 @@ func TestFindProjectRootFromSubdirectory(t *testing.T) {
 	}
 
 	if got != root {
-		t.Fatalf("esperava %q, obteve %q", root, got)
+		t.Fatalf("want %q, got %q", root, got)
 	}
 }
 
 func TestFindProjectRootReportsWhereItStarted(t *testing.T) {
-	// A temp dir has no go.mod above it, so the walk runs to the filesystem
-	// root and fails. The message has to name the directory it started from.
 	start := t.TempDir()
 
 	_, err := findProjectRoot(start)
 
 	if err == nil {
-		t.Fatal("esperava erro ao não achar a raiz do projeto")
+		t.Fatal("want an error when the project root is not found")
 	}
 
 	if !strings.Contains(err.Error(), start) {
-		t.Fatalf("a mensagem deveria citar %q, obteve %q", start, err)
+		t.Fatalf("the message should name %q, got %q", start, err)
 	}
 }
 
@@ -134,14 +130,11 @@ func TestFindProjectRootRejectsDirectoryMarker(t *testing.T) {
 	}
 
 	if got != root {
-		t.Fatalf("um diretório chamado %s não vale como raiz: esperava %q, obteve %q", projectMarker, root, got)
+		t.Fatalf("a directory named %s does not count as the root: want %q, got %q", projectMarker, root, got)
 	}
 }
 
 func TestFindProjectRootPropagatesUnexpectedStatError(t *testing.T) {
-	// Pointing at a regular file makes os.Stat return ENOTDIR for
-	// <file>/go.mod, which is not ErrNotExist and must not be mistaken for
-	// "keep walking up".
 	blocker := filepath.Join(t.TempDir(), "blocker")
 
 	if err := os.WriteFile(blocker, nil, 0644); err != nil {
@@ -151,15 +144,15 @@ func TestFindProjectRootPropagatesUnexpectedStatError(t *testing.T) {
 	_, err := findProjectRoot(blocker)
 
 	if err == nil {
-		t.Fatal("esperava propagação do erro de stat")
+		t.Fatal("want the stat error to propagate")
 	}
 
 	if errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("o erro não deveria parecer ausência do marcador: %v", err)
+		t.Fatalf("the error should not look like a missing marker: %v", err)
 	}
 
 	if !strings.Contains(err.Error(), "checking for") {
-		t.Fatalf("erro inesperado, sem contexto: %v", err)
+		t.Fatalf("unexpected error, no context: %v", err)
 	}
 }
 
@@ -181,7 +174,7 @@ func TestSetDevStorePath(t *testing.T) {
 	}
 
 	if got != want {
-		t.Fatalf("esperava %q, obteve %q", want, got)
+		t.Fatalf("want %q, got %q", want, got)
 	}
 }
 
@@ -198,7 +191,7 @@ func TestSetDevStorePathEmptyClearsTheOverride(t *testing.T) {
 	t.Cleanup(func() { devStorePath = "" })
 
 	if err := SetDevStorePath(""); err != nil {
-		t.Fatalf("SetDevStorePath com string vazia: %v", err)
+		t.Fatalf("SetDevStorePath with an empty string: %v", err)
 	}
 
 	got, err := GetStorePath()
@@ -208,12 +201,10 @@ func TestSetDevStorePathEmptyClearsTheOverride(t *testing.T) {
 	}
 
 	if want := filepath.Join(root, developmentDB); got != want {
-		t.Fatalf("esperava %q, obteve %q", want, got)
+		t.Fatalf("want %q, got %q", want, got)
 	}
 }
 
-// TestSetDevStorePathIsRejectedInProduction is the test that makes the hook
-// acceptable: a released binary must not be redirectable to another file.
 func TestSetDevStorePathIsRejectedInProduction(t *testing.T) {
 	setVersion(t, "v1.0.4")
 	t.Setenv("HOME", t.TempDir())
@@ -221,11 +212,11 @@ func TestSetDevStorePathIsRejectedInProduction(t *testing.T) {
 	err := SetDevStorePath(filepath.Join(t.TempDir(), "override.db"))
 
 	if !errors.Is(err, ErrProduction) {
-		t.Fatalf("esperava ErrProduction, obteve %v", err)
+		t.Fatalf("want ErrProduction, got %v", err)
 	}
 
 	if devStorePath != "" {
-		t.Fatalf("o override não deveria ter sido gravado, ficou %q", devStorePath)
+		t.Fatalf("the override should not have been written, got %q", devStorePath)
 	}
 
 	want := filepath.Join(os.Getenv("HOME"), productionDir, productionDB)
@@ -233,6 +224,6 @@ func TestSetDevStorePathIsRejectedInProduction(t *testing.T) {
 	if got, err := GetStorePath(); err != nil {
 		t.Fatalf("GetStorePath: %v", err)
 	} else if got != want {
-		t.Fatalf("o caminho de produção mudou: esperava %q, obteve %q", want, got)
+		t.Fatalf("the production path changed: want %q, got %q", want, got)
 	}
 }
