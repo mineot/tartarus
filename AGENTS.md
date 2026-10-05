@@ -47,7 +47,7 @@ not uncomment, fix or "repair" those files unless asked.
 | `store/migration.go` | Live. Rewritten for `WithTx` (see below). |
 | `store/migration_test.go` | Live. New. |
 | `repositories/commands.go` | Live. Full CRUD for commands and command items converted. |
-| `repositories/manuals.go` | Live. `GetManuals`, `GetManual`, `InsertManual`, `UpdateManual`, `DeleteManual` converted. |
+| `repositories/manuals.go` | Live. Full CRUD for manuals converted. |
 | `repositories/manuals_test.go` | Live. New. |
 | `repositories/commands_test.go` | Live. New. |
 | `backup/import.go` | Commented out. |
@@ -220,6 +220,18 @@ transaction its caller had already started.
 - `down` only runs when the database is ahead of the binary, which means an older
   build was opened against a newer schema.
 
+### Editing version 1 while `currentVersion` is still 1
+
+`description` was added by editing `0001_create_version_one.up.sql` directly,
+because there is no version 2 yet and the schema is still moving. That is fine
+for a fresh database — every test creates one in `t.TempDir()` — and it is **not**
+fine for an existing one: `RunMigrations` is idempotent, so a database that
+already recorded version 1 will never see the new column. The root `dev.db` is in
+exactly that state.
+
+The repair is `ResetMigrations`, which drops and rebuilds in one transaction. It
+destroys data, so it is a deliberate act, not something to wire into startup.
+
 ## Repositories
 
 `repositories` sits on top of `store`. The old pattern was `store.Store{}` +
@@ -227,11 +239,26 @@ transaction its caller had already started.
 once per process in `main.go` and passed in.
 
 ```go
-func (r *Repos) GetManuals() ([]Manual, error)           // converted
-func (r *Repos) GetManual(id uint64) (Manual, error)       // converted
-func (r *Repos) InsertManual(m *Manual) error              // converted
-func (r *Repos) UpdateManual(m *Manual) error              // converted
-func (r *Repos) DeleteManual(id uint64) error              // converted
+// manuals
+func (r *Repos) GetManuals() ([]Manual, error)
+func (r *Repos) GetManual(id uint64) (Manual, error)
+func (r *Repos) InsertManual(m *Manual) error
+func (r *Repos) UpdateManual(m *Manual) error
+func (r *Repos) DeleteManual(id uint64) error
+
+// commands
+func (r *Repos) GetCommands() ([]Command, error)
+func (r *Repos) GetCommand(id uint64) (Command, error)
+func (r *Repos) InsertCommand(c *Command) error
+func (r *Repos) UpdateCommand(c *Command) error
+func (r *Repos) DeleteCommand(id uint64) error
+
+// command items
+func (r *Repos) GetCommandItems(commandID uint64) ([]CommandItem, error)
+func (r *Repos) GetCommandItem(commandID, itemID uint64) (CommandItem, error)
+func (r *Repos) AppendCommandItem(commandID uint64, item *CommandItem) error
+func (r *Repos) UpdateCommandItem(commandID uint64, item *CommandItem) error
+func (r *Repos) RemoveCommandItem(commandID, itemID uint64) error
 ```
 
 - **Reads go through `Store.Query`, not `WithTx`.** A read needs no transaction,
@@ -240,12 +267,31 @@ func (r *Repos) DeleteManual(id uint64) error              // converted
 - Consequence, and it is a real one: a read cannot run while a `WithTx` is in
   progress on the same `Store`. `Store.Query` returns `ErrUseTx`. Read after the
   write commits.
-- **Writes go through `Store.WithTx`.** Not converted yet.
+- **Writes go through `Store.WithTx`.** All of them are converted.
 - A read that has to happen **inside** a write must use `tx.QueryRow`, not
-  `s.Query`, for the reason above. `Manual.Insert` and `Manual.Update` both read
-  the row back after writing, so this is coming.
+  `s.Query`, for the reason above. Every `Insert*`, `Update*` and `Append*` reads
+  its row back that way, inside the same transaction that wrote it, and copies
+  the result onto the caller's struct.
 - Errors are wrapped as `repositories: <what>: %w`, which keeps the `store`
   sentinels matchable through `errors.Is`.
+
+### Nullable columns: `description`
+
+`commands`, `command_items` and `manuals` each carry a `description TEXT`
+column with no `NOT NULL`. The Go field is a plain `string`, matching `Name`,
+`Script` and `Body`, and every SELECT wraps the column in
+`COALESCE(description, '')`. That wrapper is not cosmetic: `Scan` into a `string`
+fails on NULL with `converting NULL to string is unsupported`.
+
+The consequence is that **the repository never writes NULL**. An empty
+description reaches the database as `''`, and a NULL row reads back as `""`. If
+NULL and empty ever need to be told apart, drop the `COALESCE` and use
+`sql.NullString` on the struct — do not add a second code path.
+
+Tests reach NULL only by writing the column directly, through the `nullable`
+helper in `commands_test.go`, which `manuals_test.go` also uses. That helper is
+the reason NULL is covered at all; the repository's own write path cannot produce
+it.
 
 ## Testing outside `store`
 
@@ -278,14 +324,13 @@ In order of urgency. None of it has been dealt with yet.
    `ResetMigrations`; confirm it is gone from the import rewrite too.
 2. **`backup/`.** All repository operations for manuals and commands are converted.
    Still to do: both backup files. They still call `Open()`, `Begin()`, `Commit()` and `Rollback()`.
-3. **`Manual.Insert` and `Manual.Update` read the row back after writing.** With
-   `Store` shared, that read has to move inside the same `WithTx` using
-   `tx.QueryRow`, otherwise it lands on a connection that cannot see the write.
-   Both also copy the result field by field, which `*manual = fetched` would do
-   in one line.
-4. **`Command.Delete` deletes `command_items` explicitly even though the FK now
-   cascades.** It is not wrong, just redundant. Worth deciding whether to keep
-   the belt and braces or trust the constraint once the code is rewritten.
+3. **`Command.Delete` deletes `command_items` explicitly even though the FK now
+   cascades.** It is not wrong, just redundant. Worth deciding whether to keep the
+   belt and braces or trust the constraint.
+4. **The root `dev.db` predates the `description` column.** It recorded version 1
+   before that column was added, so `RunMigrations` will not give it the column.
+   `ResetMigrations` fixes it and destroys the data. Not urgent: the file is
+   gitignored and `dev.db` is a scratch database.
 5. **`main.go` still has no CLI surface.** It opens, migrates, prints the path and
    lists manuals as a usage example.
 
