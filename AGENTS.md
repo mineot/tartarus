@@ -55,10 +55,12 @@ not uncomment, fix or "repair" those files unless asked.
 | `backup/export_test.go` | Live. New. |
 | `backup/import_test.go` | Live. New. |
 | `backup/backup.go` | Live. Only the JSON structs for the backup format. |
-| `backup/restore-legacy.go` | Live. Empty stub. |
+| `backup/restore-legacy.go` | Live. New. Reads a legacy v1.x export (see below). |
+| `backup/restore-legacy_test.go` | Live. New. |
+| `backup/testdata/legacy.json` | Live. A real v1.x export, used as the fixture. |
 | `helpers/helpers.go` | Live. `GetStorePath` and `SetDevStorePath`. |
 | `helpers/helpers_test.go` | Live. New. |
-| `main.go` | Live. Opens the store, migrates, prints the path, lists manuals. |
+| `main.go` | Live. Opens the store, migrates, prints the path, and has one flag. |
 
 `store.New` is the only consumer of `helpers.GetStorePath`. The prod/dev policy
 stays in `helpers`; `store` only asks for the path, and `Store.Path` reports
@@ -339,9 +341,7 @@ description is written as `""` rather than dropped. That matches what the format
 does with every other empty field, and `json.Unmarshal` tolerates the field being
 absent, so files written before the field existed still load.
 
-`backup/import.go` is not converted yet. When it is, `Description` has to be
-carried through on all three structs. `Export` has no caller until `main.go`
-grows a CLI surface (item 3).
+`Export` has no caller until `main.go` grows a CLI surface (item 3).
 
 ## Import
 
@@ -396,6 +396,152 @@ and gets `store.ErrTxActive`. Both are asserted.
 
 Neither has a caller until `main.go` grows a CLI surface (item 3).
 
+## Legacy restore
+
+`backup/restore-legacy.go` moves data out of the **v1.x** implementation into the
+current one. It is the one entry point in the project that is not about a
+backup file this codebase wrote.
+
+### What the legacy store is
+
+The v1.x release was a TypeScript CLI (`@mineot/tartarus`, last version 1.2.4)
+holding its data in a **PouchDB** database, not SQLite. On disk that is a
+`leveldown` store, one folder, `~/.tartarus/db/commands`, made of `*.ldb`
+tables, a `MANIFEST-*`, a `CURRENT` and a `*.log`. It cannot be read with
+`sqlite3`, and nothing here tries to.
+
+PouchDB stores each document twice, in `levelup` sublevels whose keys are the
+sublevel name wrapped in `0xff`:
+
+| Sublevel | Key | Value |
+| --- | --- | --- |
+| `document-store` | `_id` | revision metadata, `rev_tree`/`rev_map`/`winningRev` |
+| `by-sequence` | 16-digit zero-padded sequence number | the document JSON |
+| `meta-store` | `_local_uuid`, `_local_doc_count`, `_local_last_update_seq` | counters |
+
+So a document is a `document-store` entry pointing at a `by-sequence` entry, and
+the `*.ldb` keys are prefix-compressed, which is why `strings` on the file shows
+JSON fragments interrupted by varint bytes. None of that is parsed here.
+
+### The user has to export first
+
+**The v1 binary has to produce the export before the v2 binary is installed.**
+That is a documentation instruction, not a code path: the two versions store
+data in unrelated formats, and the only thing v2 can read is what v1 wrote out.
+
+```bash
+tartarus db export ~/.tartarus/legacy.json   # with the v1 binary still installed
+tartarus -restore-legacy ~/.tartarus/legacy.json   # with the v2 binary
+```
+
+`db export` is PouchDB's `allDocs({include_docs:true})` flattened to a JSON
+array, so the file is the winning revision of every document, untyped:
+
+```json
+[
+  {"instructions": ["rclone config reconnect gdrive-mineot:"], "_id": "cmd:gdrive-refresh-connection", "_rev": "1-8a67..."},
+  {"instructions": ["sudo apt update"], "description": "...", "_id": "cmd:linux_upgrade", "_rev": "1-fb74..."},
+  {"data": "nano", "updatedAt": "2025-08-16T02:29:38.705Z", "_id": "config:editor", "_rev": "1-c503..."},
+  {"content": "teste\n\nteste\n\nteste\n", "updatedAt": "...", "_id": "manual:teste", "_rev": "1-d05c..."}
+]
+```
+
+The format is a flat array with no type field, so **the prefix of `_id` is the
+only discriminator**. `backup/testdata/legacy.json` is a real export, and it is
+the fixture the tests run against.
+
+`~/.tartarus/db/commands` is never read, written or deleted by the new code.
+That is the reason the operation is safe to repeat: the user can re-run
+`db export` and the restore as many times as they like.
+
+### The mapping
+
+| Legacy document | Becomes | Notes |
+| --- | --- | --- |
+| `cmd:<name>` | a `commands` row plus one `command_items` row per entry of `instructions` | `instructions` is the legacy name for what is now `command_items` |
+| `cmd:<name>` with `description` | the row's `description` | absent means `""` |
+| `manual:<name>` | a `manuals` row | `content` becomes `body`, verbatim |
+| anything else, `config:editor` included | nothing | counted as skipped |
+
+`legacyDoc` holds only `_id`, `instructions`, `description` and `content`. `_rev`
+and `updatedAt` are absent on purpose: ids and timestamps are ignored the same
+way `Import` ignores them, and the repositories stamp `time.Now().UTC()`
+themselves. `data` held the editor name and has no destination in the schema.
+
+### Signature, and why there is no marker file
+
+```go
+func RestoreFromLegacy(r *repositories.Repos, path string) error
+```
+
+Same shape as `Export` and `Import`: the store is owned by the caller and
+threaded in, rather than opened here.
+
+**There is no `.imported` marker, on purpose.** The stub asked for one, and it is
+the wrong instrument: the legacy folder is never deleted, the user runs the
+restore by hand, and the database's own `UNIQUE` constraints can stand in for a
+marker. Three things fall out of that:
+
+- **The run is a merge and converges.** It reads the whole existing state first
+  (`GetCommands`, `GetManuals`, and one `GetCommandItems` per command — the same
+  N+1 `Export` runs) and only writes what is missing. A command that already
+  exists keeps its row, its id and its description, and gains **only the
+  instructions it lacks**. A second run is therefore a no-op, and so is a run
+  that was interrupted halfway through a command: the second run finishes it.
+- **A manual that already exists is left alone.** Deciding which of two bodies
+  wins would mean comparing timestamps, which `Import` also ignores. Skipping is
+  reported in the output.
+- **An item whose script already belongs to another command is skipped and
+  named**, not inserted and not fatal. This is the consequence of
+  `command_items.script` being `UNIQUE` across the whole table (item 5 in the
+  outstanding work): a script cannot be shared, so the second command to want it
+  cannot have it.
+
+The file is validated **before** the first write, same reasoning as `Import`:
+every check is one the schema would refuse anyway, and the export belongs to the
+user. `commands.name` and `manuals.name` are `UNIQUE`; `command_items.script` is
+too, so a script repeated inside the file, or across two documents in it, is
+rejected up front rather than halfway through. `restore-legacy_test.go` asserts
+the pre-existing row survives all eight rejection cases.
+
+Nothing here is atomic: every `repositories` write opens its own transaction and
+there is no `InsertCommandTx`. That was a real risk for `Import` and is
+tolerable here **only** because of the convergence above — which is the same
+reason `Import` can survive its own partial failure, by resetting first.
+
+The report goes to **stdout** as one summary line plus one line per skipped
+document or item. The signature returns only an error, and a restore the user
+ran by hand deserves an answer in words; if that ever changes shape, return a
+struct instead of printing.
+
+### Dispatch and the two sentinels
+
+`main.go` has exactly one flag, `-restore-legacy <path>`, and the path is
+**required with no default**. `flag.Visit` is used to tell an absent flag from
+`-restore-legacy=""`, so the latter is reported as a mistake instead of being
+silently ignored. Picking the file is the user's decision; defaulting to
+`~/.tartarus/legacy.json` would restore a file they never chose.
+
+Note that `helpers` gained **nothing** for this. The path comes from the command
+line, so the "which database?" policy in `helpers` is untouched.
+
+The only behaviour change to startup is that `flag.Parse` now rejects an
+unknown flag with status 2, where before `main` ignored its arguments entirely.
+There is no command surface to break.
+
+Failure is fatal **only** on that flag. Without it `main` returns right after
+printing the store path, so a machine with no legacy database, a missing
+`legacy.json` or a malformed one cannot stop the CLI from starting. With it, a
+failure is `log.Fatal`, so a restore the user asked for by hand exits non-zero
+rather than printing a report and continuing as if it had worked.
+
+Like `Export`, `RestoreFromLegacy` must not be called from inside a
+`store.WithTx` callback, but it fails with the **read** sentinel:
+`readLegacyState` runs first and goes through `Store.Query`, so the error is
+`store.ErrUseTx`. `Import` gets `store.ErrTxActive` instead, from
+`ResetMigrations`. Three entry points, two sentinels, same constraint — asserted
+per test.
+
 ## Testing outside `store`
 
 `store`'s tests use the unexported `newAt`, so they can point a `Store` at
@@ -420,6 +566,8 @@ the test helpers lives in this file instead, in the sections above:
 | --- | --- |
 | `repositories.newTestStore` | the only door into a database from outside `store`, and why it must not run in parallel |
 | `backup.newTestStore`, `exportPath`, `readExport` | a third copy of the same door, for the same reason, plus a scratch path and a reparse of what `Export` wrote |
+| `backup.legacyPath`, `legacyFixture` | point at `backup/testdata/legacy.json` and restore from it, so the fixture is a real v1.x export rather than an invented one |
+| `backup.itemScripts`, `commandNames`, `manualNames` | read one shape back out of the repositories, so an assertion can name a command by its name instead of by id |
 | `repositories.nullable` | the only way to write SQL NULL, which the repository's own write path cannot produce |
 | `repositories.insertTestCommand`, `insertTestCommandItem`, `insertManual` | set up rows the repository API would not allow |
 | `store.newEmptyStore` | `store.newTestStore` creates an `items` table, which gets in the way of asserting on what `RunMigrations` builds |
@@ -453,9 +601,10 @@ unconverted `import.go` itself. Both are resolved — see the `## Import` sectio
    before that column was added, so `RunMigrations` will not give it the column.
    `ResetMigrations` fixes it and destroys the data. Not urgent: the file is
    gitignored and `dev.db` is a scratch database.
-3. **`main.go` still has no CLI surface.** It opens, migrates, prints the path and
-   lists manuals as a usage example. Both `backup` entry points are dead code
-   until this changes.
+3. **`main.go` still has no CLI surface.** It opens, migrates, prints the path
+   and has one flag, `-restore-legacy` (see `## Legacy restore`). The two
+   `backup` entry points for the current format, `Export` and `Import`, are dead
+   code until this changes.
 4. **`s.Close()` from inside a `WithTx` callback deadlocks.** `WithTx` holds
    `s.mu` for the whole callback and `Close` takes `s.mu`, and `sync.Mutex` is not
    reentrant. There is no guard and the doc comment does not warn about it. This
