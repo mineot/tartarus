@@ -8,19 +8,21 @@ import (
 )
 
 type CommandItem struct {
-	ID        uint64
-	CommandID uint64
-	Script    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID          uint64
+	CommandID   uint64
+	Script      string
+	Description string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type Command struct {
-	ID        uint64
-	Name      string
-	Items     []CommandItem
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID          uint64
+	Name        string
+	Description string
+	Items       []CommandItem
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 var (
@@ -34,25 +36,25 @@ var (
 
 const (
 	selectCommands = `
-SELECT id, name, created_at, updated_at
+SELECT id, name, COALESCE(description, ''), created_at, updated_at
 FROM commands
 ORDER BY id
 `
 
 	selectCommand = `
-SELECT id, name, created_at, updated_at
+SELECT id, name, COALESCE(description, ''), created_at, updated_at
 FROM commands
 WHERE id = ?
 `
 
 	insertCommand = `
-INSERT INTO commands (name, created_at, updated_at)
-VALUES (?, ?, ?)
+INSERT INTO commands (name, description, created_at, updated_at)
+VALUES (?, ?, ?, ?)
 `
 
 	updateCommand = `
 UPDATE commands
-SET name = ?, updated_at = ?
+SET name = ?, description = ?, updated_at = ?
 WHERE id = ?
 `
 
@@ -67,26 +69,26 @@ WHERE id = ?
 `
 
 	selectCommandItems = `
-SELECT id, command_id, script, created_at, updated_at
+SELECT id, command_id, script, COALESCE(description, ''), created_at, updated_at
 FROM command_items
 WHERE command_id = ?
 ORDER BY id
 `
 
 	selectCommandItem = `
-SELECT id, command_id, script, created_at, updated_at
+SELECT id, command_id, script, COALESCE(description, ''), created_at, updated_at
 FROM command_items
 WHERE command_id = ? AND id = ?
 `
 
 	insertCommandItem = `
-INSERT INTO command_items (command_id, script, created_at, updated_at)
-VALUES (?, ?, ?, ?)
+INSERT INTO command_items (command_id, script, description, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?)
 `
 
 	updateCommandItem = `
 UPDATE command_items
-SET script = ?, updated_at = ?
+SET script = ?, description = ?, updated_at = ?
 WHERE id = ? AND command_id = ?
 `
 
@@ -114,6 +116,7 @@ func (r *Repos) GetCommands() ([]Command, error) {
 		if err := rows.Scan(
 			&command.ID,
 			&command.Name,
+			&command.Description,
 			&command.CreatedAt,
 			&command.UpdatedAt,
 		); err != nil {
@@ -147,6 +150,7 @@ func (r *Repos) GetCommand(id uint64) (Command, error) {
 		if err := rows.Scan(
 			&command.ID,
 			&command.Name,
+			&command.Description,
 			&command.CreatedAt,
 			&command.UpdatedAt,
 		); err != nil {
@@ -180,6 +184,7 @@ func (r *Repos) GetCommandItems(commandID uint64) ([]CommandItem, error) {
 			&item.ID,
 			&item.CommandID,
 			&item.Script,
+			&item.Description,
 			&item.CreatedAt,
 			&item.UpdatedAt,
 		); err != nil {
@@ -214,6 +219,7 @@ func (r *Repos) GetCommandItem(commandID, itemID uint64) (CommandItem, error) {
 			&item.ID,
 			&item.CommandID,
 			&item.Script,
+			&item.Description,
 			&item.CreatedAt,
 			&item.UpdatedAt,
 		); err != nil {
@@ -240,7 +246,7 @@ func (r *Repos) InsertCommand(c *Command) error {
 	var id int64
 
 	err := r.Store.WithTx(func(tx *store.Tx) error {
-		res, err := tx.Exec(insertCommand, c.Name, now, now)
+		res, err := tx.Exec(insertCommand, c.Name, c.Description, now, now)
 
 		if err != nil {
 			return err
@@ -259,6 +265,7 @@ func (r *Repos) InsertCommand(c *Command) error {
 		if err := row.Scan(
 			&inserted.ID,
 			&inserted.Name,
+			&inserted.Description,
 			&inserted.CreatedAt,
 			&inserted.UpdatedAt,
 		); err != nil {
@@ -267,6 +274,7 @@ func (r *Repos) InsertCommand(c *Command) error {
 
 		c.ID = inserted.ID
 		c.Name = inserted.Name
+		c.Description = inserted.Description
 		c.CreatedAt = inserted.CreatedAt
 		c.UpdatedAt = inserted.UpdatedAt
 
@@ -295,7 +303,7 @@ func (r *Repos) AppendCommandItem(commandID uint64, item *CommandItem) error {
 	var id int64
 
 	err := r.Store.WithTx(func(tx *store.Tx) error {
-		res, err := tx.Exec(insertCommandItem, commandID, item.Script, now, now)
+		res, err := tx.Exec(insertCommandItem, commandID, item.Script, item.Description, now, now)
 
 		if err != nil {
 			return err
@@ -315,6 +323,7 @@ func (r *Repos) AppendCommandItem(commandID uint64, item *CommandItem) error {
 			&inserted.ID,
 			&inserted.CommandID,
 			&inserted.Script,
+			&inserted.Description,
 			&inserted.CreatedAt,
 			&inserted.UpdatedAt,
 		); err != nil {
@@ -324,6 +333,7 @@ func (r *Repos) AppendCommandItem(commandID uint64, item *CommandItem) error {
 		item.ID = inserted.ID
 		item.CommandID = inserted.CommandID
 		item.Script = inserted.Script
+		item.Description = inserted.Description
 		item.CreatedAt = inserted.CreatedAt
 		item.UpdatedAt = inserted.UpdatedAt
 
@@ -350,7 +360,7 @@ func (r *Repos) UpdateCommand(c *Command) error {
 	now := time.Now().UTC()
 
 	err := r.Store.WithTx(func(tx *store.Tx) error {
-		res, err := tx.Exec(updateCommand, c.Name, now, c.ID)
+		res, err := tx.Exec(updateCommand, c.Name, c.Description, now, c.ID)
 
 		if err != nil {
 			return err
@@ -373,6 +383,7 @@ func (r *Repos) UpdateCommand(c *Command) error {
 		if err := row.Scan(
 			&updated.ID,
 			&updated.Name,
+			&updated.Description,
 			&updated.CreatedAt,
 			&updated.UpdatedAt,
 		); err != nil {
@@ -381,6 +392,7 @@ func (r *Repos) UpdateCommand(c *Command) error {
 
 		c.ID = updated.ID
 		c.Name = updated.Name
+		c.Description = updated.Description
 		c.CreatedAt = updated.CreatedAt
 		c.UpdatedAt = updated.UpdatedAt
 
@@ -411,7 +423,7 @@ func (r *Repos) UpdateCommandItem(commandID uint64, item *CommandItem) error {
 	now := time.Now().UTC()
 
 	err := r.Store.WithTx(func(tx *store.Tx) error {
-		res, err := tx.Exec(updateCommandItem, item.Script, now, item.ID, commandID)
+		res, err := tx.Exec(updateCommandItem, item.Script, item.Description, now, item.ID, commandID)
 
 		if err != nil {
 			return err
@@ -435,6 +447,7 @@ func (r *Repos) UpdateCommandItem(commandID uint64, item *CommandItem) error {
 			&updated.ID,
 			&updated.CommandID,
 			&updated.Script,
+			&updated.Description,
 			&updated.CreatedAt,
 			&updated.UpdatedAt,
 		); err != nil {
@@ -444,6 +457,7 @@ func (r *Repos) UpdateCommandItem(commandID uint64, item *CommandItem) error {
 		item.ID = updated.ID
 		item.CommandID = updated.CommandID
 		item.Script = updated.Script
+		item.Description = updated.Description
 		item.CreatedAt = updated.CreatedAt
 		item.UpdatedAt = updated.UpdatedAt
 

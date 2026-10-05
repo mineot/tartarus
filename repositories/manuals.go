@@ -10,11 +10,12 @@ import (
 
 // Manual is a document attached to a command, explaining what it does and how to use it.
 type Manual struct {
-	ID        uint64
-	Name      string
-	Body      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID          uint64
+	Name        string
+	Body        string
+	Description string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 var (
@@ -26,25 +27,25 @@ var (
 
 const (
 	selectManuals = `
-SELECT id, name, body, created_at, updated_at
+SELECT id, name, body, COALESCE(description, ''), created_at, updated_at
 FROM manuals
 ORDER BY id
 `
 
 	selectManualQuery = `
-SELECT id, name, body, created_at, updated_at
+SELECT id, name, body, COALESCE(description, ''), created_at, updated_at
 FROM manuals
 WHERE id = ?
 `
 
 	insertManualQuery = `
-INSERT INTO manuals (name, body, created_at, updated_at)
-VALUES (?, ?, ?, ?)
+INSERT INTO manuals (name, body, description, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?)
 `
 
 	updateManualQuery = `
 UPDATE manuals
-SET name = ?, body = ?, updated_at = ?
+SET name = ?, body = ?, description = ?, updated_at = ?
 WHERE id = ?
 `
 
@@ -82,6 +83,7 @@ func (r *Repos) GetManuals() ([]Manual, error) {
 			&manual.ID,
 			&manual.Name,
 			&manual.Body,
+			&manual.Description,
 			&manual.CreatedAt,
 			&manual.UpdatedAt,
 		); err != nil {
@@ -116,6 +118,7 @@ func (r *Repos) GetManual(id uint64) (Manual, error) {
 			&manual.ID,
 			&manual.Name,
 			&manual.Body,
+			&manual.Description,
 			&manual.CreatedAt,
 			&manual.UpdatedAt,
 		); err != nil {
@@ -146,7 +149,7 @@ func (r *Repos) InsertManual(m *Manual) error {
 	var id int64
 
 	err := r.Store.WithTx(func(tx *store.Tx) error {
-		res, err := tx.Exec(insertManualQuery, m.Name, m.Body, now, now)
+		res, err := tx.Exec(insertManualQuery, m.Name, m.Body, m.Description, now, now)
 
 		if err != nil {
 			return err
@@ -166,6 +169,7 @@ func (r *Repos) InsertManual(m *Manual) error {
 			&inserted.ID,
 			&inserted.Name,
 			&inserted.Body,
+			&inserted.Description,
 			&inserted.CreatedAt,
 			&inserted.UpdatedAt,
 		); err != nil {
@@ -175,6 +179,7 @@ func (r *Repos) InsertManual(m *Manual) error {
 		m.ID = inserted.ID
 		m.Name = inserted.Name
 		m.Body = inserted.Body
+		m.Description = inserted.Description
 		m.CreatedAt = inserted.CreatedAt
 		m.UpdatedAt = inserted.UpdatedAt
 
@@ -206,7 +211,7 @@ func (r *Repos) UpdateManual(m *Manual) error {
 	now := time.Now().UTC()
 
 	err := r.Store.WithTx(func(tx *store.Tx) error {
-		res, err := tx.Exec(updateManualQuery, m.Name, m.Body, now, m.ID)
+		res, err := tx.Exec(updateManualQuery, m.Name, m.Body, m.Description, now, m.ID)
 
 		if err != nil {
 			return err
@@ -230,15 +235,18 @@ func (r *Repos) UpdateManual(m *Manual) error {
 			&updated.ID,
 			&updated.Name,
 			&updated.Body,
+			&updated.Description,
 			&updated.CreatedAt,
 			&updated.UpdatedAt,
 		); err != nil {
+
 			return err
 		}
 
 		m.ID = updated.ID
 		m.Name = updated.Name
 		m.Body = updated.Body
+		m.Description = updated.Description
 		m.CreatedAt = updated.CreatedAt
 		m.UpdatedAt = updated.UpdatedAt
 

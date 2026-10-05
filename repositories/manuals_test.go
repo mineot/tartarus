@@ -10,7 +10,11 @@ import (
 
 // insertManual writes a manual and returns the timestamp it was stamped with,
 // which the caller needs in order to compare what comes back out.
-func insertManual(t *testing.T, s *store.Store, name string, body string) (uint64, time.Time) {
+//
+// The description is written as SQL NULL when empty, which is the state of any
+// row that predates the column. The repository itself always sends a plain
+// string, so an empty description reaches the database as an empty string.
+func insertManual(t *testing.T, s *store.Store, name string, body string, description string) (uint64, time.Time) {
 	t.Helper()
 
 	now := time.Now().UTC()
@@ -18,7 +22,7 @@ func insertManual(t *testing.T, s *store.Store, name string, body string) (uint6
 	var id int64
 
 	err := s.WithTx(func(tx *store.Tx) error {
-		result, err := tx.Exec(`INSERT INTO manuals (name, body, created_at, updated_at) VALUES (?, ?, ?, ?)`, name, body, now, now)
+		result, err := tx.Exec(`INSERT INTO manuals (name, body, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`, name, body, nullable(description), now, now)
 
 		if err != nil {
 			return err
@@ -55,21 +59,22 @@ func TestGetManualsReturnsEveryManualInCreationOrder(t *testing.T) {
 	s := newTestStore(t)
 
 	type inserted struct {
-		id   uint64
-		name string
-		body string
-		at   time.Time
+		id          uint64
+		name        string
+		body        string
+		description string
+		at          time.Time
 	}
 
 	want := make([]inserted, 0, 3)
 
-	for _, m := range []struct{ name, body string }{
-		{"zebra", "last alphabetically"},
-		{"alpha", "first alphabetically"},
-		{"mango", "in between"},
+	for _, m := range []struct{ name, body, description string }{
+		{"zebra", "last alphabetically", "ultimo alfabeticamente"},
+		{"alpha", "first alphabetically", ""},
+		{"mango", "in between", "no meio"},
 	} {
-		id, at := insertManual(t, s, m.name, m.body)
-		want = append(want, inserted{id: id, name: m.name, body: m.body, at: at})
+		id, at := insertManual(t, s, m.name, m.body, m.description)
+		want = append(want, inserted{id: id, name: m.name, body: m.body, description: m.description, at: at})
 	}
 
 	r := New(s)
@@ -94,6 +99,9 @@ func TestGetManualsReturnsEveryManualInCreationOrder(t *testing.T) {
 		}
 		if got.Body != w.body {
 			t.Fatalf("posição %d: esperava o corpo %q, obteve %q", i, w.body, got.Body)
+		}
+		if got.Description != w.description {
+			t.Fatalf("posição %d: esperava a description %q, obteve %q", i, w.description, got.Description)
 		}
 		if got.CreatedAt.Unix() != w.at.Unix() {
 			t.Fatalf("posição %d: esperava created_at %d, obteve %d", i, w.at.Unix(), got.CreatedAt.Unix())
@@ -136,7 +144,7 @@ func TestGetManualsPropagatesAClosedStore(t *testing.T) {
 func TestGetManualFound(t *testing.T) {
 	s := newTestStore(t)
 	r := New(s)
-	id, at := insertManual(t, s, "readme", "conteudo")
+	id, at := insertManual(t, s, "readme", "conteudo", "como usar o comando")
 
 	got, err := r.GetManual(id)
 	if err != nil {
@@ -152,11 +160,29 @@ func TestGetManualFound(t *testing.T) {
 	if got.Body != "conteudo" {
 		t.Fatalf("esperava corpo %q, obteve %q", "conteudo", got.Body)
 	}
+	if got.Description != "como usar o comando" {
+		t.Fatalf("esperava description %q, obteve %q", "como usar o comando", got.Description)
+	}
 	if got.CreatedAt.Unix() != at.Unix() {
 		t.Fatalf("esperava created_at %d, obteve %d", at.Unix(), got.CreatedAt.Unix())
 	}
 	if got.UpdatedAt.Unix() != at.Unix() {
 		t.Fatalf("esperava updated_at %d, obteve %d", at.Unix(), got.UpdatedAt.Unix())
+	}
+}
+
+func TestGetManualReadsANullDescriptionAsEmpty(t *testing.T) {
+	s := newTestStore(t)
+	r := New(s)
+	id, _ := insertManual(t, s, "legacy", "conteudo", "")
+
+	got, err := r.GetManual(id)
+	if err != nil {
+		t.Fatalf("GetManual: %v", err)
+	}
+
+	if got.Description != "" {
+		t.Fatalf("esperava description vazia para NULL, obteve %q", got.Description)
 	}
 }
 
@@ -204,13 +230,16 @@ func TestInsertManualSuccess(t *testing.T) {
 	s := newTestStore(t)
 	r := New(s)
 
-	m := &Manual{Name: "guia", Body: "passos"}
+	m := &Manual{Name: "guia", Body: "passos", Description: "guia de instalacao"}
 	if err := r.InsertManual(m); err != nil {
 		t.Fatalf("InsertManual: %v", err)
 	}
 
 	if m.ID == 0 {
 		t.Fatalf("esperava ID populado")
+	}
+	if m.Description != "guia de instalacao" {
+		t.Fatalf("esperava description %q, obteve %q", "guia de instalacao", m.Description)
 	}
 	if m.CreatedAt.IsZero() || m.UpdatedAt.IsZero() {
 		t.Fatalf("esperava timestamps populados")
@@ -220,8 +249,32 @@ func TestInsertManualSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetManual: %v", err)
 	}
-	if got.ID != m.ID || got.Name != "guia" || got.Body != "passos" {
+	if got.ID != m.ID || got.Name != "guia" || got.Body != "passos" || got.Description != "guia de instalacao" {
 		t.Fatalf("dados não persistidos corretamente: %+v", got)
+	}
+}
+
+func TestInsertManualWithoutDescription(t *testing.T) {
+	s := newTestStore(t)
+	r := New(s)
+
+	// A description e nullable e nao tem validacao: um manual sem descricao e
+	// valido, e deve sair com o campo vazio em vez de erro.
+	m := &Manual{Name: "guia", Body: "passos"}
+	if err := r.InsertManual(m); err != nil {
+		t.Fatalf("InsertManual: %v", err)
+	}
+
+	if m.Description != "" {
+		t.Fatalf("esperava description vazia, obteve %q", m.Description)
+	}
+
+	got, err := r.GetManual(m.ID)
+	if err != nil {
+		t.Fatalf("GetManual: %v", err)
+	}
+	if got.Description != "" {
+		t.Fatalf("esperava description vazia persistida, obteve %q", got.Description)
 	}
 }
 
@@ -275,7 +328,7 @@ func TestUpdateManualSuccess(t *testing.T) {
 	s := newTestStore(t)
 	r := New(s)
 
-	m := &Manual{Name: "old", Body: "old"}
+	m := &Manual{Name: "old", Body: "old", Description: "descricao antiga"}
 	if err := r.InsertManual(m); err != nil {
 		t.Fatalf("InsertManual: %v", err)
 	}
@@ -283,6 +336,7 @@ func TestUpdateManualSuccess(t *testing.T) {
 	created := m.CreatedAt
 	m.Name = "new"
 	m.Body = "new"
+	m.Description = "descricao nova"
 	if err := r.UpdateManual(m); err != nil {
 		t.Fatalf("UpdateManual: %v", err)
 	}
@@ -290,13 +344,43 @@ func TestUpdateManualSuccess(t *testing.T) {
 	if m.CreatedAt.Unix() != created.Unix() {
 		t.Fatalf("CreatedAt não deve mudar")
 	}
+	if m.Description != "descricao nova" {
+		t.Fatalf("esperava description %q, obteve %q", "descricao nova", m.Description)
+	}
 
 	got, err := r.GetManual(m.ID)
 	if err != nil {
 		t.Fatalf("GetManual: %v", err)
 	}
-	if got.Name != "new" || got.Body != "new" {
+	if got.Name != "new" || got.Body != "new" || got.Description != "descricao nova" {
 		t.Fatalf("atualização não persistiu: %+v", got)
+	}
+}
+
+func TestUpdateManualClearsTheDescription(t *testing.T) {
+	s := newTestStore(t)
+	r := New(s)
+
+	m := &Manual{Name: "guia", Body: "passos", Description: "descricao que sera removida"}
+	if err := r.InsertManual(m); err != nil {
+		t.Fatalf("InsertManual: %v", err)
+	}
+
+	// Description nao tem validacao, entao limpar e um update legitimo.
+	m.Description = ""
+	if err := r.UpdateManual(m); err != nil {
+		t.Fatalf("UpdateManual: %v", err)
+	}
+	if m.Description != "" {
+		t.Fatalf("esperava description vazia na struct, obteve %q", m.Description)
+	}
+
+	got, err := r.GetManual(m.ID)
+	if err != nil {
+		t.Fatalf("GetManual: %v", err)
+	}
+	if got.Description != "" {
+		t.Fatalf("esperava description vazia persistida, obteve %q", got.Description)
 	}
 }
 
@@ -375,7 +459,7 @@ func TestUpdateManualIsRejectedInsideATransaction(t *testing.T) {
 func TestDeleteManualSuccess(t *testing.T) {
 	s := newTestStore(t)
 	r := New(s)
-	id, _ := insertManual(t, s, "del", "body")
+	id, _ := insertManual(t, s, "del", "body", "")
 
 	if err := r.DeleteManual(id); err != nil {
 		t.Fatalf("Delete: %v", err)
@@ -412,7 +496,7 @@ func TestDeleteManualNotFound(t *testing.T) {
 func TestDeleteManualPropagatesAClosedStore(t *testing.T) {
 	s := newTestStore(t)
 	r := New(s)
-	id, _ := insertManual(t, s, "del", "body")
+	id, _ := insertManual(t, s, "del", "body", "")
 
 	if err := s.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
@@ -426,7 +510,7 @@ func TestDeleteManualPropagatesAClosedStore(t *testing.T) {
 func TestDeleteManualIsRejectedInsideATransaction(t *testing.T) {
 	s := newTestStore(t)
 	r := New(s)
-	id, _ := insertManual(t, s, "del", "body")
+	id, _ := insertManual(t, s, "del", "body", "")
 
 	err := s.WithTx(func(tx *store.Tx) error {
 		return r.DeleteManual(id)

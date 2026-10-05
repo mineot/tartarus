@@ -8,8 +8,11 @@ import (
 	"tartarus/store"
 )
 
-// helper para inserir command diretamente
-func insertTestCommand(t *testing.T, s *store.Store, name string) (uint64, time.Time) {
+// insertTestCommand writes a command straight to the database, bypassing the
+// repository, so tests can set up rows the repository API would not allow.
+// It returns the id and the timestamp the row was stamped with, which the
+// caller needs in order to compare what comes back out.
+func insertTestCommand(t *testing.T, s *store.Store, name string, description string) (uint64, time.Time) {
 	t.Helper()
 
 	now := time.Now().UTC()
@@ -17,7 +20,7 @@ func insertTestCommand(t *testing.T, s *store.Store, name string) (uint64, time.
 	var id int64
 
 	err := s.WithTx(func(tx *store.Tx) error {
-		result, err := tx.Exec(`INSERT INTO commands (name, created_at, updated_at) VALUES (?, ?, ?)`, name, now, now)
+		result, err := tx.Exec(`INSERT INTO commands (name, description, created_at, updated_at) VALUES (?, ?, ?, ?)`, name, nullable(description), now, now)
 
 		if err != nil {
 			return err
@@ -35,8 +38,9 @@ func insertTestCommand(t *testing.T, s *store.Store, name string) (uint64, time.
 	return uint64(id), now
 }
 
-// helper para inserir command item diretamente
-func insertTestCommandItem(t *testing.T, s *store.Store, commandID uint64, script string) (uint64, time.Time) {
+// insertTestCommandItem writes a command item straight to the database, on the
+// same terms as insertTestCommand.
+func insertTestCommandItem(t *testing.T, s *store.Store, commandID uint64, script string, description string) (uint64, time.Time) {
 	t.Helper()
 
 	now := time.Now().UTC()
@@ -44,7 +48,7 @@ func insertTestCommandItem(t *testing.T, s *store.Store, commandID uint64, scrip
 	var id int64
 
 	err := s.WithTx(func(tx *store.Tx) error {
-		result, err := tx.Exec(`INSERT INTO command_items (command_id, script, created_at, updated_at) VALUES (?, ?, ?, ?)`, commandID, script, now, now)
+		result, err := tx.Exec(`INSERT INTO command_items (command_id, script, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`, commandID, script, nullable(description), now, now)
 
 		if err != nil {
 			return err
@@ -60,6 +64,19 @@ func insertTestCommandItem(t *testing.T, s *store.Store, commandID uint64, scrip
 	}
 
 	return uint64(id), now
+}
+
+// nullable maps an empty string to a nil argument, so a test can write SQL NULL
+// into a nullable column. The repository always sends the plain string, so an
+// empty description reaches the database as an empty string rather than NULL.
+// A NULL is only reachable by writing the column directly, which is what these
+// helpers are for.
+func nullable(s string) any {
+	if s == "" {
+		return nil
+	}
+
+	return s
 }
 
 func TestGetCommandsOnEmptyDatabase(t *testing.T) {
@@ -81,21 +98,24 @@ func TestGetCommandsReturnsEveryCommandInCreationOrder(t *testing.T) {
 	s := newTestStore(t)
 
 	type inserted struct {
-		id uint64
-		at time.Time
+		id          uint64
+		name        string
+		description string
+		at          time.Time
 	}
 
 	want := make([]inserted, 0, 3)
 
 	for _, m := range []struct {
-		name string
+		name        string
+		description string
 	}{
-		{"zebra"},
-		{"alpha"},
-		{"mango"},
+		{"zebra", "ultimo alfabeticamente"},
+		{"alpha", "primeiro alfabeticamente"},
+		{"mango", "no meio"},
 	} {
-		id, at := insertTestCommand(t, s, m.name)
-		want = append(want, inserted{id: id, at: at})
+		id, at := insertTestCommand(t, s, m.name, m.description)
+		want = append(want, inserted{id: id, name: m.name, description: m.description, at: at})
 	}
 
 	r := New(s)
@@ -115,8 +135,11 @@ func TestGetCommandsReturnsEveryCommandInCreationOrder(t *testing.T) {
 		if got.ID != w.id {
 			t.Fatalf("posição %d: esperava id %d, obteve %d", i, w.id, got.ID)
 		}
-		if got.Name == "" {
-			t.Fatalf("posição %d: esperava nome preenchido", i)
+		if got.Name != w.name {
+			t.Fatalf("posição %d: esperava nome %q, obteve %q", i, w.name, got.Name)
+		}
+		if got.Description != w.description {
+			t.Fatalf("posição %d: esperava description %q, obteve %q", i, w.description, got.Description)
 		}
 		if got.CreatedAt.Unix() != w.at.Unix() {
 			t.Fatalf("posição %d: esperava created_at %d, obteve %d", i, w.at.Unix(), got.CreatedAt.Unix())
@@ -160,7 +183,7 @@ func TestGetCommandFound(t *testing.T) {
 	s := newTestStore(t)
 	r := New(s)
 
-	id, at := insertTestCommand(t, s, "build")
+	id, at := insertTestCommand(t, s, "build", "compila o projeto")
 
 	got, err := r.GetCommand(id)
 	if err != nil {
@@ -173,11 +196,32 @@ func TestGetCommandFound(t *testing.T) {
 	if got.Name != "build" {
 		t.Fatalf("esperava nome %q, obteve %q", "build", got.Name)
 	}
+	if got.Description != "compila o projeto" {
+		t.Fatalf("esperava description %q, obteve %q", "compila o projeto", got.Description)
+	}
 	if got.CreatedAt.Unix() != at.Unix() {
 		t.Fatalf("esperava created_at %d, obteve %d", at.Unix(), got.CreatedAt.Unix())
 	}
 	if got.UpdatedAt.Unix() != at.Unix() {
 		t.Fatalf("esperava updated_at %d, obteve %d", at.Unix(), got.UpdatedAt.Unix())
+	}
+}
+
+func TestGetCommandReadsANullDescriptionAsEmpty(t *testing.T) {
+	s := newTestStore(t)
+	r := New(s)
+
+	// O helper escreve SQL NULL quando a description vem vazia, que e o estado
+	// de qualquer linha criada antes de a coluna existir.
+	id, _ := insertTestCommand(t, s, "legacy", "")
+
+	got, err := r.GetCommand(id)
+	if err != nil {
+		t.Fatalf("GetCommand: %v", err)
+	}
+
+	if got.Description != "" {
+		t.Fatalf("esperava description vazia para NULL, obteve %q", got.Description)
 	}
 }
 
@@ -189,7 +233,7 @@ func TestGetCommandNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCommand: %v", err)
 	}
-	if got.ID != 0 || got.Name != "" {
+	if got.ID != 0 || got.Name != "" || got.Description != "" {
 		t.Fatalf("esperava command vazio, obteve %+v", got)
 	}
 }
@@ -227,7 +271,7 @@ func TestInsertCommandSuccess(t *testing.T) {
 	s := newTestStore(t)
 	r := New(s)
 
-	c := &Command{Name: "run"}
+	c := &Command{Name: "run", Description: "executa o projeto"}
 	if err := r.InsertCommand(c); err != nil {
 		t.Fatalf("InsertCommand: %v", err)
 	}
@@ -237,6 +281,9 @@ func TestInsertCommandSuccess(t *testing.T) {
 	}
 	if c.Name != "run" {
 		t.Fatalf("esperava nome %q, obteve %q", "run", c.Name)
+	}
+	if c.Description != "executa o projeto" {
+		t.Fatalf("esperava description %q, obteve %q", "executa o projeto", c.Description)
 	}
 	if c.CreatedAt.IsZero() {
 		t.Fatal("esperava CreatedAt populado")
@@ -257,6 +304,33 @@ func TestInsertCommandSuccess(t *testing.T) {
 	}
 	if got.Name != "run" {
 		t.Fatalf("esperava nome %q, obteve %q", "run", got.Name)
+	}
+	if got.Description != "executa o projeto" {
+		t.Fatalf("esperava description %q, obteve %q", "executa o projeto", got.Description)
+	}
+}
+
+func TestInsertCommandWithoutDescription(t *testing.T) {
+	s := newTestStore(t)
+	r := New(s)
+
+	// A description e nullable e nao tem validacao: um command sem descricao e
+	// valido, e deve sair com o campo vazio em vez de erro.
+	c := &Command{Name: "run"}
+	if err := r.InsertCommand(c); err != nil {
+		t.Fatalf("InsertCommand: %v", err)
+	}
+
+	if c.Description != "" {
+		t.Fatalf("esperava description vazia, obteve %q", c.Description)
+	}
+
+	got, err := r.GetCommand(c.ID)
+	if err != nil {
+		t.Fatalf("GetCommand: %v", err)
+	}
+	if got.Description != "" {
+		t.Fatalf("esperava description vazia persistida, obteve %q", got.Description)
 	}
 }
 
@@ -318,18 +392,16 @@ func TestInsertCommandNameUniqueness(t *testing.T) {
 	if err == nil {
 		t.Fatal("esperava erro de UNIQUE")
 	}
-	if !errors.Is(err, store.ErrUseTx) && !errors.Is(err, store.ErrClosed) && !errors.Is(err, store.ErrTxActive) && !errors.Is(err, ErrCommandNameRequired) && !errors.Is(err, ErrCommandIDRequired) {
-		// Verifica apenas que é wrapped: contém "repositories: inserting command"
-		_ = err
+	if errors.Is(err, ErrCommandNameRequired) {
+		t.Fatalf("esperava violacao de UNIQUE, obteve %v", err)
 	}
-	// Aceita qualquer erro (SQLite UNIQUE) desde que seja wrapped
 }
 
 func TestUpdateCommandSuccess(t *testing.T) {
 	s := newTestStore(t)
 	r := New(s)
 
-	c := &Command{Name: "old"}
+	c := &Command{Name: "old", Description: "descricao antiga"}
 	if err := r.InsertCommand(c); err != nil {
 		t.Fatalf("InsertCommand: %v", err)
 	}
@@ -341,6 +413,7 @@ func TestUpdateCommandSuccess(t *testing.T) {
 	time.Sleep(time.Microsecond)
 
 	c.Name = "new"
+	c.Description = "descricao nova"
 	if err := r.UpdateCommand(c); err != nil {
 		t.Fatalf("UpdateCommand: %v", err)
 	}
@@ -350,6 +423,9 @@ func TestUpdateCommandSuccess(t *testing.T) {
 	}
 	if c.Name != "new" {
 		t.Fatalf("esperava nome %q, obteve %q", "new", c.Name)
+	}
+	if c.Description != "descricao nova" {
+		t.Fatalf("esperava description %q, obteve %q", "descricao nova", c.Description)
 	}
 	if !c.CreatedAt.Equal(created) {
 		t.Fatalf("esperava CreatedAt preservado %v, obteve %v", created, c.CreatedAt)
@@ -364,6 +440,36 @@ func TestUpdateCommandSuccess(t *testing.T) {
 	}
 	if got.Name != "new" {
 		t.Fatalf("esperava nome persistido %q, obteve %q", "new", got.Name)
+	}
+	if got.Description != "descricao nova" {
+		t.Fatalf("esperava description persistida %q, obteve %q", "descricao nova", got.Description)
+	}
+}
+
+func TestUpdateCommandClearsTheDescription(t *testing.T) {
+	s := newTestStore(t)
+	r := New(s)
+
+	c := &Command{Name: "run", Description: "descricao que sera removida"}
+	if err := r.InsertCommand(c); err != nil {
+		t.Fatalf("InsertCommand: %v", err)
+	}
+
+	// Description nao tem validacao, entao limpar e um update legitimo.
+	c.Description = ""
+	if err := r.UpdateCommand(c); err != nil {
+		t.Fatalf("UpdateCommand: %v", err)
+	}
+	if c.Description != "" {
+		t.Fatalf("esperava description vazia na struct, obteve %q", c.Description)
+	}
+
+	got, err := r.GetCommand(c.ID)
+	if err != nil {
+		t.Fatalf("GetCommand: %v", err)
+	}
+	if got.Description != "" {
+		t.Fatalf("esperava description vazia persistida, obteve %q", got.Description)
 	}
 }
 
@@ -472,8 +578,8 @@ func TestDeleteCommandSuccess(t *testing.T) {
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	insertTestCommandItem(t, s, c.ID, "echo 1")
-	insertTestCommandItem(t, s, c.ID, "echo 2")
+	insertTestCommandItem(t, s, c.ID, "echo 1", "primeiro item")
+	insertTestCommandItem(t, s, c.ID, "echo 2", "segundo item")
 
 	if err := r.DeleteCommand(c.ID); err != nil {
 		t.Fatalf("DeleteCommand: %v", err)
@@ -581,21 +687,22 @@ func TestGetCommandItemsReturnsAllInOrder(t *testing.T) {
 	}
 
 	type inserted struct {
-		id       uint64
-		commandID uint64
-		script   string
-		at       time.Time
+		id          uint64
+		commandID   uint64
+		script      string
+		description string
+		at          time.Time
 	}
 
 	want := make([]inserted, 0, 3)
 
-	for _, m := range []struct{ script string }{
-		{"z"},
-		{"a"},
-		{"m"},
+	for _, m := range []struct{ script, description string }{
+		{"z", "descricao de z"},
+		{"a", ""},
+		{"m", "descricao de m"},
 	} {
-		id, at := insertTestCommandItem(t, s, c.ID, m.script)
-		want = append(want, inserted{id: id, commandID: c.ID, script: m.script, at: at})
+		id, at := insertTestCommandItem(t, s, c.ID, m.script, m.description)
+		want = append(want, inserted{id: id, commandID: c.ID, script: m.script, description: m.description, at: at})
 	}
 
 	items, err := r.GetCommandItems(c.ID)
@@ -617,6 +724,9 @@ func TestGetCommandItemsReturnsAllInOrder(t *testing.T) {
 		}
 		if got.Script != w.script {
 			t.Fatalf("posição %d: esperava script %q, obteve %q", i, w.script, got.Script)
+		}
+		if got.Description != w.description {
+			t.Fatalf("posição %d: esperava description %q, obteve %q", i, w.description, got.Description)
 		}
 		if got.CreatedAt.Unix() != w.at.Unix() {
 			t.Fatalf("posição %d: esperava created_at %d, obteve %d", i, w.at.Unix(), got.CreatedAt.Unix())
@@ -677,7 +787,7 @@ func TestGetCommandItemFound(t *testing.T) {
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	id, at := insertTestCommandItem(t, s, c.ID, "echo test")
+	id, at := insertTestCommandItem(t, s, c.ID, "echo test", "imprime test")
 
 	got, err := r.GetCommandItem(c.ID, id)
 	if err != nil {
@@ -693,11 +803,35 @@ func TestGetCommandItemFound(t *testing.T) {
 	if got.Script != "echo test" {
 		t.Fatalf("esperava script %q, obteve %q", "echo test", got.Script)
 	}
+	if got.Description != "imprime test" {
+		t.Fatalf("esperava description %q, obteve %q", "imprime test", got.Description)
+	}
 	if got.CreatedAt.Unix() != at.Unix() {
 		t.Fatalf("esperava created_at %d, obteve %d", at.Unix(), got.CreatedAt.Unix())
 	}
 	if got.UpdatedAt.Unix() != at.Unix() {
 		t.Fatalf("esperava updated_at %d, obteve %d", at.Unix(), got.UpdatedAt.Unix())
+	}
+}
+
+func TestGetCommandItemReadsANullDescriptionAsEmpty(t *testing.T) {
+	s := newTestStore(t)
+	r := New(s)
+
+	c := &Command{Name: "cmd"}
+	if err := r.InsertCommand(c); err != nil {
+		t.Fatalf("InsertCommand: %v", err)
+	}
+
+	id, _ := insertTestCommandItem(t, s, c.ID, "legacy", "")
+
+	got, err := r.GetCommandItem(c.ID, id)
+	if err != nil {
+		t.Fatalf("GetCommandItem: %v", err)
+	}
+
+	if got.Description != "" {
+		t.Fatalf("esperava description vazia para NULL, obteve %q", got.Description)
 	}
 }
 
@@ -728,7 +862,7 @@ func TestGetCommandItemNotFoundWrongCommand(t *testing.T) {
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	id, _ := insertTestCommandItem(t, s, c.ID, "script")
+	id, _ := insertTestCommandItem(t, s, c.ID, "script", "descricao do script")
 
 	got, err := r.GetCommandItem(999, id)
 	if err != nil {
@@ -748,7 +882,7 @@ func TestGetCommandItemPropagatesAClosedStore(t *testing.T) {
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	id, _ := insertTestCommandItem(t, s, c.ID, "s")
+	id, _ := insertTestCommandItem(t, s, c.ID, "s", "")
 
 	if err := s.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
@@ -783,7 +917,7 @@ func TestAppendCommandItemSuccess(t *testing.T) {
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	item := &CommandItem{Script: "npm test"}
+	item := &CommandItem{Script: "npm test", Description: "roda a suite de testes"}
 	if err := r.AppendCommandItem(c.ID, item); err != nil {
 		t.Fatalf("AppendCommandItem: %v", err)
 	}
@@ -796,6 +930,9 @@ func TestAppendCommandItemSuccess(t *testing.T) {
 	}
 	if item.Script != "npm test" {
 		t.Fatalf("esperava script %q, obteve %q", "npm test", item.Script)
+	}
+	if item.Description != "roda a suite de testes" {
+		t.Fatalf("esperava description %q, obteve %q", "roda a suite de testes", item.Description)
 	}
 	if item.CreatedAt.IsZero() || item.UpdatedAt.IsZero() {
 		t.Fatal("esperava timestamps populados")
@@ -810,6 +947,36 @@ func TestAppendCommandItemSuccess(t *testing.T) {
 	}
 	if len(items) != 1 {
 		t.Fatalf("esperava 1 item, obteve %d", len(items))
+	}
+	if items[0].Description != "roda a suite de testes" {
+		t.Fatalf("esperava description persistida %q, obteve %q", "roda a suite de testes", items[0].Description)
+	}
+}
+
+func TestAppendCommandItemWithoutDescription(t *testing.T) {
+	s := newTestStore(t)
+	r := New(s)
+
+	c := &Command{Name: "cmd"}
+	if err := r.InsertCommand(c); err != nil {
+		t.Fatalf("InsertCommand: %v", err)
+	}
+
+	item := &CommandItem{Script: "ls"}
+	if err := r.AppendCommandItem(c.ID, item); err != nil {
+		t.Fatalf("AppendCommandItem: %v", err)
+	}
+
+	if item.Description != "" {
+		t.Fatalf("esperava description vazia, obteve %q", item.Description)
+	}
+
+	got, err := r.GetCommandItem(c.ID, item.ID)
+	if err != nil {
+		t.Fatalf("GetCommandItem: %v", err)
+	}
+	if got.Description != "" {
+		t.Fatalf("esperava description vazia persistida, obteve %q", got.Description)
 	}
 }
 
@@ -915,7 +1082,7 @@ func TestUpdateCommandItemSuccess(t *testing.T) {
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	item := &CommandItem{Script: "old"}
+	item := &CommandItem{Script: "old", Description: "descricao antiga"}
 	if err := r.AppendCommandItem(c.ID, item); err != nil {
 		t.Fatalf("AppendCommandItem: %v", err)
 	}
@@ -927,6 +1094,7 @@ func TestUpdateCommandItemSuccess(t *testing.T) {
 	time.Sleep(time.Microsecond)
 
 	item.Script = "new"
+	item.Description = "descricao nova"
 	if err := r.UpdateCommandItem(cmdID, item); err != nil {
 		t.Fatalf("UpdateCommandItem: %v", err)
 	}
@@ -939,6 +1107,9 @@ func TestUpdateCommandItemSuccess(t *testing.T) {
 	}
 	if item.Script != "new" {
 		t.Fatalf("esperava script %q, obteve %q", "new", item.Script)
+	}
+	if item.Description != "descricao nova" {
+		t.Fatalf("esperava description %q, obteve %q", "descricao nova", item.Description)
 	}
 	if !item.CreatedAt.Equal(created) {
 		t.Fatalf("esperava CreatedAt preservado")
@@ -953,6 +1124,40 @@ func TestUpdateCommandItemSuccess(t *testing.T) {
 	}
 	if got.Script != "new" {
 		t.Fatalf("esperava script persistido %q, obteve %q", "new", got.Script)
+	}
+	if got.Description != "descricao nova" {
+		t.Fatalf("esperava description persistida %q, obteve %q", "descricao nova", got.Description)
+	}
+}
+
+func TestUpdateCommandItemClearsTheDescription(t *testing.T) {
+	s := newTestStore(t)
+	r := New(s)
+
+	c := &Command{Name: "cmd"}
+	if err := r.InsertCommand(c); err != nil {
+		t.Fatalf("InsertCommand: %v", err)
+	}
+
+	item := &CommandItem{Script: "s", Description: "descricao que sera removida"}
+	if err := r.AppendCommandItem(c.ID, item); err != nil {
+		t.Fatalf("AppendCommandItem: %v", err)
+	}
+
+	item.Description = ""
+	if err := r.UpdateCommandItem(c.ID, item); err != nil {
+		t.Fatalf("UpdateCommandItem: %v", err)
+	}
+	if item.Description != "" {
+		t.Fatalf("esperava description vazia na struct, obteve %q", item.Description)
+	}
+
+	got, err := r.GetCommandItem(c.ID, item.ID)
+	if err != nil {
+		t.Fatalf("GetCommandItem: %v", err)
+	}
+	if got.Description != "" {
+		t.Fatalf("esperava description vazia persistida, obteve %q", got.Description)
 	}
 }
 
