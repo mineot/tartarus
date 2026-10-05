@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 
+	"tartarus/backup"
+	"tartarus/repositories"
 	"tartarus/store"
 )
 
@@ -27,4 +29,8 @@ func main() {
 	}
 
 	fmt.Println(s.Path())
+
+	r := repositories.New(s)
+
+	backup.Export(r, "./teste2.json")
 }

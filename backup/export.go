@@ -1,76 +1,95 @@
 package backup
 
-// import (
-// 	"encoding/json"
-// 	"os"
-// 	"tartarus/repositories"
-// )
+import (
+	"encoding/json"
+	"fmt"
+	"os"
 
-// func Export(path string) error {
-// 	var err error
+	"tartarus/repositories"
+)
 
-// 	var file jsonFile = jsonFile{
-// 		Commands: []command{},
-// 		Manuals:  []manual{},
-// 	}
+// exportPerm is the permission bits of the exported file.
+const exportPerm = 0644
 
-// 	var cmds []repositories.Command
+// Export writes every command, command item and manual to path as JSON.
+//
+// It takes the repositories rather than opening anything: the store is opened
+// once per process and handed in, so the file that gets exported is the file the
+// caller migrated. Export never migrates either, for the same reason store.New
+// does not.
+//
+// It reads through the repositories one read at a time and never starts a
+// transaction, so it must not be called from inside a store.WithTx callback:
+// those reads go through store.Store.Query, which returns store.ErrUseTx while a
+// transaction is in progress.
+func Export(r *repositories.Repos, path string) error {
+	file := jsonFile{
+		Commands: []command{},
+		Manuals:  []manual{},
+	}
 
-// 	if cmds, err = repositories.GetCommands(); err != nil {
-// 		return err
-// 	}
+	commands, err := r.GetCommands()
 
-// 	for index, cmd := range cmds {
-// 		file.Commands = append(file.Commands, command{
-// 			ID:        cmd.ID,
-// 			Name:      cmd.Name,
-// 			Items:     []commandItem{},
-// 			CreatedAt: cmd.CreatedAt,
-// 			UpdatedAt: cmd.UpdatedAt,
-// 		})
+	if err != nil {
+		return fmt.Errorf("backup: listing commands: %w", err)
+	}
 
-// 		var cmdItems []repositories.CommandItem
+	for _, c := range commands {
+		items, err := r.GetCommandItems(c.ID)
 
-// 		if cmdItems, err = cmd.GetItems(); err != nil {
-// 			return err
-// 		}
+		if err != nil {
+			return fmt.Errorf("backup: listing items of command %d: %w", c.ID, err)
+		}
 
-// 		for _, item := range cmdItems {
-// 			file.Commands[index].Items = append(file.Commands[index].Items, commandItem{
-// 				ID:        item.ID,
-// 				CommandID: item.CommandID,
-// 				Script:    item.Script,
-// 				CreatedAt: item.CreatedAt,
-// 				UpdatedAt: item.UpdatedAt,
-// 			})
-// 		}
-// 	}
+		entry := command{
+			ID:          c.ID,
+			Name:        c.Name,
+			Description: c.Description,
+			Items:       []commandItem{},
+			CreatedAt:   c.CreatedAt,
+			UpdatedAt:   c.UpdatedAt,
+		}
 
-// 	var mans []repositories.Manual
+		for _, item := range items {
+			entry.Items = append(entry.Items, commandItem{
+				ID:          item.ID,
+				CommandID:   item.CommandID,
+				Script:      item.Script,
+				Description: item.Description,
+				CreatedAt:   item.CreatedAt,
+				UpdatedAt:   item.UpdatedAt,
+			})
+		}
 
-// 	if mans, err = repositories.GetManuals(); err != nil {
-// 		return err
-// 	}
+		file.Commands = append(file.Commands, entry)
+	}
 
-// 	for _, man := range mans {
-// 		file.Manuals = append(file.Manuals, manual{
-// 			ID:        man.ID,
-// 			Name:      man.Name,
-// 			Body:      man.Body,
-// 			CreatedAt: man.CreatedAt,
-// 			UpdatedAt: man.UpdatedAt,
-// 		})
-// 	}
+	manuals, err := r.GetManuals()
 
-// 	var dataFile []byte
+	if err != nil {
+		return fmt.Errorf("backup: listing manuals: %w", err)
+	}
 
-// 	if dataFile, err = json.MarshalIndent(file, "", "  "); err != nil {
-// 		return err
-// 	}
+	for _, m := range manuals {
+		file.Manuals = append(file.Manuals, manual{
+			ID:          m.ID,
+			Name:        m.Name,
+			Body:        m.Body,
+			Description: m.Description,
+			CreatedAt:   m.CreatedAt,
+			UpdatedAt:   m.UpdatedAt,
+		})
+	}
 
-// 	if err = os.WriteFile(path, dataFile, 0644); err != nil {
-// 		return err
-// 	}
+	data, err := json.MarshalIndent(file, "", "  ")
 
-// 	return nil
-// }
+	if err != nil {
+		return fmt.Errorf("backup: encoding json: %w", err)
+	}
+
+	if err = os.WriteFile(path, data, exportPerm); err != nil {
+		return fmt.Errorf("backup: writing %s: %w", path, err)
+	}
+
+	return nil
+}

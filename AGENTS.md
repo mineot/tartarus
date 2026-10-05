@@ -31,7 +31,7 @@ go test -race ./...
 gofmt -l .
 ```
 
-Tests exist in `store/`, `helpers/`, and `repositories/`. `backup/` has none.
+Tests exist in `store/`, `helpers/`, `repositories/` and `backup/`.
 
 ## Current state: nearly everything is commented out on purpose
 
@@ -51,7 +51,8 @@ not uncomment, fix or "repair" those files unless asked.
 | `repositories/manuals_test.go` | Live. New. |
 | `repositories/commands_test.go` | Live. New. |
 | `backup/import.go` | Commented out. |
-| `backup/export.go` | Commented out. |
+| `backup/export.go` | Live. Rewritten (see below). |
+| `backup/export_test.go` | Live. New. |
 | `backup/backup.go` | Live. Only the JSON structs for the backup format. |
 | `backup/restore-legacy.go` | Live. Empty stub. |
 | `helpers/helpers.go` | Live. `GetStorePath` and `SetDevStorePath`. |
@@ -302,6 +303,45 @@ helper in `commands_test.go`, which `manuals_test.go` also uses. That helper is
 the reason NULL is covered at all; the repository's own write path cannot produce
 it.
 
+## Export
+
+`backup/export.go` is converted. The old version called package-level
+`repositories.GetCommands()`, which opened a connection per call; there is no
+package-level anything in `repositories` anymore, so the store is threaded in:
+
+```go
+func Export(r *repositories.Repos, path string) error
+```
+
+Three things about it are deliberate:
+
+- **It takes `*repositories.Repos`, not `*store.Store`.** `backup` reads through
+  the repository layer and never touches `store` directly, which is what keeps the
+  layering one-way. The cost is that a nil `Repos`, or a `Repos` with a nil
+  `Store`, panics on the first call — item 8 in the outstanding work below, still
+  open.
+- **It never starts a transaction.** Reads go through `Store.Query`, so it must
+  not be called from inside a `store.WithTx` callback: those reads return
+  `store.ErrUseTx`. `export_test.go` asserts exactly that, and asserts that a
+  closed store propagates `store.ErrClosed`. Both sentinels survive the `backup:`
+  wrap through `errors.Is`, which is why `Export` wraps rather than returning
+  bare.
+- **It runs one query per command for that command's items**, an N+1 over a pool of
+  one connection. Sequential reads are fine — `GetCommands` drains and closes its
+  rows before returning, so the connection is free for the next read — and a single
+  `LEFT JOIN` would cut the query count if it ever matters. Ordering is free too:
+  both queries are `ORDER BY id`.
+
+`backup/backup.go` holds the format, and all three structs now carry
+`Description` with a plain `json:"description"`, no `omitempty`. An empty
+description is written as `""` rather than dropped. That matches what the format
+does with every other empty field, and `json.Unmarshal` tolerates the field being
+absent, so files written before the field existed still load.
+
+`backup/import.go` is not converted yet. When it is, `Description` has to be
+carried through on all three structs. `Export` has no caller until `main.go`
+grows a CLI surface (item 5).
+
 ## Testing outside `store`
 
 `store`'s tests use the unexported `newAt`, so they can point a `Store` at
@@ -325,6 +365,7 @@ the test helpers lives in this file instead, in the sections above:
 | Helper | Why it exists |
 | --- | --- |
 | `repositories.newTestStore` | the only door into a database from outside `store`, and why it must not run in parallel |
+| `backup.newTestStore`, `exportPath`, `readExport` | a third copy of the same door, for the same reason, plus a scratch path and a reparse of what `Export` wrote |
 | `repositories.nullable` | the only way to write SQL NULL, which the repository's own write path cannot produce |
 | `repositories.insertTestCommand`, `insertTestCommandItem`, `insertManual` | set up rows the repository API would not allow |
 | `store.newEmptyStore` | `store.newTestStore` creates an `items` table, which gets in the way of asserting on what `RunMigrations` builds |
@@ -352,8 +393,8 @@ In order of urgency. None of it has been dealt with yet.
    `st.ResetMigrations()`, which opened the store again. The old API had no
    guard, so this leaked a connection. The second `Open` is gone from
    `ResetMigrations`; confirm it is gone from the import rewrite too.
-2. **`backup/`.** All repository operations for manuals and commands are converted.
-   Still to do: both backup files. They still call `Open()`, `Begin()`, `Commit()` and `Rollback()`.
+2. **`backup/import.go` is not converted.** `backup/export.go` is (see below).
+   `import.go` still calls `Open()`, `Begin()`, `Commit()` and `Rollback()`.
 3. **`Command.Delete` deletes `command_items` explicitly even though the FK now
    cascades.** It is not wrong, just redundant. Worth deciding whether to keep the
    belt and braces or trust the constraint.
