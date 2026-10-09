@@ -10,8 +10,9 @@ import (
 )
 
 type MenuConfig struct {
-	form     *huh.Form
-	selected string
+	form      *huh.Form
+	selected  string
+	shortcuts Shortcuts
 }
 
 func NewMenuConfig() *MenuConfig {
@@ -31,7 +32,10 @@ func NewMenuConfig() *MenuConfig {
 		WithKeyMap(keymap).
 		WithShowHelp(false)
 
-	return &MenuConfig{form: form}
+	return &MenuConfig{
+		form:      form,
+		shortcuts: Shortcuts{MainMenuShortcut, QuitShortcut},
+	}
 }
 
 func (m *MenuConfig) Init() tea.Cmd {
@@ -39,8 +43,8 @@ func (m *MenuConfig) Init() tea.Cmd {
 }
 
 func (m *MenuConfig) Update(msg tea.Msg) (Page, tea.Cmd) {
-	if msg, ok := msg.(tea.KeyPressMsg); ok && key.Matches(msg, QuitKey) {
-		return m, tea.Quit
+	if cmd, handled := m.shortcuts.Handle(msg); handled {
+		return m, cmd
 	}
 
 	if m.form.State != huh.StateNormal {
@@ -69,7 +73,7 @@ func (m *MenuConfig) View() string {
 		bindings = m.form.KeyBinds()
 	}
 
-	bindings = append(bindings, QuitKey)
+	bindings = append(bindings, m.shortcuts.Bindings()...)
 
 	if m.form.State == huh.StateCompleted {
 		content = "Selected: " + m.selected

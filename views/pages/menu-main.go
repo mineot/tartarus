@@ -10,8 +10,9 @@ import (
 )
 
 type MenuMain struct {
-	form     *huh.Form
-	selected string
+	form      *huh.Form
+	selected  string
+	shortcuts Shortcuts
 }
 
 func NewMenuMain() *MenuMain {
@@ -33,7 +34,10 @@ func NewMenuMain() *MenuMain {
 		WithKeyMap(keymap).
 		WithShowHelp(false)
 
-	return &MenuMain{form: form}
+	return &MenuMain{
+		form:      form,
+		shortcuts: Shortcuts{QuitShortcut},
+	}
 }
 
 func (m *MenuMain) Init() tea.Cmd {
@@ -41,8 +45,8 @@ func (m *MenuMain) Init() tea.Cmd {
 }
 
 func (m *MenuMain) Update(msg tea.Msg) (Page, tea.Cmd) {
-	if msg, ok := msg.(tea.KeyPressMsg); ok && key.Matches(msg, QuitKey) {
-		return m, tea.Quit
+	if cmd, handled := m.shortcuts.Handle(msg); handled {
+		return m, cmd
 	}
 
 	if m.form.State != huh.StateNormal {
@@ -80,7 +84,7 @@ func (m *MenuMain) View() string {
 		bindings = m.form.KeyBinds()
 	}
 
-	bindings = append(bindings, QuitKey)
+	bindings = append(bindings, m.shortcuts.Bindings()...)
 
 	if m.form.State == huh.StateCompleted {
 		content = "Selected: " + m.selected
