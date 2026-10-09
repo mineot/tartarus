@@ -1,10 +1,6 @@
 package pages
 
 import (
-	"tartarus/views/themes"
-
-	"charm.land/bubbles/v2/help"
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
@@ -26,11 +22,7 @@ func NewMenuConfig() *MenuConfig {
 	keymap := huh.NewDefaultKeyMap()
 	keymap.Select.Filter.SetKeys()
 
-	form := huh.
-		NewForm(huh.NewGroup(selection)).
-		WithTheme(huh.ThemeFunc(themes.Form)).
-		WithKeyMap(keymap).
-		WithShowHelp(false)
+	form := NewForm(huh.NewGroup(selection)).WithKeyMap(keymap)
 
 	return &MenuConfig{
 		form:      form,
@@ -47,17 +39,12 @@ func (m *MenuConfig) Update(msg tea.Msg) (Page, tea.Cmd) {
 		return m, cmd
 	}
 
-	if m.form.State != huh.StateNormal {
-		return m, nil
-	}
+	var cmd tea.Cmd
+	var completed bool
 
-	updated, cmd := m.form.Update(msg)
+	m.form, cmd, completed = UpdateForm(m.form, msg)
 
-	if form, ok := updated.(*huh.Form); ok {
-		m.form = form
-	}
-
-	if m.form.State == huh.StateCompleted {
+	if completed {
 		m.selected = m.form.GetString("action")
 	}
 
@@ -67,19 +54,9 @@ func (m *MenuConfig) Update(msg tea.Msg) (Page, tea.Cmd) {
 func (m *MenuConfig) View() string {
 	content := m.form.View()
 
-	var bindings []key.Binding
-
-	if m.form.State == huh.StateNormal {
-		bindings = m.form.KeyBinds()
-	}
-
-	bindings = append(bindings, m.shortcuts.Bindings()...)
-
 	if m.form.State == huh.StateCompleted {
 		content = "Selected: " + m.selected
 	}
 
-	h := help.New()
-
-	return content + "\n\n" + h.ShortHelpView(bindings)
+	return content + "\n\n" + FormHelp(m.form, m.shortcuts)
 }
