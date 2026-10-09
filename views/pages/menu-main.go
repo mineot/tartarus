@@ -3,17 +3,17 @@ package pages
 import (
 	"tartarus/views/themes"
 
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
-// MenuMain owns the main menu form and its selected action.
 type MenuMain struct {
 	form     *huh.Form
 	selected string
 }
 
-// NewMenuMain creates a main menu with a fresh form.
 func NewMenuMain() *MenuMain {
 	selection := huh.NewSelect[string]().
 		Key("action").
@@ -30,19 +30,18 @@ func NewMenuMain() *MenuMain {
 	form := huh.
 		NewForm(huh.NewGroup(selection)).
 		WithTheme(huh.ThemeFunc(themes.Form)).
-		WithKeyMap(keymap)
+		WithKeyMap(keymap).
+		WithShowHelp(false)
 
 	return &MenuMain{form: form}
 }
 
-// Init initializes the menu form.
 func (m *MenuMain) Init() tea.Cmd {
 	return m.form.Init()
 }
 
-// Update handles menu input and the confirmed selection.
 func (m *MenuMain) Update(msg tea.Msg) (Page, tea.Cmd) {
-	if key, ok := msg.(tea.KeyPressMsg); ok && key.String() == "q" {
+	if msg, ok := msg.(tea.KeyPressMsg); ok && key.Matches(msg, QuitKey) {
 		return m, tea.Quit
 	}
 
@@ -58,18 +57,36 @@ func (m *MenuMain) Update(msg tea.Msg) (Page, tea.Cmd) {
 
 	if m.form.State == huh.StateCompleted {
 		m.selected = m.form.GetString("action")
+
+		switch m.selected {
+		case "config":
+			navigate := func() tea.Msg {
+				return NavigateMsg{To: PageMenuConfig}
+			}
+
+			return m, tea.Batch(cmd, navigate)
+		}
 	}
 
 	return m, cmd
 }
 
-// View renders the menu content and its local shortcut.
 func (m *MenuMain) View() string {
 	content := m.form.View()
+
+	var bindings []key.Binding
+
+	if m.form.State == huh.StateNormal {
+		bindings = m.form.KeyBinds()
+	}
+
+	bindings = append(bindings, QuitKey)
 
 	if m.form.State == huh.StateCompleted {
 		content = "Selected: " + m.selected
 	}
 
-	return content + "\n\nPress q to quit.\n"
+	h := help.New()
+
+	return content + "\n\n" + h.ShortHelpView(bindings)
 }

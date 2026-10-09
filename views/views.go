@@ -35,10 +35,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.To {
 		case pages.PageMenuMain:
 			m.page = pages.NewMenuMain()
-			return m, m.page.Init()
+
+		case pages.PageMenuConfig:
+			m.page = pages.NewMenuConfig()
+
+		default:
+			return m, nil
 		}
 
-		return m, nil
+		return m, m.page.Init()
 	}
 
 	var cmd tea.Cmd
@@ -50,7 +55,6 @@ func (m model) View() tea.View {
 	var sb strings.Builder
 	sb.WriteString(renderLogo())
 	sb.WriteString("\n\n")
-
 	sb.WriteString(m.page.View())
 
 	window := lipgloss.NewStyle().Padding(1)
