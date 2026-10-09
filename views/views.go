@@ -4,56 +4,45 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	views "tartarus/views/pages"
+	"tartarus/views/pages"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 )
 
-const (
-	menuMain uint = iota
-)
-
 type model struct {
-	currentPage uint
-	menu        *huh.Form
-	selected    string
+	page pages.Page
 }
 
 func initialModel() model {
 	return model{
-		currentPage: menuMain,
-		menu:        views.NewMenuMain(),
+		page: pages.NewMenuMain(),
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return m.menu.Init()
+	return m.page.Init()
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
+		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
-	}
 
-	if m.currentPage != menuMain || m.menu.State != huh.StateNormal {
+	case pages.NavigateMsg:
+		switch msg.To {
+		case pages.PageMenuMain:
+			m.page = pages.NewMenuMain()
+			return m, m.page.Init()
+		}
+
 		return m, nil
 	}
 
-	updated, cmd := m.menu.Update(msg)
-	if form, ok := updated.(*huh.Form); ok {
-		m.menu = form
-	}
-
-	if m.menu.State == huh.StateCompleted {
-		m.selected = m.menu.GetString("action")
-	}
-
+	var cmd tea.Cmd
+	m.page, cmd = m.page.Update(msg)
 	return m, cmd
 }
 
@@ -62,16 +51,7 @@ func (m model) View() tea.View {
 	sb.WriteString(renderLogo())
 	sb.WriteString("\n\n")
 
-	switch m.currentPage {
-	case menuMain:
-		if m.menu.State == huh.StateCompleted {
-			sb.WriteString("Selected: " + m.selected)
-		} else {
-			sb.WriteString(m.menu.View())
-		}
-	}
-
-	sb.WriteString("\n\nPress q to quit.\n")
+	sb.WriteString(m.page.View())
 
 	window := lipgloss.NewStyle().Padding(1)
 	app := tea.NewView(window.Render(sb.String()))
