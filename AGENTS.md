@@ -2,6 +2,33 @@
 
 State of the Tartarus project. Read this before touching anything.
 
+## Command list pagination update
+
+The current entry point opens and migrates the store, passes one repository to
+the Bubble Tea UI, and closes the store before reporting an exit error.
+The earlier descriptions below of a path-only startup and a legacy restore flag
+are historical; the current main does not expose that flag.
+
+Commands are displayed with Bubbles list using name and description.
+GetCommands(limit, offset, search) returns rows and the filtered total before pagination.
+Positive limits paginate; -1 reads all remaining rows; zero, limits below -1,
+and negative offsets return errors. Backup consumers use (-1, 0, "").
+Count and page queries are separate Store.Query reads, not an atomic snapshot.
+
+MenuCmds owns database page navigation, loading, retry, and empty/error states.
+Each page holds up to five commands, reduced to fit the terminal.
+Init waits for dimensions before querying. Request IDs and the owning menu
+pointer prevent stale responses from replacing a newer page. Local filtering
+is disabled because it would search only the loaded page.
+A separate textinput opens with /; Enter applies a name/description search in
+SQLite and returns to the first page. Escape cancels editing, then clears an
+applied search, then navigates back. Page changes and retries preserve search.
+The count and page share the same LIKE predicate. %, _ and ! are escaped so
+search is a literal substring; case matching follows SQLite LIKE (ASCII
+case-insensitive, without accent folding). Empty search includes every row.
+The menuForTest helper supplies deterministic query results without touching
+the real store, so UI tests can control failures and delayed responses.
+
 ## The project
 
 A CLI to manage and run named sets of terminal commands, with manuals, import
@@ -260,7 +287,7 @@ func (r *Repos) UpdateManual(m *Manual) error
 func (r *Repos) DeleteManual(id uint64) error
 
 // commands
-func (r *Repos) GetCommands() ([]Command, error)
+func (r *Repos) GetCommands(limit, offset int, search string) ([]Command, int, error)
 func (r *Repos) GetCommand(id uint64) (Command, error)
 func (r *Repos) InsertCommand(c *Command) error
 func (r *Repos) UpdateCommand(c *Command) error

@@ -63,7 +63,7 @@ func TestImportOnAFileWithNothingInIt(t *testing.T) {
 		t.Fatalf("Import: %v", err)
 	}
 
-	commands, err := r.GetCommands()
+	commands, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
@@ -118,7 +118,7 @@ func TestImportInsertsCommandsWithTheirItems(t *testing.T) {
 		t.Fatalf("Import: %v", err)
 	}
 
-	commands, err := r.GetCommands()
+	commands, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
@@ -246,7 +246,7 @@ func TestImportAssignsItsOwnIdsAndTimestamps(t *testing.T) {
 		t.Fatalf("Import: %v", err)
 	}
 
-	commands, err := r.GetCommands()
+	commands, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
@@ -290,7 +290,7 @@ func TestImportReplacesTheExistingDatabase(t *testing.T) {
 		t.Fatalf("Import: %v", err)
 	}
 
-	commands, err := r.GetCommands()
+	commands, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
@@ -378,7 +378,7 @@ func TestImportRejectsAnInvalidFileWithoutTouchingTheDatabase(t *testing.T) {
 				t.Fatalf("want an error mentioning %q, got %v", tc.want, err)
 			}
 
-			commands, err := r.GetCommands()
+			commands, _, err := r.GetCommands(-1, 0, "")
 
 			if err != nil {
 				t.Fatalf("GetCommands: %v", err)

@@ -283,7 +283,7 @@ func validateLegacy(docs []legacyDoc) error {
 // runs. The connection is free again between reads, so this costs queries, not
 // correctness, and it buys the convergence the whole function rests on.
 func readLegacyState(r *repositories.Repos) (*legacyState, error) {
-	commands, err := r.GetCommands()
+	commands, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		return nil, fmt.Errorf("backup: listing commands: %w", err)

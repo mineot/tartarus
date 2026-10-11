@@ -28,7 +28,7 @@ func Export(r *repositories.Repos, path string) error {
 		Manuals:  []manual{},
 	}
 
-	commands, err := r.GetCommands()
+	commands, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		return fmt.Errorf("backup: listing commands: %w", err)

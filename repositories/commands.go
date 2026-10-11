@@ -3,6 +3,7 @@ package repositories
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"tartarus/store"
 	"time"
 )
@@ -36,10 +37,15 @@ var (
 )
 
 const (
+	commandSearch = `WHERE name LIKE ? ESCAPE '!' OR COALESCE(description, '') LIKE ? ESCAPE '!'`
+	countCommands = "SELECT COUNT(*) FROM commands " + commandSearch
+
 	selectCommands = `
 SELECT id, name, COALESCE(description, ''), created_at, updated_at
 FROM commands
+` + commandSearch + `
 ORDER BY id
+LIMIT ? OFFSET ?
 `
 
 	selectCommand = `
@@ -99,12 +105,49 @@ WHERE id = ? AND command_id = ?
 `
 )
 
-// GetCommands returns every command, in creation order.
-func (r *Repos) GetCommands() ([]Command, error) {
-	rows, err := r.Store.Query(selectCommands)
+// GetCommands returns commands in creation order and the total before pagination.
+// A limit of -1 reads all remaining commands. Other limits must be positive;
+// offset must be nonnegative. Search matches literal substrings in name or
+// description using SQLite LIKE semantics. Empty search matches all commands.
+// The page and filtered count are separate reads.
+func (r *Repos) GetCommands(limit, offset int, search string) ([]Command, int, error) {
+	if limit == 0 || limit < -1 || offset < 0 {
+		return nil, 0, fmt.Errorf("repositories: invalid command pagination: limit must be positive or -1 and offset must be nonnegative")
+	}
+
+	pattern := "%" + strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(search) + "%"
+	countRows, err := r.Store.Query(countCommands, pattern, pattern)
 
 	if err != nil {
-		return nil, fmt.Errorf("repositories: selecting commands: %w", err)
+		return nil, 0, fmt.Errorf("repositories: counting commands: %w", err)
+	}
+
+	var total int
+
+	if !countRows.Next() {
+		err := countRows.Err()
+		countRows.Close()
+
+		if err == nil {
+			err = errors.New("count returned no rows")
+		}
+
+		return nil, 0, fmt.Errorf("repositories: counting commands: %w", err)
+	}
+
+	if err := countRows.Scan(&total); err != nil {
+		countRows.Close()
+		return nil, 0, fmt.Errorf("repositories: scanning command count: %w", err)
+	}
+
+	if err := countRows.Close(); err != nil {
+		return nil, 0, fmt.Errorf("repositories: closing command count: %w", err)
+	}
+
+	rows, err := r.Store.Query(selectCommands, pattern, pattern, limit, offset)
+
+	if err != nil {
+		return nil, 0, fmt.Errorf("repositories: selecting commands: %w", err)
 	}
 
 	defer rows.Close()
@@ -121,17 +164,17 @@ func (r *Repos) GetCommands() ([]Command, error) {
 			&command.CreatedAt,
 			&command.UpdatedAt,
 		); err != nil {
-			return nil, fmt.Errorf("repositories: scanning command: %w", err)
+			return nil, 0, fmt.Errorf("repositories: scanning command: %w", err)
 		}
 
 		commands = append(commands, command)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("repositories: iterating commands: %w", err)
+		return nil, 0, fmt.Errorf("repositories: iterating commands: %w", err)
 	}
 
-	return commands, nil
+	return commands, total, nil
 }
 
 // GetCommand returns the command with the given id.

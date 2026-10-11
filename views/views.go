@@ -1,9 +1,8 @@
 package views
 
 import (
-	"fmt"
-	"os"
 	"strings"
+	"tartarus/repositories"
 	"tartarus/views/pages"
 
 	tea "charm.land/bubbletea/v2"
@@ -11,12 +10,16 @@ import (
 )
 
 type model struct {
-	page pages.Page
+	page          pages.Page
+	repos         *repositories.Repos
+	width, height int
+	sized         bool
 }
 
-func initialModel() model {
+func initialModel(r *repositories.Repos) model {
 	return model{
-		page: pages.NewMenuMain(),
+		page:  pages.NewMenuMain(),
+		repos: r,
 	}
 }
 
@@ -31,6 +34,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
+	case tea.WindowSizeMsg:
+		m.width, m.height, m.sized = msg.Width, msg.Height, true
+		cmd := m.resizePage()
+		return m, cmd
+
 	case pages.NavigateMsg:
 		switch msg.To {
 		case pages.PageMenuMain:
@@ -40,7 +48,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.page = pages.NewMenuConfig()
 
 		case pages.PageMenuCmds:
-			m.page = pages.NewMenuCmds()
+			m.page = pages.NewMenuCmds(m.repos)
 
 		case pages.PageMenuMans:
 			m.page = pages.NewMenuMans()
@@ -52,7 +60,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		return m, m.page.Init()
+		resize := m.resizePage()
+		return m, tea.Batch(resize, m.page.Init())
 	}
 
 	var cmd tea.Cmd
@@ -72,11 +81,23 @@ func (m model) View() tea.View {
 	return app
 }
 
-func RunView() {
-	p := tea.NewProgram(initialModel())
-
-	if _, err := p.Run(); err != nil {
-		fmt.Printf("Init Tartarus Failed: %v", err)
-		os.Exit(1)
+func (m *model) resizePage() tea.Cmd {
+	if !m.sized {
+		return nil
 	}
+
+	var cmd tea.Cmd
+
+	m.page, cmd = m.page.Update(tea.WindowSizeMsg{
+		Width:  max(1, m.width-2),
+		Height: max(1, m.height-2-lipgloss.Height(renderLogo())-2),
+	})
+
+	return cmd
+}
+
+func RunView(r *repositories.Repos) error {
+	p := tea.NewProgram(initialModel(r))
+	_, err := p.Run()
+	return err
 }

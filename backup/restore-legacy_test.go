@@ -28,7 +28,7 @@ func legacyFixture(t *testing.T, r *repositories.Repos) {
 func itemScripts(t *testing.T, r *repositories.Repos, name string) []string {
 	t.Helper()
 
-	commands, err := r.GetCommands()
+	commands, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
@@ -62,7 +62,7 @@ func itemScripts(t *testing.T, r *repositories.Repos, name string) []string {
 func commandNames(t *testing.T, r *repositories.Repos) []string {
 	t.Helper()
 
-	commands, err := r.GetCommands()
+	commands, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
@@ -143,7 +143,7 @@ func TestRestoreFromLegacyImportsCommandsWithTheirInstructions(t *testing.T) {
 
 	legacyFixture(t, r)
 
-	commands, err := r.GetCommands()
+	commands, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
@@ -212,7 +212,7 @@ func TestRestoreFromLegacyAttachesEachItemToItsOwnCommand(t *testing.T) {
 
 	legacyFixture(t, r)
 
-	commands, err := r.GetCommands()
+	commands, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
@@ -317,7 +317,7 @@ func TestRestoreFromLegacyIsANoOpOnASecondRun(t *testing.T) {
 
 	legacyFixture(t, r)
 
-	before, err := r.GetCommands()
+	before, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
@@ -325,7 +325,7 @@ func TestRestoreFromLegacyIsANoOpOnASecondRun(t *testing.T) {
 
 	legacyFixture(t, r)
 
-	after, err := r.GetCommands()
+	after, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
@@ -372,7 +372,7 @@ func TestRestoreFromLegacyCompletesAPartiallyImportedCommand(t *testing.T) {
 		t.Fatalf("RestoreFromLegacy: %v", err)
 	}
 
-	commands, err := r.GetCommands()
+	commands, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
@@ -400,7 +400,7 @@ func TestRestoreFromLegacyCompletesAPartiallyImportedCommand(t *testing.T) {
 		t.Fatalf("want the missing instructions to be added, got %v", got)
 	}
 
-	commands, err = r.GetCommands()
+	commands, _, err = r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
@@ -544,7 +544,7 @@ func TestRestoreFromLegacyRejectsAnInvalidFileWithoutTouchingTheDatabase(t *test
 				t.Fatalf("want an error mentioning %q, got %v", tc.want, err)
 			}
 
-			commands, err := r.GetCommands()
+			commands, _, err := r.GetCommands(-1, 0, "")
 
 			if err != nil {
 				t.Fatalf("GetCommands: %v", err)

@@ -72,7 +72,7 @@ func TestGetCommandsOnEmptyDatabase(t *testing.T) {
 	s := newTestStore(t)
 
 	r := New(s)
-	commands, err := r.GetCommands()
+	commands, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
@@ -108,7 +108,7 @@ func TestGetCommandsReturnsEveryCommandInCreationOrder(t *testing.T) {
 	}
 
 	r := New(s)
-	commands, err := r.GetCommands()
+	commands, _, err := r.GetCommands(-1, 0, "")
 
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
@@ -144,7 +144,7 @@ func TestGetCommandsIsRejectedInsideATransaction(t *testing.T) {
 
 	err := s.WithTx(func(tx *store.Tx) error {
 		r := New(s)
-		_, err := r.GetCommands()
+		_, _, err := r.GetCommands(-1, 0, "")
 		return err
 	})
 
@@ -161,7 +161,7 @@ func TestGetCommandsPropagatesAClosedStore(t *testing.T) {
 	}
 
 	r := New(s)
-	_, err := r.GetCommands()
+	_, _, err := r.GetCommands(-1, 0, "")
 
 	if !errors.Is(err, store.ErrClosed) {
 		t.Fatalf("want store.ErrClosed, got %v", err)
@@ -329,7 +329,7 @@ func TestInsertCommandMissingName(t *testing.T) {
 		t.Fatalf("want ErrCommandNameRequired, got %v", err)
 	}
 
-	commands, err := r.GetCommands()
+	commands, _, err := r.GetCommands(-1, 0, "")
 	if err != nil {
 		t.Fatalf("GetCommands: %v", err)
 	}
@@ -1430,5 +1430,100 @@ func TestRemoveCommandItemIsRejectedInsideATransaction(t *testing.T) {
 
 	if !errors.Is(err, store.ErrTxActive) {
 		t.Fatalf("want store.ErrTxActive, got %v", err)
+	}
+}
+
+func TestGetCommandsPagination(t *testing.T) {
+	s := newTestStore(t)
+	r := New(s)
+	for _, name := range []string{"zebra", "alpha", "mango", "build", "test"} {
+		insertTestCommand(t, s, name, "")
+	}
+	for _, tc := range []struct {
+		name          string
+		limit, offset int
+		want          []string
+	}{
+		{"first", 2, 0, []string{"zebra", "alpha"}},
+		{"middle", 2, 2, []string{"mango", "build"}},
+		{"last", 2, 4, []string{"test"}},
+		{"beyond", 2, 9, nil},
+		{"all", -1, 0, []string{"zebra", "alpha", "mango", "build", "test"}},
+		{"remaining", -1, 3, []string{"build", "test"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			commands, total, err := r.GetCommands(tc.limit, tc.offset, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if total != 5 || len(commands) != len(tc.want) {
+				t.Fatalf("want total 5 and %d rows, got %d and %d", len(tc.want), total, len(commands))
+			}
+			for i, command := range commands {
+				if command.Name != tc.want[i] || command.Description != "" {
+					t.Fatalf("unexpected command at %d: %+v", i, command)
+				}
+			}
+		})
+	}
+}
+
+func TestGetCommandsInvalidPagination(t *testing.T) {
+	r := New(newTestStore(t))
+	for _, args := range [][2]int{{0, 0}, {-2, 0}, {1, -1}} {
+		if _, _, err := r.GetCommands(args[0], args[1], ""); err == nil {
+			t.Fatalf("expected error for limit %d and offset %d", args[0], args[1])
+		}
+	}
+	commands, total, err := r.GetCommands(10, 0, "")
+	if err != nil || total != 0 || len(commands) != 0 {
+		t.Fatalf("unexpected empty page: %v, %d, %v", commands, total, err)
+	}
+}
+
+func TestGetCommandsSearch(t *testing.T) {
+	r := New(newTestStore(t))
+	for _, value := range []struct{ name, description string }{
+		{"build", "Compile the project"},
+		{"deploy", "Build and publish"},
+		{"build-release", ""},
+		{"100% done", "literal percent"},
+		{"under_score", "literal underscore"},
+		{"bang!", "literal escape"},
+		{"quote's", "literal quote"},
+	} {
+		insertTestCommand(t, r.Store, value.name, value.description)
+	}
+	for _, tc := range []struct {
+		search               string
+		limit, offset, total int
+		names                []string
+	}{
+		{"BUILD", 2, 0, 3, []string{"build", "deploy"}},
+		{"build", 2, 2, 3, []string{"build-release"}},
+		{"build", 2, 9, 3, nil},
+		{"compile", 5, 0, 1, []string{"build"}},
+		{"missing", 5, 0, 0, nil},
+		{"%", 5, 0, 1, []string{"100% done"}},
+		{"_", 5, 0, 1, []string{"under_score"}},
+		{"!", 5, 0, 1, []string{"bang!"}},
+		{"quote's", 5, 0, 1, []string{"quote's"}},
+		{"' OR 1=1 --", 5, 0, 0, nil},
+		{"build", -1, 0, 3, []string{"build", "deploy", "build-release"}},
+	} {
+		t.Run(tc.search, func(t *testing.T) {
+			commands, total, err := r.GetCommands(tc.limit, tc.offset, tc.search)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if total != tc.total || len(commands) != len(tc.names) {
+				t.Fatalf("want total %d and %d rows, got %d and %d", tc.total, len(tc.names), total, len(commands))
+			}
+			for i, command := range commands {
+				if command.Name != tc.names[i] {
+					t.Fatalf("want %q, got %q", tc.names[i], command.Name)
+				}
+			}
+		})
 	}
 }
