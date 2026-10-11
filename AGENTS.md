@@ -29,6 +29,15 @@ case-insensitive, without accent folding). Empty search includes every row.
 The menuForTest helper supplies deterministic query results without touching
 the real store, so UI tests can control failures and delayed responses.
 
+## Page shortcuts and text editing
+
+Shortcuts.Handle(msg, editing) skips all page shortcuts while editing, leaving
+keys such as q and Escape to the focused field. Huh menus pass FormEditing(form),
+which recognizes active Input and Text fields; FormHelp hides page shortcuts
+in that state. Custom editors pass their own editing state, as MenuCmds does.
+Ctrl+C remains a global quit shortcut in the root view model.
+New pages must provide the editing context when dispatching page shortcuts.
+
 ## The project
 
 A CLI to manage and run named sets of terminal commands, with manuals, import

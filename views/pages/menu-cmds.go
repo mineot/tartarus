@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"tartarus/repositories"
+	"tartarus/views/themes"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
@@ -47,6 +48,7 @@ type MenuCmds struct {
 
 func NewMenuCmds(r *repositories.Repos) *MenuCmds {
 	delegate := list.NewDefaultDelegate()
+	delegate.Styles = themes.ListItems(true)
 	delegate.SetSpacing(0)
 
 	items := list.New(nil, delegate, 0, 0)
@@ -149,7 +151,7 @@ func (m *MenuCmds) Update(msg tea.Msg) (Page, tea.Cmd) {
 		}
 	}
 
-	if cmd, handled := m.shortcuts.Handle(msg); handled {
+	if cmd, handled := m.shortcuts.Handle(msg, m.editing); handled {
 		return m, cmd
 	}
 
@@ -282,5 +284,7 @@ func (m *MenuCmds) View() string {
 		}, nil)
 	}
 
-	return "🖥️ Commands\n" + search + "\n\n" + m.list.View() + "\n" + status + "\n" + help
+	title := themes.Form(true).Focused.Title.Render("🖥️ Commands")
+
+	return title + "\n" + search + "\n\n" + m.list.View() + "\n" + status + "\n" + help
 }

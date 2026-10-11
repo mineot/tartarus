@@ -37,7 +37,7 @@ func (m *MenuConfig) Init() tea.Cmd {
 }
 
 func (m *MenuConfig) Update(msg tea.Msg) (Page, tea.Cmd) {
-	if cmd, handled := m.shortcuts.Handle(msg); handled {
+	if cmd, handled := m.shortcuts.Handle(msg, FormEditing(m.form)); handled {
 		return m, cmd
 	}
 

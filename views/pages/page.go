@@ -42,7 +42,12 @@ type Shortcut struct {
 
 type Shortcuts []Shortcut
 
-func (s Shortcuts) Handle(msg tea.Msg) (tea.Cmd, bool) {
+// Handle leaves page shortcuts to the focused field while editing.
+func (s Shortcuts) Handle(msg tea.Msg, editing bool) (tea.Cmd, bool) {
+	if editing {
+		return nil, false
+	}
+
 	pressed, ok := msg.(tea.KeyPressMsg)
 
 	if !ok {

@@ -27,10 +27,31 @@ func UpdateForm(form *huh.Form, msg tea.Msg) (*huh.Form, tea.Cmd, bool) {
 	return form, cmd, form.State == huh.StateCompleted
 }
 
+// FormEditing reports whether the active form field accepts free text.
+func FormEditing(form *huh.Form) bool {
+	if form == nil || form.State != huh.StateNormal {
+		return false
+	}
+
+	switch form.GetFocusedField().(type) {
+	case *huh.Input, *huh.Text:
+		return true
+
+	default:
+		return false
+	}
+}
+
 func FormHelp(form *huh.Form, shortcuts Shortcuts) string {
 	var bindings []key.Binding
+
 	if form.State == huh.StateNormal {
 		bindings = form.KeyBinds()
 	}
+
+	if FormEditing(form) {
+		shortcuts = nil
+	}
+
 	return RenderHelp(bindings, shortcuts)
 }

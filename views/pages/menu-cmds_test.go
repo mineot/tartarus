@@ -93,12 +93,12 @@ func TestMenuCmdsResizeIgnoresOldResponses(t *testing.T) {
 		t.Fatal("accepted outdated response")
 	}
 	m.Update(resized())
-	if m.size != 3 || len(m.list.Items()) != 3 || m.list.Paginator.TotalPages != 1 {
+	if m.size != 2 || len(m.list.Items()) != 2 || m.list.Paginator.TotalPages != 1 {
 		t.Fatal("resized page does not fit")
 	}
 	other := menuForTest(t, 23)
 	m.Update(other.Init()())
-	if len(m.list.Items()) != 3 {
+	if len(m.list.Items()) != 2 {
 		t.Fatal("accepted response from another menu")
 	}
 }

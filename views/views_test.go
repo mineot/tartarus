@@ -28,3 +28,16 @@ func TestNavigationSuppliesExistingDimensions(t *testing.T) {
 		t.Fatal("escape did not return to configurations")
 	}
 }
+
+func TestControlCQuitsWhileEditing(t *testing.T) {
+	m := initialModel(&repositories.Repos{})
+	m.page = pages.NewMenuCmds(&repositories.Repos{})
+	m.page, _ = m.page.Update(tea.KeyPressMsg{Code: '/', Text: "/"})
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
+	if cmd == nil {
+		t.Fatal("expected global quit while editing")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Fatal("expected quit message")
+	}
+}
