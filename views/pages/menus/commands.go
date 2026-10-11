@@ -1,9 +1,11 @@
-package pages
+package pagemenus
 
 import (
 	"fmt"
 	"strings"
 	"tartarus/repositories"
+	"tartarus/views/pages"
+	"tartarus/views/pages/pageutils"
 	"tartarus/views/themes"
 
 	"charm.land/bubbles/v2/key"
@@ -37,7 +39,7 @@ type MenuCmds struct {
 	displayedSize           int
 	list                    list.Model
 	loadCommands            func(int, int, string) ([]repositories.Command, int, error)
-	shortcuts               Shortcuts
+	shortcuts               pages.Shortcuts
 	previous, next, retry   key.Binding
 	page, size, total       int
 	pendingPage             int
@@ -68,7 +70,7 @@ func NewMenuCmds(r *repositories.Repos) *MenuCmds {
 		searchKey:    key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "search")),
 		list:         items,
 		loadCommands: r.GetCommands,
-		shortcuts:    Shortcuts{MenuConfigsShortcut, QuitShortcut},
+		shortcuts:    pages.Shortcuts{pages.MenuConfigsShortcut, pages.QuitShortcut},
 		previous:     key.NewBinding(key.WithKeys("left", "pgup"), key.WithHelp("←/pgup", "previous page")),
 		next:         key.NewBinding(key.WithKeys("right", "pgdown"), key.WithHelp("→/pgdn", "next page")),
 		retry:        key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "retry")),
@@ -107,7 +109,7 @@ func (m *MenuCmds) fetch(page int) tea.Cmd {
 	}
 }
 
-func (m *MenuCmds) Update(msg tea.Msg) (Page, tea.Cmd) {
+func (m *MenuCmds) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
 	if pressed, ok := msg.(tea.KeyPressMsg); ok {
 		if m.editing {
 			switch pressed.String() {
@@ -264,12 +266,12 @@ func (m *MenuCmds) View() string {
 	}
 
 	search := "Search: " + m.displayedSearch
-	help := RenderHelp(bindings, m.shortcuts)
+	help := pageutils.RenderHelp(bindings, m.shortcuts)
 
 	if m.search != "" || m.displayedSearch != "" {
-		shortcuts := append(Shortcuts(nil), m.shortcuts...)
+		shortcuts := append(pages.Shortcuts(nil), m.shortcuts...)
 		shortcuts[0].Binding = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "clear search"))
-		help = RenderHelp(bindings, shortcuts)
+		help = pageutils.RenderHelp(bindings, shortcuts)
 	}
 
 	if m.loading && m.search != "" {
@@ -278,7 +280,7 @@ func (m *MenuCmds) View() string {
 
 	if m.editing {
 		search = m.input.View()
-		help = RenderHelp([]key.Binding{
+		help = pageutils.RenderHelp([]key.Binding{
 			key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "search")),
 			key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel")),
 		}, nil)

@@ -1,6 +1,9 @@
-package pages
+package pagemenus
 
 import (
+	"tartarus/views/pages"
+	"tartarus/views/pages/pageutils"
+
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
@@ -8,7 +11,7 @@ import (
 type MenuMans struct {
 	form      *huh.Form
 	selected  string
-	shortcuts Shortcuts
+	shortcuts pages.Shortcuts
 }
 
 func NewMenuMans() *MenuMans {
@@ -22,11 +25,11 @@ func NewMenuMans() *MenuMans {
 	keymap := huh.NewDefaultKeyMap()
 	keymap.Select.Filter.SetKeys()
 
-	form := NewForm(huh.NewGroup(selection)).WithKeyMap(keymap)
+	form := pageutils.NewForm(huh.NewGroup(selection)).WithKeyMap(keymap)
 
 	return &MenuMans{
 		form:      form,
-		shortcuts: Shortcuts{MenuConfigsShortcut, QuitShortcut},
+		shortcuts: pages.Shortcuts{pages.MenuConfigsShortcut, pages.QuitShortcut},
 	}
 }
 
@@ -34,15 +37,15 @@ func (m *MenuMans) Init() tea.Cmd {
 	return m.form.Init()
 }
 
-func (m *MenuMans) Update(msg tea.Msg) (Page, tea.Cmd) {
-	if cmd, handled := m.shortcuts.Handle(msg, FormEditing(m.form)); handled {
+func (m *MenuMans) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
+	if cmd, handled := m.shortcuts.Handle(msg, pageutils.FormEditing(m.form)); handled {
 		return m, cmd
 	}
 
 	var cmd tea.Cmd
 	var completed bool
 
-	m.form, cmd, completed = UpdateForm(m.form, msg)
+	m.form, cmd, completed = pageutils.UpdateForm(m.form, msg)
 
 	if completed {
 		m.selected = m.form.GetString("action")
@@ -58,5 +61,5 @@ func (m *MenuMans) View() string {
 		content = "Selected: " + m.selected
 	}
 
-	return content + "\n\n" + FormHelp(m.form, m.shortcuts)
+	return content + "\n\n" + pageutils.FormHelp(m.form, m.shortcuts)
 }

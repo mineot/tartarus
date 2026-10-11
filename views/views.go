@@ -4,6 +4,7 @@ import (
 	"strings"
 	"tartarus/repositories"
 	"tartarus/views/pages"
+	pagemenus "tartarus/views/pages/menus"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -18,7 +19,7 @@ type model struct {
 
 func initialModel(r *repositories.Repos) model {
 	return model{
-		page:  pages.NewMenuMain(),
+		page:  pagemenus.NewMenuMain(),
 		repos: r,
 	}
 }
@@ -42,19 +43,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case pages.NavigateMsg:
 		switch msg.To {
 		case pages.PageMenuMain:
-			m.page = pages.NewMenuMain()
+			m.page = pagemenus.NewMenuMain()
 
 		case pages.PageMenuConfig:
-			m.page = pages.NewMenuConfig()
+			m.page = pagemenus.NewMenuConfigurations()
 
 		case pages.PageMenuCmds:
-			m.page = pages.NewMenuCmds(m.repos)
+			m.page = pagemenus.NewMenuCmds(m.repos)
 
 		case pages.PageMenuMans:
-			m.page = pages.NewMenuMans()
+			m.page = pagemenus.NewMenuMans()
 
 		case pages.PageMenuStg:
-			m.page = pages.NewMenuStg()
+			m.page = pagemenus.NewMenuStg()
 
 		default:
 			return m, nil

@@ -1,17 +1,14 @@
-package pages
+package pagemenus
 
 import (
+	"tartarus/views/pages"
+	"tartarus/views/pages/pageutils"
+
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
-type MenuConfig struct {
-	form      *huh.Form
-	selected  string
-	shortcuts Shortcuts
-}
-
-func NewMenuConfig() *MenuConfig {
+func NewMenuConfigurations() *PageMenuConfigurations {
 	selection := huh.NewSelect[string]().
 		Key("action").
 		Title("⚙️ Configurations").
@@ -24,27 +21,27 @@ func NewMenuConfig() *MenuConfig {
 	keymap := huh.NewDefaultKeyMap()
 	keymap.Select.Filter.SetKeys()
 
-	form := NewForm(huh.NewGroup(selection)).WithKeyMap(keymap)
+	form := pageutils.NewForm(huh.NewGroup(selection)).WithKeyMap(keymap)
 
-	return &MenuConfig{
+	return &PageMenuConfigurations{
 		form:      form,
-		shortcuts: Shortcuts{MenuMainShortcut, QuitShortcut},
+		shortcuts: pages.Shortcuts{pages.MenuMainShortcut, pages.QuitShortcut},
 	}
 }
 
-func (m *MenuConfig) Init() tea.Cmd {
+func (m *PageMenuConfigurations) Init() tea.Cmd {
 	return m.form.Init()
 }
 
-func (m *MenuConfig) Update(msg tea.Msg) (Page, tea.Cmd) {
-	if cmd, handled := m.shortcuts.Handle(msg, FormEditing(m.form)); handled {
+func (m *PageMenuConfigurations) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
+	if cmd, handled := m.shortcuts.Handle(msg, pageutils.FormEditing(m.form)); handled {
 		return m, cmd
 	}
 
 	var cmd tea.Cmd
 	var completed bool
 
-	m.form, cmd, completed = UpdateForm(m.form, msg)
+	m.form, cmd, completed = pageutils.UpdateForm(m.form, msg)
 
 	if completed {
 		m.selected = m.form.GetString("action")
@@ -52,21 +49,21 @@ func (m *MenuConfig) Update(msg tea.Msg) (Page, tea.Cmd) {
 		switch m.selected {
 		case "cmds":
 			navigate := func() tea.Msg {
-				return NavigateMsg{To: PageMenuCmds}
+				return pages.NavigateMsg{To: pages.PageMenuCmds}
 			}
 
 			return m, tea.Batch(cmd, navigate)
 
 		case "mans":
 			navigate := func() tea.Msg {
-				return NavigateMsg{To: PageMenuMans}
+				return pages.NavigateMsg{To: pages.PageMenuMans}
 			}
 
 			return m, tea.Batch(cmd, navigate)
 
 		case "stg":
 			navigate := func() tea.Msg {
-				return NavigateMsg{To: PageMenuStg}
+				return pages.NavigateMsg{To: pages.PageMenuStg}
 			}
 
 			return m, tea.Batch(cmd, navigate)
@@ -76,12 +73,12 @@ func (m *MenuConfig) Update(msg tea.Msg) (Page, tea.Cmd) {
 	return m, cmd
 }
 
-func (m *MenuConfig) View() string {
+func (m *PageMenuConfigurations) View() string {
 	content := m.form.View()
 
 	if m.form.State == huh.StateCompleted {
 		content = "Selected: " + m.selected
 	}
 
-	return content + "\n\n" + FormHelp(m.form, m.shortcuts)
+	return content + "\n\n" + pageutils.FormHelp(m.form, m.shortcuts)
 }

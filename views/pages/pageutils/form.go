@@ -1,6 +1,7 @@
-package pages
+package pageutils
 
 import (
+	"tartarus/views/pages"
 	"tartarus/views/themes"
 
 	"charm.land/bubbles/v2/key"
@@ -42,7 +43,7 @@ func FormEditing(form *huh.Form) bool {
 	}
 }
 
-func FormHelp(form *huh.Form, shortcuts Shortcuts) string {
+func FormHelp(form *huh.Form, shortcuts pages.Shortcuts) string {
 	var bindings []key.Binding
 
 	if form.State == huh.StateNormal {
