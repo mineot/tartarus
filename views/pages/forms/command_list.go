@@ -1,4 +1,4 @@
-package pagemenus
+package pageforms
 
 import (
 	"fmt"

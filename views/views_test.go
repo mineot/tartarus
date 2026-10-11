@@ -3,7 +3,7 @@ package views
 import (
 	"tartarus/repositories"
 	"tartarus/views/pages"
-	pagemenus "tartarus/views/pages/menus"
+	pageforms "tartarus/views/pages/forms"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -15,7 +15,7 @@ func TestNavigationSuppliesExistingDimensions(t *testing.T) {
 	m = updated.(model)
 	updated, cmd := m.Update(pages.NavigateMsg{To: pages.PageMenuCmds})
 	m = updated.(model)
-	if _, ok := m.page.(*pagemenus.MenuCmds); !ok {
+	if _, ok := m.page.(*pageforms.MenuCmds); !ok {
 		t.Fatalf("unexpected page type %T", m.page)
 	}
 	if cmd == nil {
@@ -32,7 +32,7 @@ func TestNavigationSuppliesExistingDimensions(t *testing.T) {
 
 func TestControlCQuitsWhileEditing(t *testing.T) {
 	m := initialModel(&repositories.Repos{})
-	m.page = pagemenus.NewMenuCmds(&repositories.Repos{})
+	m.page = pageforms.NewMenuCmds(&repositories.Repos{})
 	m.page, _ = m.page.Update(tea.KeyPressMsg{Code: '/', Text: "/"})
 	_, cmd := m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	if cmd == nil {

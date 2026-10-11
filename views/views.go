@@ -4,6 +4,7 @@ import (
 	"strings"
 	"tartarus/repositories"
 	"tartarus/views/pages"
+	pageforms "tartarus/views/pages/forms"
 	pagemenus "tartarus/views/pages/menus"
 
 	tea "charm.land/bubbletea/v2"
@@ -49,13 +50,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.page = pagemenus.NewMenuConfigurations()
 
 		case pages.PageMenuCmds:
-			m.page = pagemenus.NewMenuCmds(m.repos)
+			m.page = pageforms.NewMenuCmds(m.repos)
 
 		case pages.PageMenuMans:
-			m.page = pagemenus.NewMenuMans()
+			m.page = pageforms.NewMenuMans()
 
 		case pages.PageMenuStg:
-			m.page = pagemenus.NewMenuStg()
+			m.page = pageforms.NewMenuStg()
 
 		default:
 			return m, nil

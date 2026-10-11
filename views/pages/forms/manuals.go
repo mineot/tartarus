@@ -1,4 +1,4 @@
-package pagemenus
+package pageforms
 
 import (
 	"tartarus/views/pages"
@@ -8,18 +8,18 @@ import (
 	"charm.land/huh/v2"
 )
 
-type MenuStg struct {
+type MenuMans struct {
 	form      *huh.Form
 	selected  string
 	shortcuts pages.Shortcuts
 }
 
-func NewMenuStg() *MenuStg {
+func NewMenuMans() *MenuMans {
 	selection := huh.NewSelect[string]().
 		Key("action").
-		Title("💾 Storage").
+		Title("📑 Manuals").
 		Options(
-			huh.NewOption("storages actioins", "cmds"),
+			huh.NewOption("list os manuals", "abc"),
 		)
 
 	keymap := huh.NewDefaultKeyMap()
@@ -27,17 +27,17 @@ func NewMenuStg() *MenuStg {
 
 	form := pageutils.NewForm(huh.NewGroup(selection)).WithKeyMap(keymap)
 
-	return &MenuStg{
+	return &MenuMans{
 		form:      form,
 		shortcuts: pages.Shortcuts{pages.MenuConfigsShortcut, pages.QuitShortcut},
 	}
 }
 
-func (m *MenuStg) Init() tea.Cmd {
+func (m *MenuMans) Init() tea.Cmd {
 	return m.form.Init()
 }
 
-func (m *MenuStg) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
+func (m *MenuMans) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
 	if cmd, handled := m.shortcuts.Handle(msg, pageutils.FormEditing(m.form)); handled {
 		return m, cmd
 	}
@@ -54,7 +54,7 @@ func (m *MenuStg) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
 	return m, cmd
 }
 
-func (m *MenuStg) View() string {
+func (m *MenuMans) View() string {
 	content := m.form.View()
 
 	if m.form.State == huh.StateCompleted {
