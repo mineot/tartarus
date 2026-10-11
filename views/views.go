@@ -39,6 +39,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case pages.PageMenuConfig:
 			m.page = pages.NewMenuConfig()
 
+		case pages.PageMenuCmds:
+			m.page = pages.NewMenuCmds()
+
+		case pages.PageMenuMans:
+			m.page = pages.NewMenuMans()
+
+		case pages.PageMenuStg:
+			m.page = pages.NewMenuStg()
+
 		default:
 			return m, nil
 		}

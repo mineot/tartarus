@@ -14,9 +14,11 @@ type MenuConfig struct {
 func NewMenuConfig() *MenuConfig {
 	selection := huh.NewSelect[string]().
 		Key("action").
-		Title("Select an option").
+		Title("⚙️ Configurations").
 		Options(
-			huh.NewOption("Configurations", "configs"),
+			huh.NewOption("🖥️ Commands", "cmds"),
+			huh.NewOption("📑 Manuals", "mans"),
+			huh.NewOption("💾 Storage", "stg"),
 		)
 
 	keymap := huh.NewDefaultKeyMap()
@@ -26,7 +28,7 @@ func NewMenuConfig() *MenuConfig {
 
 	return &MenuConfig{
 		form:      form,
-		shortcuts: Shortcuts{MainMenuShortcut, QuitShortcut},
+		shortcuts: Shortcuts{MenuMainShortcut, QuitShortcut},
 	}
 }
 
@@ -46,6 +48,29 @@ func (m *MenuConfig) Update(msg tea.Msg) (Page, tea.Cmd) {
 
 	if completed {
 		m.selected = m.form.GetString("action")
+
+		switch m.selected {
+		case "cmds":
+			navigate := func() tea.Msg {
+				return NavigateMsg{To: PageMenuCmds}
+			}
+
+			return m, tea.Batch(cmd, navigate)
+
+		case "mans":
+			navigate := func() tea.Msg {
+				return NavigateMsg{To: PageMenuMans}
+			}
+
+			return m, tea.Batch(cmd, navigate)
+
+		case "stg":
+			navigate := func() tea.Msg {
+				return NavigateMsg{To: PageMenuStg}
+			}
+
+			return m, tea.Batch(cmd, navigate)
+		}
 	}
 
 	return m, cmd

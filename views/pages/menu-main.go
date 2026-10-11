@@ -16,7 +16,7 @@ func NewMenuMain() *MenuMain {
 		Key("action").
 		Title("Select an option").
 		Options(
-			huh.NewOption("🖥️ Run a Command", "run"),
+			huh.NewOption("🚀 Run Command", "run"),
 			huh.NewOption("📜 Read Manual", "man"),
 			huh.NewOption("⚙️ Configurations", "config"),
 		)

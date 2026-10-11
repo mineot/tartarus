@@ -5,6 +5,36 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+var (
+	QuitShortcut = Shortcut{
+		Binding: key.NewBinding(
+			key.WithKeys("q"),
+			key.WithHelp("q", "quit"),
+		),
+		Command: tea.Quit,
+	}
+
+	MenuMainShortcut = Shortcut{
+		Binding: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "main menu"),
+		),
+		Command: func() tea.Msg {
+			return NavigateMsg{To: PageMenuMain}
+		},
+	}
+
+	MenuConfigsShortcut = Shortcut{
+		Binding: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "configs menu"),
+		),
+		Command: func() tea.Msg {
+			return NavigateMsg{To: PageMenuConfig}
+		},
+	}
+)
+
 type Shortcut struct {
 	Binding key.Binding
 	Command tea.Cmd
@@ -38,24 +68,6 @@ func (s Shortcuts) Bindings() []key.Binding {
 	return bindings
 }
 
-var QuitShortcut = Shortcut{
-	Binding: key.NewBinding(
-		key.WithKeys("q"),
-		key.WithHelp("q", "quit"),
-	),
-	Command: tea.Quit,
-}
-
-var MainMenuShortcut = Shortcut{
-	Binding: key.NewBinding(
-		key.WithKeys("esc"),
-		key.WithHelp("esc", "main menu"),
-	),
-	Command: func() tea.Msg {
-		return NavigateMsg{To: PageMenuMain}
-	},
-}
-
 type Page interface {
 	Init() tea.Cmd
 	Update(tea.Msg) (Page, tea.Cmd)
@@ -67,6 +79,9 @@ type PageID uint
 const (
 	PageMenuMain PageID = iota
 	PageMenuConfig
+	PageMenuCmds
+	PageMenuMans
+	PageMenuStg
 )
 
 type NavigateMsg struct {
