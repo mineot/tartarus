@@ -50,7 +50,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.page = pagemenus.NewMenuConfigurations()
 
 		case pages.PageMenuCmds:
-			m.page = pageforms.NewMenuCmds(m.repos)
+			m.page = pageforms.NewFormCommandList(m.repos)
 
 		case pages.PageMenuMans:
 			m.page = pageforms.NewMenuMans()

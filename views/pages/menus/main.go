@@ -2,7 +2,7 @@ package pagemenus
 
 import (
 	"tartarus/views/pages"
-	"tartarus/views/pages/pageutils"
+	pageutils "tartarus/views/pages/utils"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"

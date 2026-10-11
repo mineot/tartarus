@@ -5,7 +5,8 @@ import (
 	"strings"
 	"tartarus/repositories"
 	"tartarus/views/pages"
-	"tartarus/views/pages/pageutils"
+	pagehelpers "tartarus/views/pages/helpers"
+	pageutils "tartarus/views/pages/utils"
 	"tartarus/views/themes"
 
 	"charm.land/bubbles/v2/key"
@@ -23,32 +24,17 @@ func (i commandListItem) Description() string { return i.command.Description }
 func (i commandListItem) FilterValue() string { return i.command.Name }
 
 type commandsLoadedMsg struct {
-	search            string
-	owner             *MenuCmds
-	request           uint64
-	page, size, total int
-	commands          []repositories.Command
-	err               error
+	commands []repositories.Command
+	owner    *FormCommandList
+	msg      pagehelpers.ListLoadedMsg
 }
 
-type MenuCmds struct {
-	input                   textinput.Model
-	search, displayedSearch string
-	editing                 bool
-	searchKey               key.Binding
-	displayedSize           int
-	list                    list.Model
-	loadCommands            func(int, int, string) ([]repositories.Command, int, error)
-	shortcuts               pages.Shortcuts
-	previous, next, retry   key.Binding
-	page, size, total       int
-	pendingPage             int
-	request                 uint64
-	started, sized, loading bool
-	err                     error
+type FormCommandList struct {
+	loadCommands func(int, int, string) ([]repositories.Command, int, error)
+	model        pagehelpers.ListModel
 }
 
-func NewMenuCmds(r *repositories.Repos) *MenuCmds {
+func NewFormCommandList(r *repositories.Repos) *FormCommandList {
 	delegate := list.NewDefaultDelegate()
 	delegate.Styles = themes.ListItems(true)
 	delegate.SetSpacing(0)
@@ -65,87 +51,91 @@ func NewMenuCmds(r *repositories.Repos) *MenuCmds {
 	input.Prompt = "Search: "
 	input.Placeholder = "Name or description"
 
-	return &MenuCmds{
-		input:        input,
-		searchKey:    key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "search")),
-		list:         items,
+	return &FormCommandList{
 		loadCommands: r.GetCommands,
-		shortcuts:    pages.Shortcuts{pages.MenuConfigsShortcut, pages.QuitShortcut},
-		previous:     key.NewBinding(key.WithKeys("left", "pgup"), key.WithHelp("←/pgup", "previous page")),
-		next:         key.NewBinding(key.WithKeys("right", "pgdown"), key.WithHelp("→/pgdn", "next page")),
-		retry:        key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "retry")),
+		model: pagehelpers.ListModel{
+			SearchInput: input,
+			SearchKey:   key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "search")),
+			List:        items,
+			Shortcuts:   pages.Shortcuts{pages.MenuConfigsShortcut, pages.QuitShortcut},
+			Previous:    key.NewBinding(key.WithKeys("left", "pgup"), key.WithHelp("←/pgup", "previous page")),
+			Next:        key.NewBinding(key.WithKeys("right", "pgdown"), key.WithHelp("→/pgdn", "next page")),
+			Retry:       key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "retry")),
+		},
 	}
 }
 
-func (m *MenuCmds) Init() tea.Cmd {
-	m.started = true
+func (m *FormCommandList) Init() tea.Cmd {
+	m.model.Started = true
 
-	if !m.sized {
+	if !m.model.Sized {
 		return nil
 	}
 
 	return m.fetch(0)
 }
 
-func (m *MenuCmds) fetch(page int) tea.Cmd {
-	m.request++
-	request, size, search := m.request, m.size, m.search
+func (m *FormCommandList) fetch(page int) tea.Cmd {
+	m.model.Request++
+	request, size, search := m.model.Request, m.model.Size, m.model.Search
 	load := m.loadCommands
-	m.loading, m.err, m.pendingPage = true, nil, page
+	m.model.Loading, m.model.Err, m.model.PendingPage = true, nil, page
 
 	return func() tea.Msg {
 		commands, total, err := load(size, page*size, search)
 
 		return commandsLoadedMsg{
 			owner:    m,
-			search:   search,
-			request:  request,
-			page:     page,
-			size:     size,
-			total:    total,
 			commands: commands,
-			err:      err,
+			msg: pagehelpers.ListLoadedMsg{
+				Err:     err,
+				Page:    page,
+				Request: request,
+				Search:  search,
+				Size:    size,
+				Total:   total,
+			},
 		}
 	}
 }
 
-func (m *MenuCmds) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
+func (m *FormCommandList) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
 	if pressed, ok := msg.(tea.KeyPressMsg); ok {
-		if m.editing {
+		if m.model.Editing {
 			switch pressed.String() {
 			case "enter":
-				m.search = strings.TrimSpace(m.input.Value())
-				m.input.Blur()
-				m.editing = false
-				if m.sized {
+				m.model.Search = strings.TrimSpace(m.model.SearchInput.Value())
+				m.model.SearchInput.Blur()
+				m.model.Editing = false
+				if m.model.Sized {
 					return m, m.fetch(0)
 				}
 				return m, nil
 
 			case "esc":
-				m.input.SetValue(m.search)
-				m.input.Blur()
-				m.editing = false
+				m.model.SearchInput.SetValue(m.model.Search)
+				m.model.SearchInput.Blur()
+				m.model.Editing = false
 				return m, nil
 
 			default:
 				var cmd tea.Cmd
-				m.input, cmd = m.input.Update(msg)
+				m.model.SearchInput, cmd = m.model.SearchInput.Update(msg)
 				return m, cmd
 			}
 		}
 
-		if key.Matches(pressed, m.searchKey) {
-			m.input.SetValue(m.search)
-			m.editing = true
-			return m, m.input.Focus()
+		if key.Matches(pressed, m.model.SearchKey) {
+			m.model.SearchInput.SetValue(m.model.Search)
+			m.model.Editing = true
+			return m, m.model.SearchInput.Focus()
 		}
 
-		if pressed.String() == "esc" && (m.search != "" || m.displayedSearch != "") {
-			m.search = ""
-			m.input.SetValue("")
+		if pressed.String() == "esc" && (m.model.Search != "" || m.model.DisplayedSearch != "") {
+			m.model.Search = ""
+			m.model.SearchInput.SetValue("")
 
-			if m.sized {
+			if m.model.Sized {
 				return m, m.fetch(0)
 			}
 
@@ -153,22 +143,22 @@ func (m *MenuCmds) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
 		}
 	}
 
-	if cmd, handled := m.shortcuts.Handle(msg, m.editing); handled {
+	if cmd, handled := m.model.Shortcuts.Handle(msg, m.model.Editing); handled {
 		return m, cmd
 	}
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.input.SetWidth(max(1, msg.Width-8))
+		m.model.SearchInput.SetWidth(max(1, msg.Width-8))
 		height := max(2, msg.Height-8)
 		size := min(5, height/2)
-		oldSize := m.size
-		m.list.SetSize(max(1, msg.Width), height)
-		m.size, m.sized = size, true
+		oldSize := m.model.Size
+		m.model.List.SetSize(max(1, msg.Width), height)
+		m.model.Size, m.model.Sized = size, true
 
-		if m.started && oldSize != size {
-			page := m.page * m.displayedSize / size
-			if m.search != m.displayedSearch {
+		if m.model.Started && oldSize != size {
+			page := m.model.Page * m.model.DisplayedSize / size
+			if m.model.Search != m.model.DisplayedSearch {
 				page = 0
 			}
 			return m, m.fetch(page)
@@ -177,109 +167,109 @@ func (m *MenuCmds) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
 		return m, nil
 
 	case commandsLoadedMsg:
-		if msg.owner != m || msg.request != m.request {
+		if msg.owner != m || msg.msg.Request != m.model.Request {
 			return m, nil
 		}
 
-		m.loading = false
+		m.model.Loading = false
 
-		if msg.err != nil {
-			m.err = msg.err
+		if msg.msg.Err != nil {
+			m.model.Err = msg.msg.Err
 			return m, nil
 		}
 
-		if msg.page > 0 && msg.page*msg.size >= msg.total {
-			return m, m.fetch(max(0, (msg.total-1)/msg.size))
+		if msg.msg.Page > 0 && msg.msg.Page*msg.msg.Size >= msg.msg.Total {
+			return m, m.fetch(max(0, (msg.msg.Total-1)/msg.msg.Size))
 		}
 
-		m.page, m.total, m.err = msg.page, msg.total, nil
-		m.displayedSize = msg.size
-		m.displayedSearch = msg.search
+		m.model.Page, m.model.Total, m.model.Err = msg.msg.Page, msg.msg.Total, nil
+		m.model.DisplayedSize = msg.msg.Size
+		m.model.DisplayedSearch = msg.msg.Search
 		items := make([]list.Item, len(msg.commands))
 
 		for i, command := range msg.commands {
 			items[i] = commandListItem{command: command}
 		}
 
-		cmd := m.list.SetItems(items)
-		m.list.ResetSelected()
+		cmd := m.model.List.SetItems(items)
+		m.model.List.ResetSelected()
 
 		return m, cmd
 
 	case tea.KeyPressMsg:
-		if m.loading || !m.sized {
+		if m.model.Loading || !m.model.Sized {
 			return m, nil
 		}
 
 		switch {
-		case key.Matches(msg, m.retry):
-			if m.err != nil {
-				return m, m.fetch(m.pendingPage)
+		case key.Matches(msg, m.model.Retry):
+			if m.model.Err != nil {
+				return m, m.fetch(m.model.PendingPage)
 			}
 
-		case key.Matches(msg, m.previous):
-			if m.err == nil && m.page > 0 {
-				return m, m.fetch(m.page - 1)
+		case key.Matches(msg, m.model.Previous):
+			if m.model.Err == nil && m.model.Page > 0 {
+				return m, m.fetch(m.model.Page - 1)
 			}
 
-		case key.Matches(msg, m.next):
-			if m.err == nil && (m.page+1)*m.size < m.total {
-				return m, m.fetch(m.page + 1)
+		case key.Matches(msg, m.model.Next):
+			if m.model.Err == nil && (m.model.Page+1)*m.model.Size < m.model.Total {
+				return m, m.fetch(m.model.Page + 1)
 			}
 
-		case key.Matches(msg, m.list.KeyMap.CursorUp):
-			m.list.CursorUp()
+		case key.Matches(msg, m.model.List.KeyMap.CursorUp):
+			m.model.List.CursorUp()
 
-		case key.Matches(msg, m.list.KeyMap.CursorDown):
-			m.list.CursorDown()
+		case key.Matches(msg, m.model.List.KeyMap.CursorDown):
+			m.model.List.CursorDown()
 		}
 	}
 
-	if m.editing {
+	if m.model.Editing {
 		var cmd tea.Cmd
-		m.input, cmd = m.input.Update(msg)
+		m.model.SearchInput, cmd = m.model.SearchInput.Update(msg)
 		return m, cmd
 	}
 
 	return m, nil
 }
 
-func (m *MenuCmds) View() string {
+func (m *FormCommandList) View() string {
 	status := "Loading commands..."
 
-	if m.sized && !m.loading {
-		if m.total == 0 {
+	if m.model.Sized && !m.model.Loading {
+		if m.model.Total == 0 {
 			status = "No commands found."
 		} else {
-			status = fmt.Sprintf("Page %d of %d · %d commands", m.page+1, 1+(m.total-1)/max(1, m.displayedSize), m.total)
+			status = fmt.Sprintf("Page %d of %d · %d commands", m.model.Page+1, 1+(m.model.Total-1)/max(1, m.model.DisplayedSize), m.model.Total)
 		}
 	}
 
-	if m.err != nil {
-		status = fmt.Sprintf("Could not load commands: %v", m.err)
+	if m.model.Err != nil {
+		status = fmt.Sprintf("Could not load commands: %v", m.model.Err)
 	}
 
-	bindings := []key.Binding{m.list.KeyMap.CursorUp, m.list.KeyMap.CursorDown, m.previous, m.next, m.searchKey}
+	bindings := []key.Binding{m.model.List.KeyMap.CursorUp, m.model.List.KeyMap.CursorDown, m.model.Previous, m.model.Next, m.model.SearchKey}
 
-	if m.err != nil {
-		bindings = append(bindings, m.retry)
+	if m.model.Err != nil {
+		bindings = append(bindings, m.model.Retry)
 	}
 
-	search := "Search: " + m.displayedSearch
-	help := pageutils.RenderHelp(bindings, m.shortcuts)
+	search := "Search: " + m.model.DisplayedSearch
+	help := pageutils.RenderHelp(bindings, m.model.Shortcuts)
 
-	if m.search != "" || m.displayedSearch != "" {
-		shortcuts := append(pages.Shortcuts(nil), m.shortcuts...)
+	if m.model.Search != "" || m.model.DisplayedSearch != "" {
+		shortcuts := append(pages.Shortcuts(nil), m.model.Shortcuts...)
 		shortcuts[0].Binding = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "clear search"))
 		help = pageutils.RenderHelp(bindings, shortcuts)
 	}
 
-	if m.loading && m.search != "" {
-		status = fmt.Sprintf("Searching for %q...", m.search)
+	if m.model.Loading && m.model.Search != "" {
+		status = fmt.Sprintf("Searching for %q...", m.model.Search)
 	}
 
-	if m.editing {
-		search = m.input.View()
+	if m.model.Editing {
+		search = m.model.SearchInput.View()
 		help = pageutils.RenderHelp([]key.Binding{
 			key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "search")),
 			key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel")),
@@ -288,5 +278,5 @@ func (m *MenuCmds) View() string {
 
 	title := themes.Form(true).Focused.Title.Render("🖥️ Commands")
 
-	return title + "\n" + search + "\n\n" + m.list.View() + "\n" + status + "\n" + help
+	return title + "\n" + search + "\n\n" + m.model.List.View() + "\n" + status + "\n" + help
 }
