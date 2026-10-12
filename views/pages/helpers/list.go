@@ -226,7 +226,7 @@ func (lm *ListModel) SearchHelpView(help string, bindings []key.Binding) string 
 		bindings = append(append([]key.Binding(nil), bindings...), clearSearch)
 	}
 
-	return pageutils.RenderHelp(bindings, shortcuts)
+	return pageutils.RenderHelp(bindings, shortcuts, lm.List.Width())
 }
 
 func (lm *ListModel) SearchStatusView() string {
@@ -243,7 +243,7 @@ func (lm *ListModel) SearchEditingView(search string, help string) (string, stri
 			pageutils.RenderHelp([]key.Binding{
 				key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "search")),
 				key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel")),
-			}, nil)
+			}, nil, lm.List.Width())
 	}
 
 	return search, help

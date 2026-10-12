@@ -31,7 +31,7 @@ func TestFormEditingProtectsTextFields(t *testing.T) {
 			if got := form.GetFocusedField().GetValue(); got != "q" {
 				t.Fatalf("want text q, got %v", got)
 			}
-			if strings.Contains(FormHelp(form, pages.Shortcuts{pages.QuitShortcut}), "quit") {
+			if strings.Contains(FormHelp(form, pages.Shortcuts{pages.QuitShortcut}, 80), "quit") {
 				t.Fatal("help advertised disabled quit shortcut")
 			}
 			form.State = huh.StateCompleted
@@ -48,7 +48,7 @@ func TestFormEditingKeepsMenuShortcuts(t *testing.T) {
 	if FormEditing(form) {
 		t.Fatal("menu selection treated as text editing")
 	}
-	if !strings.Contains(FormHelp(form, pages.Shortcuts{pages.QuitShortcut}), "quit") {
+	if !strings.Contains(FormHelp(form, pages.Shortcuts{pages.QuitShortcut}, 80), "quit") {
 		t.Fatal("menu help lost quit shortcut")
 	}
 	if FormEditing(nil) {

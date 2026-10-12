@@ -43,7 +43,7 @@ func FormEditing(form *huh.Form) bool {
 	}
 }
 
-func FormHelp(form *huh.Form, shortcuts pages.Shortcuts) string {
+func FormHelp(form *huh.Form, shortcuts pages.Shortcuts, width int) string {
 	var bindings []key.Binding
 
 	if form.State == huh.StateNormal {
@@ -54,5 +54,5 @@ func FormHelp(form *huh.Form, shortcuts pages.Shortcuts) string {
 		shortcuts = nil
 	}
 
-	return RenderHelp(bindings, shortcuts)
+	return RenderHelp(bindings, shortcuts, width)
 }

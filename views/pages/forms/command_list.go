@@ -8,8 +8,31 @@ import (
 	pageutils "tartarus/views/pages/utils"
 	"tartarus/views/themes"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
+)
+
+var (
+	NewCommand = pages.Shortcut{
+		Binding: key.NewBinding(
+			key.WithKeys("ctrl+n"),
+			key.WithHelp("ctrl+n", "New Command"),
+		),
+		Command: func() tea.Msg {
+			return pages.NavigateMsg{To: 1}
+		},
+	}
+
+	EditCommand = pages.Shortcut{
+		Binding: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "Edit Command"),
+		),
+		Command: func() tea.Msg {
+			return pages.NavigateMsg{To: 1}
+		},
+	}
 )
 
 type commandListItem struct {
@@ -37,6 +60,8 @@ func NewFormCommandList(r *repositories.Repos) *FormCommandList {
 		listModel: pagehelpers.NewList(
 			"Name or description",
 			pages.Shortcuts{
+				NewCommand,
+				EditCommand,
 				pages.MenuConfigsShortcut,
 				pages.QuitShortcut,
 			},
@@ -169,7 +194,7 @@ func (m *FormCommandList) View() string {
 	}
 
 	search := m.listModel.SearchView()
-	help := pageutils.RenderHelp(bindings, m.listModel.Shortcuts)
+	help := pageutils.RenderHelp(bindings, m.listModel.Shortcuts, m.listModel.List.Width())
 	help = m.listModel.SearchHelpView(help, bindings)
 
 	if searching := m.listModel.SearchStatusView(); searching != "" {

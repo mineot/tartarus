@@ -34,6 +34,10 @@ func (m *PageMenuConfigurations) Init() tea.Cmd {
 }
 
 func (m *PageMenuConfigurations) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
+	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		m.width = size.Width
+	}
+
 	if cmd, handled := m.shortcuts.Handle(msg, pageutils.FormEditing(m.form)); handled {
 		return m, cmd
 	}
@@ -80,5 +84,5 @@ func (m *PageMenuConfigurations) View() string {
 		content = "Selected: " + m.selected
 	}
 
-	return content + "\n\n" + pageutils.FormHelp(m.form, m.shortcuts)
+	return content + "\n\n" + pageutils.FormHelp(m.form, m.shortcuts, m.width)
 }
