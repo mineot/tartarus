@@ -2,6 +2,7 @@ package pageutils
 
 import (
 	"tartarus/views/pages"
+	"tartarus/views/themes"
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
@@ -14,5 +15,6 @@ func RenderHelp(bindings []key.Binding, shortcuts pages.Shortcuts) string {
 	combined = append(combined, shortcuts.Bindings()...)
 
 	h := help.New()
+	h.Styles = themes.Help(true)
 	return h.ShortHelpView(combined)
 }
