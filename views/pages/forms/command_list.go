@@ -78,20 +78,20 @@ func (m *FormCommandList) fetch(page int) tea.Cmd {
 }
 
 func (m *FormCommandList) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
-	if model, cmd := m.listModel.ListSearchUpdate(msg, m, m.fetch); model != nil || cmd != nil {
+	if model, cmd := m.listModel.SearchUpdate(msg, m, m.fetch); model != nil || cmd != nil {
 		return model, cmd
 	}
 
-	if model, cmd := m.listModel.ListShortcutHandlerUpdate(msg, m); model != nil || cmd != nil {
+	if model, cmd := m.listModel.ShortcutsUpdate(msg, m); model != nil || cmd != nil {
 		return m, cmd
 	}
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		return m.listModel.ListWindowSizeUpdate(msg, m, m.fetch)
+		return m.listModel.WindowSizeUpdate(msg, m, m.fetch)
 
 	case tea.KeyPressMsg:
-		if model, cmd := m.listModel.ListKeyPressUpdate(msg, m, m.fetch); model != nil || cmd != nil {
+		if model, cmd := m.listModel.KeyPressUpdate(msg, m, m.fetch); model != nil || cmd != nil {
 			return model, cmd
 		}
 
@@ -107,7 +107,7 @@ func (m *FormCommandList) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
 			return m, nil
 		}
 
-		if model, cmd := m.listModel.ListVerifyPages(msg.listMsg, m, m.fetch); model != nil || cmd != nil {
+		if model, cmd := m.listModel.PageBoundsUpdate(msg.listMsg, m, m.fetch); model != nil || cmd != nil {
 			return model, cmd
 		}
 
@@ -142,7 +142,7 @@ func (m *FormCommandList) View() string {
 		if m.listModel.Total == 0 {
 			status = "No commands found."
 		} else {
-			status = m.listModel.ListPrintFooterView("commands")
+			status = m.listModel.PaginationView("commands")
 		}
 	}
 
@@ -150,21 +150,21 @@ func (m *FormCommandList) View() string {
 		status = fmt.Sprintf("Could not load commands: %v", m.listModel.Err)
 	}
 
-	bindings := m.listModel.ListGetBindingsView()
+	bindings := m.listModel.HelpBindings()
 
 	if m.listModel.Err != nil {
 		bindings = append(bindings, m.listModel.Retry)
 	}
 
-	search := m.listModel.ListDisplayedSearchView()
+	search := m.listModel.SearchView()
 	help := pageutils.RenderHelp(bindings, m.listModel.Shortcuts)
-	help = m.listModel.ListSearchedShortcutsView(help, bindings)
+	help = m.listModel.SearchHelpView(help, bindings)
 
-	if searching := m.listModel.ListSearchingStatusView(); searching != "" {
+	if searching := m.listModel.SearchStatusView(); searching != "" {
 		status = searching
 	}
 
-	search, help = m.listModel.ListSearchEditingView(search, help)
+	search, help = m.listModel.SearchEditingView(search, help)
 	title := themes.Form(true).Focused.Title.Render("🖥️ Commands")
 
 	return title + "\n" + search + "\n\n" + m.listModel.List.View() + "\n" + status + "\n" + help

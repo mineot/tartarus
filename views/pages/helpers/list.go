@@ -13,7 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-type Paginator func(int) tea.Cmd
+type FetchPage func(int) tea.Cmd
 
 type ListLoadedMsg struct {
 	Err     error
@@ -47,7 +47,7 @@ type ListModel struct {
 	Total           int
 }
 
-func (lm *ListModel) ListSearchUpdate(msg tea.Msg, m pages.Page, paginator Paginator) (pages.Page, tea.Cmd) {
+func (lm *ListModel) SearchUpdate(msg tea.Msg, m pages.Page, fetchPage FetchPage) (pages.Page, tea.Cmd) {
 	if pressed, ok := msg.(tea.KeyPressMsg); ok {
 		if lm.SearchEditing {
 			switch pressed.String() {
@@ -57,7 +57,7 @@ func (lm *ListModel) ListSearchUpdate(msg tea.Msg, m pages.Page, paginator Pagin
 				lm.SearchEditing = false
 
 				if lm.Sized {
-					return m, paginator(0)
+					return m, fetchPage(0)
 				}
 
 				return m, nil
@@ -86,7 +86,7 @@ func (lm *ListModel) ListSearchUpdate(msg tea.Msg, m pages.Page, paginator Pagin
 			lm.SearchInput.SetValue("")
 
 			if lm.Sized {
-				return m, paginator(0)
+				return m, fetchPage(0)
 			}
 
 			return m, nil
@@ -96,7 +96,7 @@ func (lm *ListModel) ListSearchUpdate(msg tea.Msg, m pages.Page, paginator Pagin
 	return nil, nil
 }
 
-func (lm *ListModel) ListShortcutHandlerUpdate(msg tea.Msg, m pages.Page) (pages.Page, tea.Cmd) {
+func (lm *ListModel) ShortcutsUpdate(msg tea.Msg, m pages.Page) (pages.Page, tea.Cmd) {
 	if cmd, handled := lm.Shortcuts.Handle(msg, lm.SearchEditing); handled {
 		return m, cmd
 	}
@@ -104,7 +104,7 @@ func (lm *ListModel) ListShortcutHandlerUpdate(msg tea.Msg, m pages.Page) (pages
 	return nil, nil
 }
 
-func (lm *ListModel) ListWindowSizeUpdate(msg tea.WindowSizeMsg, m pages.Page, paginator Paginator) (pages.Page, tea.Cmd) {
+func (lm *ListModel) WindowSizeUpdate(msg tea.WindowSizeMsg, m pages.Page, fetchPage FetchPage) (pages.Page, tea.Cmd) {
 	height := max(2, msg.Height-8)
 	size := min(5, height/2)
 	oldSize := lm.Size
@@ -120,13 +120,13 @@ func (lm *ListModel) ListWindowSizeUpdate(msg tea.WindowSizeMsg, m pages.Page, p
 			page = 0
 		}
 
-		return m, paginator(page)
+		return m, fetchPage(page)
 	}
 
 	return m, nil
 }
 
-func (lm *ListModel) ListKeyPressUpdate(msg tea.KeyPressMsg, m pages.Page, paginator Paginator) (pages.Page, tea.Cmd) {
+func (lm *ListModel) KeyPressUpdate(msg tea.KeyPressMsg, m pages.Page, fetchPage FetchPage) (pages.Page, tea.Cmd) {
 	if lm.Loading || !lm.Sized {
 		return m, nil
 	}
@@ -134,48 +134,50 @@ func (lm *ListModel) ListKeyPressUpdate(msg tea.KeyPressMsg, m pages.Page, pagin
 	switch {
 	case key.Matches(msg, lm.Retry):
 		if lm.Err != nil {
-			return m, paginator(lm.PendingPage)
+			return m, fetchPage(lm.PendingPage)
 		}
 
 	case key.Matches(msg, lm.Previous):
 		if lm.Err == nil && lm.Page > 0 {
-			return m, paginator(lm.Page - 1)
+			return m, fetchPage(lm.Page - 1)
 		}
 
 	case key.Matches(msg, lm.Next):
 		if lm.Err == nil && (lm.Page+1)*lm.Size < lm.Total {
-			return m, paginator(lm.Page + 1)
+			return m, fetchPage(lm.Page + 1)
 		}
 
 	case key.Matches(msg, lm.List.KeyMap.CursorUp):
 		lm.List.CursorUp()
+		return m, nil
 
 	case key.Matches(msg, lm.List.KeyMap.CursorDown):
 		lm.List.CursorDown()
+		return m, nil
 	}
 
 	return nil, nil
 }
 
-func (lm *ListModel) ListVerifyPages(msg ListLoadedMsg, m pages.Page, paginator Paginator) (pages.Page, tea.Cmd) {
+func (lm *ListModel) PageBoundsUpdate(msg ListLoadedMsg, m pages.Page, fetchPage FetchPage) (pages.Page, tea.Cmd) {
 	if msg.Page > 0 && msg.Page*msg.Size >= msg.Total {
-		return m, paginator(max(0, (msg.Total-1)/msg.Size))
+		return m, fetchPage(max(0, (msg.Total-1)/msg.Size))
 	}
 
 	return nil, nil
 }
 
-func (lm *ListModel) ListPrintFooterView(pageName string) string {
+func (lm *ListModel) PaginationView(itemLabel string) string {
 	return fmt.Sprintf(
 		"Page %d of %d · %d %s",
 		lm.Page+1,
 		1+(lm.Total-1)/max(1, lm.DisplayedSize),
 		lm.Total,
-		pageName,
+		itemLabel,
 	)
 }
 
-func (lm *ListModel) ListGetBindingsView() []key.Binding {
+func (lm *ListModel) HelpBindings() []key.Binding {
 	return []key.Binding{
 		lm.List.KeyMap.CursorUp,
 		lm.List.KeyMap.CursorDown,
@@ -185,26 +187,39 @@ func (lm *ListModel) ListGetBindingsView() []key.Binding {
 	}
 }
 
-func (lm *ListModel) ListDisplayedSearchView() string {
+func (lm *ListModel) SearchView() string {
 	return "Search: " + lm.DisplayedSearch
 }
 
-func (lm *ListModel) ListSearchedShortcutsView(help string, bindings []key.Binding) string {
-	if lm.Search != "" || lm.DisplayedSearch != "" {
-		shortcuts := append(pages.Shortcuts(nil), lm.Shortcuts...)
-
-		shortcuts[0].Binding = key.NewBinding(
-			key.WithKeys("esc"),
-			key.WithHelp("esc", "clear search"),
-		)
-
-		return pageutils.RenderHelp(bindings, shortcuts)
+func (lm *ListModel) SearchHelpView(help string, bindings []key.Binding) string {
+	if lm.Search == "" && lm.DisplayedSearch == "" {
+		return help
 	}
 
-	return help
+	shortcuts := append(pages.Shortcuts(nil), lm.Shortcuts...)
+
+	clearSearch := key.NewBinding(
+		key.WithKeys("esc"),
+		key.WithHelp("esc", "clear search"),
+	)
+
+	replaced := false
+
+	for i := range shortcuts {
+		if key.Matches(tea.KeyPressMsg{Code: tea.KeyEscape}, shortcuts[i].Binding) {
+			shortcuts[i].Binding = clearSearch
+			replaced = true
+		}
+	}
+
+	if !replaced {
+		bindings = append(append([]key.Binding(nil), bindings...), clearSearch)
+	}
+
+	return pageutils.RenderHelp(bindings, shortcuts)
 }
 
-func (lm *ListModel) ListSearchingStatusView() string {
+func (lm *ListModel) SearchStatusView() string {
 	if lm.Loading && lm.Search != "" {
 		return fmt.Sprintf("Searching for %q...", lm.Search)
 	}
@@ -212,7 +227,7 @@ func (lm *ListModel) ListSearchingStatusView() string {
 	return ""
 }
 
-func (lm *ListModel) ListSearchEditingView(search string, help string) (string, string) {
+func (lm *ListModel) SearchEditingView(search string, help string) (string, string) {
 	if lm.SearchEditing {
 		return lm.SearchInput.View(),
 			pageutils.RenderHelp([]key.Binding{
@@ -224,7 +239,7 @@ func (lm *ListModel) ListSearchEditingView(search string, help string) (string, 
 	return search, help
 }
 
-func NewList(searchPlaceHolder string, shortcuts pages.Shortcuts) ListModel {
+func NewList(searchPlaceholder string, shortcuts pages.Shortcuts) ListModel {
 	delegate := list.NewDefaultDelegate()
 	delegate.Styles = themes.ListItems(true)
 	delegate.SetSpacing(0)
@@ -239,7 +254,7 @@ func NewList(searchPlaceHolder string, shortcuts pages.Shortcuts) ListModel {
 
 	input := textinput.New()
 	input.Prompt = "Search: "
-	input.Placeholder = searchPlaceHolder
+	input.Placeholder = searchPlaceholder
 
 	return ListModel{
 		SearchInput: input,
