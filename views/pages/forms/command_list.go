@@ -16,8 +16,8 @@ import (
 var (
 	NewCommand = pages.Shortcut{
 		Binding: key.NewBinding(
-			key.WithKeys("ctrl+n"),
-			key.WithHelp("ctrl+n", "New Command"),
+			key.WithKeys("n"),
+			key.WithHelp("n", "New Command"),
 		),
 		Command: func() tea.Msg {
 			return pages.NavigateMsg{To: pages.CommandEditor}

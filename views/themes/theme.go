@@ -7,6 +7,12 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+const (
+	PrimaryColor   string = "#90a1b9"
+	SecondaryColor string = "#0f172b"
+	AssetColor     string = "#00d3f2"
+)
+
 // Help returns readable shortcut styles using the Tartarus slate palette.
 func Help(isDark bool) help.Styles {
 	lightDark := lipgloss.LightDark(isDark)
@@ -30,9 +36,11 @@ func Form(isDark bool) *huh.Styles {
 	t := huh.ThemeCharm(isDark)
 
 	for _, field := range []*huh.FieldStyles{&t.Focused, &t.Blurred} {
-		field.Title = field.Title.Foreground(lipgloss.Color("#90a1b9"))
-		field.SelectSelector = field.SelectSelector.Foreground(lipgloss.Color("#90a1b9"))
-		field.SelectedOption = field.SelectedOption.Foreground(lipgloss.Color("#00d3f2"))
+		field.Title = field.Title.Foreground(lipgloss.Color(PrimaryColor))
+		field.SelectSelector = field.SelectSelector.Foreground(lipgloss.Color(PrimaryColor))
+		field.SelectedOption = field.SelectedOption.Foreground(lipgloss.Color(AssetColor))
+		field.TextInput.Prompt = field.TextInput.Cursor.Foreground(lipgloss.Color(PrimaryColor))
+		field.TextInput.Cursor = field.TextInput.Cursor.Foreground(lipgloss.Color(AssetColor))
 	}
 
 	return t
