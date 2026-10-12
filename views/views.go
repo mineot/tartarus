@@ -80,6 +80,16 @@ func (m model) View() tea.View {
 	window := lipgloss.NewStyle().Padding(1)
 	app := tea.NewView(window.Render(sb.String()))
 	app.AltScreen = true
+
+	if page, ok := m.page.(interface{ Cursor() *tea.Cursor }); ok {
+		app.Cursor = page.Cursor()
+
+		if app.Cursor != nil {
+			app.Cursor.X += window.GetPaddingLeft()
+			app.Cursor.Y += window.GetPaddingTop() + lipgloss.Height(renderLogo()) + 1
+		}
+	}
+
 	return app
 }
 

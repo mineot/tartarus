@@ -11,6 +11,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type FetchPage func(int) tea.Cmd
@@ -57,28 +58,26 @@ func (lm *ListModel) SearchUpdate(msg tea.Msg, m pages.Page, fetchPage FetchPage
 				lm.SearchEditing = false
 
 				if lm.Sized {
-					return m, fetchPage(0)
+					return m, tea.Batch(fetchPage(0), tea.ClearScreen)
 				}
 
-				return m, nil
+				return m, tea.ClearScreen
 
 			case "esc":
 				lm.SearchInput.SetValue(lm.Search)
 				lm.SearchInput.Blur()
 				lm.SearchEditing = false
-				return m, nil
+				return m, tea.ClearScreen
 
 			default:
-				var cmd tea.Cmd
-				lm.SearchInput, cmd = lm.SearchInput.Update(msg)
-				return m, cmd
+				return m, lm.SearchInputUpdate(msg)
 			}
 		}
 
 		if key.Matches(pressed, lm.SearchKey) {
 			lm.SearchInput.SetValue(lm.Search)
 			lm.SearchEditing = true
-			return m, lm.SearchInput.Focus()
+			return m, tea.Batch(lm.SearchInput.Focus(), tea.ClearScreen)
 		}
 
 		if pressed.String() == "esc" && (lm.Search != "" || lm.DisplayedSearch != "") {
@@ -96,6 +95,16 @@ func (lm *ListModel) SearchUpdate(msg tea.Msg, m pages.Page, fetchPage FetchPage
 	return nil, nil
 }
 
+func (lm *ListModel) SearchInputUpdate(msg tea.Msg) tea.Cmd {
+	previous := lm.SearchInput.View()
+	var cmd tea.Cmd
+	lm.SearchInput, cmd = lm.SearchInput.Update(msg)
+	if lm.SearchInput.View() != previous {
+		return tea.Batch(cmd, tea.ClearScreen)
+	}
+	return cmd
+}
+
 func (lm *ListModel) ShortcutsUpdate(msg tea.Msg, m pages.Page) (pages.Page, tea.Cmd) {
 	if cmd, handled := lm.Shortcuts.Handle(msg, lm.SearchEditing); handled {
 		return m, cmd
@@ -109,7 +118,8 @@ func (lm *ListModel) WindowSizeUpdate(msg tea.WindowSizeMsg, m pages.Page, fetch
 	size := min(5, height/2)
 	oldSize := lm.Size
 
-	lm.SearchInput.SetWidth(max(1, msg.Width-8))
+	promptWidth := lipgloss.Width(lm.SearchInput.Prompt)
+	lm.SearchInput.SetWidth(max(1, msg.Width-promptWidth-1))
 	lm.List.SetSize(max(1, msg.Width), height)
 	lm.Size, lm.Sized = size, true
 
@@ -253,6 +263,7 @@ func NewList(searchPlaceholder string, shortcuts pages.Shortcuts) ListModel {
 	items.DisableQuitKeybindings()
 
 	input := textinput.New()
+	input.SetVirtualCursor(false)
 	input.Prompt = "Search: "
 	input.Placeholder = searchPlaceholder
 

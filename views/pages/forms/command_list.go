@@ -44,6 +44,20 @@ func NewFormCommandList(r *repositories.Repos) *FormCommandList {
 	}
 }
 
+func (m *FormCommandList) Cursor() *tea.Cursor {
+	if !m.listModel.SearchEditing {
+		return nil
+	}
+
+	cursor := m.listModel.SearchInput.Cursor()
+
+	if cursor != nil {
+		cursor.Y++
+	}
+
+	return cursor
+}
+
 func (m *FormCommandList) Init() tea.Cmd {
 	m.listModel.Started = true
 
@@ -123,13 +137,11 @@ func (m *FormCommandList) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
 		cmd := m.listModel.List.SetItems(items)
 		m.listModel.List.ResetSelected()
 
-		return m, cmd
+		return m, tea.Batch(cmd, tea.ClearScreen)
 	}
 
 	if m.listModel.SearchEditing {
-		var cmd tea.Cmd
-		m.listModel.SearchInput, cmd = m.listModel.SearchInput.Update(msg)
-		return m, cmd
+		return m, m.listModel.SearchInputUpdate(msg)
 	}
 
 	return m, nil
