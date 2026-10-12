@@ -34,6 +34,7 @@ func Help(isDark bool) help.Styles {
 // Form returns shared form styles using the Tartarus slate palette.
 func Form(isDark bool) *huh.Styles {
 	t := huh.ThemeCharm(isDark)
+	t.Group.Title = t.Group.Title.PaddingBottom(1).Foreground(lipgloss.Color(PrimaryColor))
 
 	for _, field := range []*huh.FieldStyles{&t.Focused, &t.Blurred} {
 		field.Title = field.Title.Foreground(lipgloss.Color(PrimaryColor))

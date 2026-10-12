@@ -23,10 +23,10 @@ var (
 		},
 	}
 
-	saveShortcut = pages.Shortcut{
+	scriptsShortcut = pages.Shortcut{
 		Binding: key.NewBinding(
-			key.WithKeys("enter"),
-			key.WithHelp("enter", "save"),
+			key.WithKeys("s"),
+			key.WithHelp("s", "scripts"),
 		),
 	}
 )
@@ -81,10 +81,15 @@ func NewCommandEditor(r *repositories.Repos, commandID uint64) *CommandEditor {
 			return nil
 		})
 
-	editor.form = pageutils.
-		NewForm(huh.NewGroup(nameInput, descriptionInput)).
-		WithKeyMap(keymap)
+	title := "🖥️ Commands - "
 
+	if commandID != 0 {
+		title += "Edit Command"
+	} else {
+		title += "New Command"
+	}
+
+	editor.form = pageutils.NewForm(huh.NewGroup(nameInput, descriptionInput).Title(title)).WithKeyMap(keymap)
 	return &editor
 }
 
@@ -141,13 +146,12 @@ func (m *CommandEditor) View() string {
 	}
 
 	bindings = append(bindings, escShortcut.Binding)
-
+	bindings = append(bindings, scriptsShortcut.Binding)
 	content := m.form.View()
 
 	if m.form.State == huh.StateCompleted {
-		content = "Name: " + m.command.Name
-		content += "\nDescription: " + m.command.Description
-		bindings = append(bindings, saveShortcut.Binding)
+		content += "Name: " + m.command.Name + "\n"
+		content += "Description: " + m.command.Description
 	}
 
 	return content + "\n\n" + pageutils.RenderHelp(bindings, shortcuts, m.width)
