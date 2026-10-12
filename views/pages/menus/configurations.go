@@ -53,21 +53,21 @@ func (m *PageMenuConfigurations) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
 		switch m.selected {
 		case "cmds":
 			navigate := func() tea.Msg {
-				return pages.NavigateMsg{To: pages.PageMenuCmds}
+				return pages.NavigateMsg{To: pages.CommandList}
 			}
 
 			return m, tea.Batch(cmd, navigate)
 
 		case "mans":
 			navigate := func() tea.Msg {
-				return pages.NavigateMsg{To: pages.PageMenuMans}
+				return pages.NavigateMsg{To: pages.ManualList}
 			}
 
 			return m, tea.Batch(cmd, navigate)
 
 		case "stg":
 			navigate := func() tea.Msg {
-				return pages.NavigateMsg{To: pages.PageMenuStg}
+				return pages.NavigateMsg{To: pages.StorageList}
 			}
 
 			return m, tea.Batch(cmd, navigate)

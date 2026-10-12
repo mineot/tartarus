@@ -13,9 +13,9 @@ func TestNavigationSuppliesExistingDimensions(t *testing.T) {
 	m := initialModel(&repositories.Repos{})
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
 	m = updated.(model)
-	updated, cmd := m.Update(pages.NavigateMsg{To: pages.PageMenuCmds})
+	updated, cmd := m.Update(pages.NavigateMsg{To: pages.CommandList})
 	m = updated.(model)
-	if _, ok := m.page.(*pageforms.FormCommandList); !ok {
+	if _, ok := m.page.(*pageforms.CommandList); !ok {
 		t.Fatalf("unexpected page type %T", m.page)
 	}
 	if cmd == nil {
@@ -25,14 +25,14 @@ func TestNavigationSuppliesExistingDimensions(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected navigation on escape")
 	}
-	if msg, ok := cmd().(pages.NavigateMsg); !ok || msg.To != pages.PageMenuConfig {
+	if msg, ok := cmd().(pages.NavigateMsg); !ok || msg.To != pages.MenuConfigurations {
 		t.Fatal("escape did not return to configurations")
 	}
 }
 
 func TestControlCQuitsWhileEditing(t *testing.T) {
 	m := initialModel(&repositories.Repos{})
-	m.page = pageforms.NewFormCommandList(&repositories.Repos{})
+	m.page = pageforms.NewCommandEditor(&repositories.Repos{})
 	m.page, _ = m.page.Update(tea.KeyPressMsg{Code: '/', Text: "/"})
 	_, cmd := m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	if cmd == nil {
@@ -45,7 +45,7 @@ func TestControlCQuitsWhileEditing(t *testing.T) {
 
 func TestSearchCursorTracksEditing(t *testing.T) {
 	m := initialModel(&repositories.Repos{})
-	m.page = pageforms.NewFormCommandList(&repositories.Repos{})
+	m.page = pageforms.NewCommandEditor(&repositories.Repos{})
 	m.page, _ = m.page.Update(tea.WindowSizeMsg{Width: 78, Height: 25})
 	if m.View().Cursor != nil {
 		t.Fatal("expected no cursor outside search editing")

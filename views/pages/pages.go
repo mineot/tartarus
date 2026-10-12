@@ -13,11 +13,12 @@ type Page interface {
 type PageID uint
 
 const (
-	PageMenuMain PageID = iota
-	PageMenuConfig
-	PageMenuCmds
-	PageMenuMans
-	PageMenuStg
+	MenuMain PageID = iota
+	MenuConfigurations
+	CommandList
+	CommandEditor
+	ManualList
+	StorageList
 )
 
 type NavigateMsg struct {

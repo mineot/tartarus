@@ -20,7 +20,7 @@ var (
 			key.WithHelp("esc", "main menu"),
 		),
 		Command: func() tea.Msg {
-			return NavigateMsg{To: PageMenuMain}
+			return NavigateMsg{To: MenuMain}
 		},
 	}
 
@@ -30,7 +30,7 @@ var (
 			key.WithHelp("esc", "configs menu"),
 		),
 		Command: func() tea.Msg {
-			return NavigateMsg{To: PageMenuConfig}
+			return NavigateMsg{To: MenuConfigurations}
 		},
 	}
 )

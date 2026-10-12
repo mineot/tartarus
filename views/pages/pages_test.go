@@ -32,7 +32,7 @@ func TestShortcutsWorkOutsideEditor(t *testing.T) {
 	if !handled || cmd == nil {
 		t.Fatal("escape was not handled")
 	}
-	if msg, ok := cmd().(NavigateMsg); !ok || msg.To != PageMenuConfig {
+	if msg, ok := cmd().(NavigateMsg); !ok || msg.To != MenuConfigurations {
 		t.Fatal("expected navigation message")
 	}
 	if cmd, handled := shortcuts.Handle(tea.WindowSizeMsg{}, false); handled || cmd != nil {

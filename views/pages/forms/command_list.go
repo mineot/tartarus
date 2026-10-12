@@ -45,17 +45,17 @@ func (i commandListItem) FilterValue() string { return i.command.Name }
 
 type commandsLoadedMsg struct {
 	commands []repositories.Command
-	owner    *FormCommandList
+	owner    *CommandList
 	listMsg  pagehelpers.ListLoadedMsg
 }
 
-type FormCommandList struct {
+type CommandList struct {
 	loadCommands func(int, int, string) ([]repositories.Command, int, error)
 	listModel    pagehelpers.ListModel
 }
 
-func NewFormCommandList(r *repositories.Repos) *FormCommandList {
-	return &FormCommandList{
+func NewCommandList(r *repositories.Repos) *CommandList {
+	return &CommandList{
 		loadCommands: r.GetCommands,
 		listModel: pagehelpers.NewList(
 			"Name or description",
@@ -69,7 +69,7 @@ func NewFormCommandList(r *repositories.Repos) *FormCommandList {
 	}
 }
 
-func (m *FormCommandList) Cursor() *tea.Cursor {
+func (m *CommandList) Cursor() *tea.Cursor {
 	if !m.listModel.SearchEditing {
 		return nil
 	}
@@ -83,7 +83,7 @@ func (m *FormCommandList) Cursor() *tea.Cursor {
 	return cursor
 }
 
-func (m *FormCommandList) Init() tea.Cmd {
+func (m *CommandList) Init() tea.Cmd {
 	m.listModel.Started = true
 
 	if !m.listModel.Sized {
@@ -93,7 +93,7 @@ func (m *FormCommandList) Init() tea.Cmd {
 	return m.fetch(0)
 }
 
-func (m *FormCommandList) fetch(page int) tea.Cmd {
+func (m *CommandList) fetch(page int) tea.Cmd {
 	m.listModel.Request++
 	m.listModel.Loading, m.listModel.Err, m.listModel.PendingPage = true, nil, page
 	request, size, search := m.listModel.Request, m.listModel.Size, m.listModel.Search
@@ -116,7 +116,7 @@ func (m *FormCommandList) fetch(page int) tea.Cmd {
 	}
 }
 
-func (m *FormCommandList) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
+func (m *CommandList) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
 	if model, cmd := m.listModel.SearchUpdate(msg, m, m.fetch); model != nil || cmd != nil {
 		return model, cmd
 	}
@@ -172,7 +172,7 @@ func (m *FormCommandList) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
 	return m, nil
 }
 
-func (m *FormCommandList) View() string {
+func (m *CommandList) View() string {
 	status := "Loading commands..."
 
 	if m.listModel.Sized && !m.listModel.Loading {

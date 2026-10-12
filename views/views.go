@@ -43,19 +43,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case pages.NavigateMsg:
 		switch msg.To {
-		case pages.PageMenuMain:
+		case pages.MenuMain:
 			m.page = pagemenus.NewMenuMain()
 
-		case pages.PageMenuConfig:
+		case pages.MenuConfigurations:
 			m.page = pagemenus.NewMenuConfigurations()
 
-		case pages.PageMenuCmds:
-			m.page = pageforms.NewFormCommandList(m.repos)
+		case pages.CommandList:
+			m.page = pageforms.NewCommandList(m.repos)
 
-		case pages.PageMenuMans:
+		case pages.CommandEditor:
+			m.page = pageforms.NewCommandEditor(m.repos)
+
+		case pages.ManualList:
 			m.page = pageforms.NewMenuMans()
 
-		case pages.PageMenuStg:
+		case pages.StorageList:
 			m.page = pageforms.NewMenuStg()
 
 		default:

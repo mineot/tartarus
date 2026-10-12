@@ -53,7 +53,7 @@ func (m *PageMenuMain) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
 		switch m.selected {
 		case "config":
 			navigate := func() tea.Msg {
-				return pages.NavigateMsg{To: pages.PageMenuConfig}
+				return pages.NavigateMsg{To: pages.MenuConfigurations}
 			}
 
 			return m, tea.Batch(cmd, navigate)
