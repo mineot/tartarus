@@ -20,7 +20,7 @@ var (
 			key.WithHelp("ctrl+n", "New Command"),
 		),
 		Command: func() tea.Msg {
-			return pages.NavigateMsg{To: 1}
+			return pages.NavigateMsg{To: pages.CommandEditor}
 		},
 	}
 
@@ -29,9 +29,6 @@ var (
 			key.WithKeys("enter"),
 			key.WithHelp("enter", "Edit Command"),
 		),
-		Command: func() tea.Msg {
-			return pages.NavigateMsg{To: 1}
-		},
 	}
 )
 
@@ -119,6 +116,24 @@ func (m *CommandList) fetch(page int) tea.Cmd {
 func (m *CommandList) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
 	if model, cmd := m.listModel.SearchUpdate(msg, m, m.fetch); model != nil || cmd != nil {
 		return model, cmd
+	}
+
+	if pressed, ok := msg.(tea.KeyPressMsg); ok && !m.listModel.SearchEditing && key.Matches(pressed, EditCommand.Binding) {
+		if m.listModel.Loading || m.listModel.Err != nil {
+			return m, nil
+		}
+
+		selected, ok := m.listModel.List.SelectedItem().(commandListItem)
+
+		if !ok || selected.command.ID == 0 {
+			return m, nil
+		}
+
+		id := selected.command.ID
+
+		return m, func() tea.Msg {
+			return pages.NavigateMsg{To: pages.CommandEditor, RefID: id}
+		}
 	}
 
 	if model, cmd := m.listModel.ShortcutsUpdate(msg, m); model != nil || cmd != nil {

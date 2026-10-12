@@ -22,5 +22,6 @@ const (
 )
 
 type NavigateMsg struct {
-	To PageID
+	To    PageID
+	RefID uint64
 }

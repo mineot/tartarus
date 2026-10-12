@@ -53,7 +53,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.page = pageforms.NewCommandList(m.repos)
 
 		case pages.CommandEditor:
-			m.page = pageforms.NewCommandEditor(m.repos)
+			m.page = pageforms.NewCommandEditor(m.repos, msg.RefID)
 
 		case pages.ManualList:
 			m.page = pageforms.NewMenuMans()

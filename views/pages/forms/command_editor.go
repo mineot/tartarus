@@ -7,10 +7,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-type CommandEditor struct{}
+type CommandEditor struct {
+	commandID uint64
+}
 
-func NewCommandEditor(r *repositories.Repos) *CommandEditor {
-	return &CommandEditor{}
+func NewCommandEditor(r *repositories.Repos, commandID uint64) *CommandEditor {
+	return &CommandEditor{commandID: commandID}
 }
 
 func (m *CommandEditor) Cursor() *tea.Cursor {
@@ -22,7 +24,7 @@ func (m *CommandEditor) Init() tea.Cmd {
 }
 
 func (m *CommandEditor) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
-	return nil, nil
+	return m, nil
 }
 
 func (m *CommandEditor) View() string {
