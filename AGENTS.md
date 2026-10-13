@@ -13,7 +13,11 @@ a query function so component tests can simulate failures and delayed responses
 without accessing a real store. Pages contain at most five commands and shrink
 to fit the terminal; resizing that changes capacity returns to the first page.
 The component waits for dimensions, ignores stale or foreign responses, and
-disables local filtering. Search is not exposed in this version. Left/right
+disables local filtering. A text input opens with `/`; Enter applies a database
+search on name/description and returns to the first page. Escape cancels a draft,
+then clears an applied search, then exits. While editing, keys belong to the
+input except global Ctrl+C. Pagination, retries and resizing preserve the applied
+search; query commands capture it before running asynchronously. Left/right
 change database pages, up/down select, and q/Escape/Ctrl+C exit the component.
 The earlier MenuCmds and search UI descriptions below are historical.
 

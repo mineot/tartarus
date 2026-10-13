@@ -7,6 +7,7 @@ import (
 	"os"
 	"tartarus/repositories"
 	"tartarus/store"
+	"tartarus/themes"
 	"tartarus/views"
 )
 
@@ -31,6 +32,8 @@ func main() {
 	}
 
 	r := repositories.New(s)
+
+	themes.RenderLogo()
 
 	if err := views.New(r).ExecuteContext(context); err != nil {
 		fmt.Fprintf(os.Stderr, "Tartarus failed execute views: %v\n", err)

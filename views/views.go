@@ -9,7 +9,7 @@ import (
 func New(r *repositories.Repos) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:           "tartarus",
-		Short:         RenderLogo("Organize and automate your terminal workflows"),
+		Short:         "Organize and automate your terminal workflows",
 		Version:       "2.0.0",
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,

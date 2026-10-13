@@ -1,7 +1,7 @@
 package views
 
 import (
-	"tartarus/components"
+	"fmt"
 	"tartarus/repositories"
 
 	"github.com/spf13/cobra"
@@ -10,7 +10,7 @@ import (
 func NewCommands(r *repositories.Repos) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "cmds",
-		Short: RenderLogo("Manage commands"),
+		Short: "Manage commands",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
@@ -24,9 +24,10 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 func listAllCommands(r *repositories.Repos) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "ls",
-		Short: RenderLogo("List all commands"),
+		Short: "List all commands",
 		Run: func(cmd *cobra.Command, args []string) {
-			components.CommandsList(r)
+			cmds, _ := r.GetCommands("10")
+			fmt.Println(cmds)
 		},
 	}
 

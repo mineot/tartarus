@@ -1,6 +1,7 @@
-package views
+package themes
 
 import (
+	"fmt"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -12,7 +13,7 @@ const (
 	AssetColor     string = "#00d3f2"
 )
 
-func RenderLogo(shortDescription string) string {
+func RenderLogo() {
 	title := lipgloss.NewStyle().
 		Bold(true).
 		Background(lipgloss.Color(PrimaryColor)).
@@ -21,14 +22,10 @@ func RenderLogo(shortDescription string) string {
 	version := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(PrimaryColor))
 
-	description := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(PrimaryColor))
-
 	s := strings.Builder{}
 	s.WriteString("\n")
 	s.WriteString(title.Render(" Tartarus "))
 	s.WriteString(version.Render(" - 2.0.0"))
-	s.WriteString("\n\n")
-	s.WriteString(description.Render(shortDescription))
-	return s.String()
+	s.WriteString("\n")
+	fmt.Println(s.String())
 }
