@@ -49,6 +49,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case pages.MenuConfigurations:
 			m.page = pagemenus.NewMenuConfigurations()
 
+		case pages.MenuCommands:
+			m.page = pagemenus.NewMenuCommands()
+
 		case pages.CommandList:
 			m.page = pageforms.NewCommandList(m.repos)
 

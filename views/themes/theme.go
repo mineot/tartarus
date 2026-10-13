@@ -37,7 +37,7 @@ func Form(isDark bool) *huh.Styles {
 	t.Group.Title = t.Group.Title.PaddingBottom(1).Foreground(lipgloss.Color(PrimaryColor))
 
 	for _, field := range []*huh.FieldStyles{&t.Focused, &t.Blurred} {
-		field.Title = field.Title.Foreground(lipgloss.Color(PrimaryColor))
+		field.Title = field.Title.PaddingBottom(1).Foreground(lipgloss.Color(PrimaryColor))
 		field.SelectSelector = field.SelectSelector.Foreground(lipgloss.Color(PrimaryColor))
 		field.SelectedOption = field.SelectedOption.Foreground(lipgloss.Color(AssetColor))
 		field.TextInput.Prompt = field.TextInput.Cursor.Foreground(lipgloss.Color(PrimaryColor))

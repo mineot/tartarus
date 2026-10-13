@@ -15,6 +15,7 @@ type PageID uint
 const (
 	MenuMain PageID = iota
 	MenuConfigurations
+	MenuCommands
 	CommandList
 	CommandEditor
 	ManualList

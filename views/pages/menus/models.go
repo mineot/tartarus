@@ -19,3 +19,10 @@ type PageMenuConfigurations struct {
 	shortcuts pages.Shortcuts
 	width     int
 }
+
+type PageMenuCommands struct {
+	form      *huh.Form
+	selected  string
+	shortcuts pages.Shortcuts
+	width     int
+}

@@ -14,8 +14,8 @@ func NewMenuConfigurations() *PageMenuConfigurations {
 		Title("⚙️ Configurations").
 		Options(
 			huh.NewOption("🖥️ Commands", "cmds"),
-			huh.NewOption("📑 Manuals", "mans"),
-			huh.NewOption("💾 Storage", "stg"),
+			// huh.NewOption("📑 Manuals", "mans"),
+			// huh.NewOption("💾 Storage", "stg"),
 		)
 
 	keymap := huh.NewDefaultKeyMap()
@@ -53,21 +53,7 @@ func (m *PageMenuConfigurations) Update(msg tea.Msg) (pages.Page, tea.Cmd) {
 		switch m.selected {
 		case "cmds":
 			navigate := func() tea.Msg {
-				return pages.NavigateMsg{To: pages.CommandList}
-			}
-
-			return m, tea.Batch(cmd, navigate)
-
-		case "mans":
-			navigate := func() tea.Msg {
-				return pages.NavigateMsg{To: pages.ManualList}
-			}
-
-			return m, tea.Batch(cmd, navigate)
-
-		case "stg":
-			navigate := func() tea.Msg {
-				return pages.NavigateMsg{To: pages.StorageList}
+				return pages.NavigateMsg{To: pages.MenuCommands}
 			}
 
 			return m, tea.Batch(cmd, navigate)
