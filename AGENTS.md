@@ -4,6 +4,19 @@ State of the Tartarus project. Read this before touching anything.
 
 ## Command list pagination update
 
+The current UI uses Cobra: `tartarus cmds ls` calls the self-contained
+`components.CommandsList(r)` with no return value. Its private Bubble Tea model,
+item adapter, page queries, error handling and program lifecycle all live in
+`components/commands_list.go`. Bubble Tea startup errors are printed to stderr;
+query errors appear in the component with `r` to retry. The constructor accepts
+a query function so component tests can simulate failures and delayed responses
+without accessing a real store. Pages contain at most five commands and shrink
+to fit the terminal; resizing that changes capacity returns to the first page.
+The component waits for dimensions, ignores stale or foreign responses, and
+disables local filtering. Search is not exposed in this version. Left/right
+change database pages, up/down select, and q/Escape/Ctrl+C exit the component.
+The earlier MenuCmds and search UI descriptions below are historical.
+
 The current entry point opens and migrates the store, passes one repository to
 the Bubble Tea UI, and closes the store before reporting an exit error.
 The earlier descriptions below of a path-only startup and a legacy restore flag
