@@ -2,62 +2,45 @@ package components
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"tartarus/themes"
+	"text/tabwriter"
 )
 
-type listItem struct {
-	id          uint64
-	name        string
-	description string
-}
-
 type List struct {
-	title    string
-	emptyMsg string
-	items    []listItem
-}
-
-func (l *List) Title(title string) {
-	l.title = title
-}
-
-func (l *List) EmptyMsg(msg string) {
-	l.emptyMsg = msg
-}
-
-func (l *List) AppendItem(id uint64, name, description string) {
-	l.items = append(
-		l.items,
-		listItem{id, name, description},
-	)
+	Title    string
+	EmptyMsg string
+	Headers  []string
+	Rows     [][]string
 }
 
 func (l *List) Print() {
-	fmt.Printf("%s\n\n", themes.GetPrimaryText(l.title, true))
+	fmt.Printf("%s\n\n", themes.GetPrimaryText(l.Title, true))
 
-	if len(l.items) == 0 {
-		fmt.Printf("%s\n\n", themes.GetTertiaryText(l.emptyMsg, true))
-	} else {
-		for _, item := range l.items {
-			fmt.Println(item.getFormated())
-		}
+	w := tabwriter.NewWriter(os.Stdout, 1, 1, 3, ' ', 0)
+
+	fmt.Fprintln(w, strings.Join(l.Headers, "\t"))
+	fmt.Fprintln(w, makeTraceLine(l.Headers))
+
+	if len(l.Rows) == 0 {
+		fmt.Printf("%s\n\n", themes.GetTertiaryText(l.EmptyMsg, true))
+		return
 	}
+
+	for _, row := range l.Rows {
+		fmt.Fprintln(w, strings.Join(row, "\t"))
+	}
+
+	w.Flush()
 }
 
-func (l *listItem) getId() string {
-	result := fmt.Sprintf("%d", l.id)
-	result = fmt.Sprintf("ID: %s", result)
-	return themes.GetAssetText(result, true)
-}
+func makeTraceLine(headers []string) string {
+	tls := make([]string, len(headers))
 
-func (l *listItem) getName() string {
-	return themes.GetPrimaryText(fmt.Sprintf("Name: %s", l.name), false)
-}
+	for i, h := range headers {
+		tls[i] = strings.Repeat("-", len(h))
+	}
 
-func (l *listItem) getDescription() string {
-	return themes.GetTertiaryText(fmt.Sprintf("Description: %s", l.description), false)
-}
-
-func (l *listItem) getFormated() string {
-	return fmt.Sprintf("%s %s %s", l.getId(), l.getName(), l.getDescription())
+	return strings.Join(tls, "\t") + "\t"
 }
