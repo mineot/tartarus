@@ -267,6 +267,29 @@ func editCommand(r *repositories.Repos) *cobra.Command {
 
 			return nil
 		},
+		Long: `Edit an existing command.
+
+What it does:
+  Loads the command with the given ID and updates its name and description.
+  An empty argument is ignored, keeping the current value, so you can change
+  only one field at a time without retyping the other.
+
+What it expects:
+  Exactly three positional arguments:
+    e <id> <name> <description>   the ID of the command to edit, plus its new
+                                  name and description. Pass "" to keep the
+                                  current value.
+
+  The name, when changed, must be unique; an already-used name is rejected.
+
+What it returns:
+  On success it prints "Command edited with id <id>". It exits non-zero when
+  the argument count is wrong, when the ID is not numeric or does not exist,
+  or when the update fails (for example, a duplicate name).
+
+Examples:
+  tartarus cmds e 1 deploy "Deploy the app to staging"
+  tartarus cmds e 1 "" "Only a new description"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			idStr := args[0]
 
@@ -280,6 +303,10 @@ func editCommand(r *repositories.Repos) *cobra.Command {
 
 			if err != nil {
 				return fmt.Errorf("fail to get command: %w", err)
+			}
+
+			if command.ID == 0 {
+				return fmt.Errorf("command not found with id %d", ID)
 			}
 
 			if args[1] != "" && args[1] != command.Name {
