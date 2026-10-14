@@ -35,7 +35,7 @@ func Export(r *repositories.Repos, path string) error {
 	}
 
 	for _, c := range commands {
-		items, err := r.GetCommandItems(c.ID)
+		items, err := r.GetCommandScripts(c.ID)
 
 		if err != nil {
 			return fmt.Errorf("backup: listing items of command %d: %w", c.ID, err)

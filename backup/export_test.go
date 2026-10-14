@@ -96,18 +96,18 @@ func TestExportWritesCommandsWithTheirItemsInOrder(t *testing.T) {
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	firstItem := &repositories.CommandItem{Script: "go build ./...", Description: "compila"}
-	if err := r.AppendCommandItem(first.ID, firstItem); err != nil {
+	firstItem := &repositories.CommandScript{Script: "go build ./...", Description: "compila"}
+	if err := r.AppendCommandScript(first.ID, firstItem); err != nil {
 		t.Fatalf("AppendCommandItem: %v", err)
 	}
 
-	secondItem := &repositories.CommandItem{Script: "go test ./...", Description: "testa"}
-	if err := r.AppendCommandItem(first.ID, secondItem); err != nil {
+	secondItem := &repositories.CommandScript{Script: "go test ./...", Description: "testa"}
+	if err := r.AppendCommandScript(first.ID, secondItem); err != nil {
 		t.Fatalf("AppendCommandItem: %v", err)
 	}
 
-	otherItem := &repositories.CommandItem{Script: "make test", Description: "testa via make"}
-	if err := r.AppendCommandItem(second.ID, otherItem); err != nil {
+	otherItem := &repositories.CommandScript{Script: "make test", Description: "testa via make"}
+	if err := r.AppendCommandScript(second.ID, otherItem); err != nil {
 		t.Fatalf("AppendCommandItem: %v", err)
 	}
 
@@ -139,7 +139,7 @@ func TestExportWritesCommandsWithTheirItemsInOrder(t *testing.T) {
 		t.Fatalf("want 2 items, got %d", len(file.Commands[0].Items))
 	}
 
-	for index, want := range []*repositories.CommandItem{firstItem, secondItem} {
+	for index, want := range []*repositories.CommandScript{firstItem, secondItem} {
 		got := file.Commands[0].Items[index]
 
 		if got.ID != want.ID || got.CommandID != first.ID || got.Script != want.Script {
@@ -245,7 +245,7 @@ func TestExportWritesAnEmptyDescriptionAsAnEmptyString(t *testing.T) {
 		t.Fatalf("InsertManual: %v", err)
 	}
 
-	if err := r.AppendCommandItem(c.ID, &repositories.CommandItem{Script: "ls"}); err != nil {
+	if err := r.AppendCommandScript(c.ID, &repositories.CommandScript{Script: "ls"}); err != nil {
 		t.Fatalf("AppendCommandItem: %v", err)
 	}
 

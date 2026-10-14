@@ -1,16 +1,16 @@
 CREATE TABLE IF NOT EXISTS commands (
 	id				INTEGER		NOT NULL PRIMARY KEY AUTOINCREMENT,
-	"name"			TEXT		NOT NULL UNIQUE,
-	"description"	TEXT,
+	name			TEXT		NOT NULL UNIQUE,
+	description		TEXT,
 	created_at		TIMESTAMP	NOT NULL,
 	updated_at		TIMESTAMP	NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS command_items (
+CREATE TABLE IF NOT EXISTS command_scripts (
 	id				INTEGER		NOT NULL PRIMARY KEY AUTOINCREMENT,
 	command_id  	INTEGER		NOT NULL,
 	script			TEXT		NOT NULL UNIQUE,
-	"description"	TEXT,
+	description		TEXT,
 	created_at		TIMESTAMP	NOT NULL,
 	updated_at		TIMESTAMP	NOT NULL,
 	FOREIGN KEY (command_id) REFERENCES commands(id) ON DELETE CASCADE ON UPDATE CASCADE
@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS command_items (
 
 CREATE TABLE IF NOT EXISTS manuals (
 	id				INTEGER		NOT NULL PRIMARY KEY AUTOINCREMENT,
-	"name"			TEXT		NOT NULL UNIQUE,
+	name			TEXT		NOT NULL UNIQUE,
 	body			TEXT		NOT NULL,
-	"description"	TEXT,
+	description		TEXT,
 	created_at		TIMESTAMP	NOT NULL,
 	updated_at		TIMESTAMP	NOT NULL
 );

@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// CommandItem is a single item in a command
-type CommandItem struct {
+// CommandScript is a single script in a command
+type CommandScript struct {
 	ID          uint64
 	CommandID   uint64
 	Script      string
@@ -27,12 +27,12 @@ type Command struct {
 }
 
 var (
-	ErrCommandNotFound           = errors.New("command not found")
-	ErrCommandNameRequired       = errors.New("command name is required")
-	ErrCommandIDRequired         = errors.New("command id is required")
-	ErrCommandItemIDRequired     = errors.New("command item id is required")
-	ErrCommandItemScriptRequired = errors.New("command item script is required")
-	ErrCommandItemNotFound       = errors.New("command item not found")
+	ErrCommandNotFound             = errors.New("command not found")
+	ErrCommandNameRequired         = errors.New("command name is required")
+	ErrCommandIDRequired           = errors.New("command id is required")
+	ErrCommandScriptIDRequired     = errors.New("command script id is required")
+	ErrCommandScriptScriptRequired = errors.New("command script script is required")
+	ErrCommandScriptNotFound       = errors.New("command script not found")
 )
 
 const (
@@ -66,8 +66,8 @@ SET name = ?, description = ?, updated_at = ?
 WHERE id = ?
 `
 
-	deleteCommandItemsByCommand = `
-DELETE FROM command_items
+	deleteCommandScriptsByCommand = `
+DELETE FROM command_scripts
 WHERE command_id = ?
 `
 
@@ -76,32 +76,32 @@ DELETE FROM commands
 WHERE id = ?
 `
 
-	selectCommandItems = `
+	selectCommandScripts = `
 SELECT id, command_id, script, COALESCE(description, ''), created_at, updated_at
-FROM command_items
+FROM command_scripts
 WHERE command_id = ?
 ORDER BY id
 `
 
-	selectCommandItem = `
+	selectCommandScript = `
 SELECT id, command_id, script, COALESCE(description, ''), created_at, updated_at
-FROM command_items
+FROM command_scripts
 WHERE command_id = ? AND id = ?
 `
 
-	insertCommandItem = `
-INSERT INTO command_items (command_id, script, description, created_at, updated_at)
+	insertCommandScript = `
+INSERT INTO command_scripts (command_id, script, description, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?)
 `
 
-	updateCommandItem = `
-UPDATE command_items
+	updateCommandScript = `
+UPDATE command_scripts
 SET script = ?, description = ?, updated_at = ?
 WHERE id = ? AND command_id = ?
 `
 
-	deleteCommandItem = `
-DELETE FROM command_items
+	deleteCommandScript = `
+DELETE FROM command_scripts
 WHERE id = ? AND command_id = ?
 `
 )
@@ -184,73 +184,73 @@ func (r *Repos) GetCommand(id uint64) (Command, error) {
 	return command, nil
 }
 
-// GetCommandItems returns all items for the given command.
-func (r *Repos) GetCommandItems(commandID uint64) ([]CommandItem, error) {
-	rows, err := r.Store.Query(selectCommandItems, commandID)
+// GetCommandScripts returns all scripts for the given command.
+func (r *Repos) GetCommandScripts(commandID uint64) ([]CommandScript, error) {
+	rows, err := r.Store.Query(selectCommandScripts, commandID)
 
 	if err != nil {
-		return nil, fmt.Errorf("repositories: selecting command items: %w", err)
+		return nil, fmt.Errorf("repositories: selecting command scripts: %w", err)
 	}
 
 	defer rows.Close()
 
-	var items []CommandItem
+	var scripts []CommandScript
 
 	for rows.Next() {
-		var item CommandItem
+		var script CommandScript
 
 		if err := rows.Scan(
-			&item.ID,
-			&item.CommandID,
-			&item.Script,
-			&item.Description,
-			&item.CreatedAt,
-			&item.UpdatedAt,
+			&script.ID,
+			&script.CommandID,
+			&script.Script,
+			&script.Description,
+			&script.CreatedAt,
+			&script.UpdatedAt,
 		); err != nil {
-			return nil, fmt.Errorf("repositories: scanning command item: %w", err)
+			return nil, fmt.Errorf("repositories: scanning command script: %w", err)
 		}
 
-		items = append(items, item)
+		scripts = append(scripts, script)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("repositories: iterating command items: %w", err)
+		return nil, fmt.Errorf("repositories: iterating command scripts: %w", err)
 	}
 
-	return items, nil
+	return scripts, nil
 }
 
-// GetCommandItem returns a specific item for a command.
-// If not found, returns empty CommandItem and nil error.
-func (r *Repos) GetCommandItem(commandID, itemID uint64) (CommandItem, error) {
-	rows, err := r.Store.Query(selectCommandItem, commandID, itemID)
+// GetCommandScript returns a specific script for a command.
+// If not found, returns empty CommandScript and nil error.
+func (r *Repos) GetCommandScript(commandID, scriptID uint64) (CommandScript, error) {
+	rows, err := r.Store.Query(selectCommandScript, commandID, scriptID)
 
 	if err != nil {
-		return CommandItem{}, fmt.Errorf("repositories: selecting command item: %w", err)
+		return CommandScript{}, fmt.Errorf("repositories: selecting command script: %w", err)
 	}
 
 	defer rows.Close()
 
-	var item CommandItem
+	var script CommandScript
 
 	if rows.Next() {
 		if err := rows.Scan(
-			&item.ID,
-			&item.CommandID,
-			&item.Script,
-			&item.Description,
-			&item.CreatedAt,
-			&item.UpdatedAt,
+			&script.ID,
+			&script.CommandID,
+			&script.Script,
+			&script.Description,
+			&script.CreatedAt,
+			&script.UpdatedAt,
 		); err != nil {
-			return CommandItem{}, fmt.Errorf("repositories: scanning command item: %w", err)
+			return CommandScript{}, fmt.Errorf("repositories: scanning command script: %w", err)
 		}
 	}
 
 	if err := rows.Err(); err != nil {
-		return CommandItem{}, fmt.Errorf("repositories: iterating command item: %w", err)
+		return CommandScript{}, fmt.Errorf("repositories: iterating command script: %w", err)
 	}
 
-	return item, nil
+	return script, nil
 }
 
 // InsertCommand validates and persists a new command.
@@ -307,14 +307,14 @@ func (r *Repos) InsertCommand(c *Command) error {
 	return nil
 }
 
-// AppendCommandItem validates and appends an item to a command.
-func (r *Repos) AppendCommandItem(commandID uint64, item *CommandItem) error {
+// AppendCommandScript validates and appends an script to a command.
+func (r *Repos) AppendCommandScript(commandID uint64, script *CommandScript) error {
 	if commandID == 0 {
 		return ErrCommandIDRequired
 	}
 
-	if item.Script == "" {
-		return ErrCommandItemScriptRequired
+	if script.Script == "" {
+		return ErrCommandScriptScriptRequired
 	}
 
 	now := time.Now().UTC()
@@ -322,7 +322,7 @@ func (r *Repos) AppendCommandItem(commandID uint64, item *CommandItem) error {
 	var id int64
 
 	err := r.Store.WithTx(func(tx *store.Tx) error {
-		res, err := tx.Exec(insertCommandItem, commandID, item.Script, item.Description, now, now)
+		res, err := tx.Exec(insertCommandScript, commandID, script.Script, script.Description, now, now)
 
 		if err != nil {
 			return err
@@ -334,9 +334,9 @@ func (r *Repos) AppendCommandItem(commandID uint64, item *CommandItem) error {
 			return err
 		}
 
-		var inserted CommandItem
+		var inserted CommandScript
 
-		row := tx.QueryRow(selectCommandItem, commandID, uint64(id))
+		row := tx.QueryRow(selectCommandScript, commandID, uint64(id))
 
 		if err := row.Scan(
 			&inserted.ID,
@@ -349,18 +349,18 @@ func (r *Repos) AppendCommandItem(commandID uint64, item *CommandItem) error {
 			return err
 		}
 
-		item.ID = inserted.ID
-		item.CommandID = inserted.CommandID
-		item.Script = inserted.Script
-		item.Description = inserted.Description
-		item.CreatedAt = inserted.CreatedAt
-		item.UpdatedAt = inserted.UpdatedAt
+		script.ID = inserted.ID
+		script.CommandID = inserted.CommandID
+		script.Script = inserted.Script
+		script.Description = inserted.Description
+		script.CreatedAt = inserted.CreatedAt
+		script.UpdatedAt = inserted.UpdatedAt
 
 		return nil
 	})
 
 	if err != nil {
-		return fmt.Errorf("repositories: appending command item: %w", err)
+		return fmt.Errorf("repositories: appending command script: %w", err)
 	}
 
 	return nil
@@ -425,24 +425,24 @@ func (r *Repos) UpdateCommand(c *Command) error {
 	return nil
 }
 
-// UpdateCommandItem validates and updates a command item.
-func (r *Repos) UpdateCommandItem(commandID uint64, item *CommandItem) error {
+// UpdateCommandScript validates and updates a command script.
+func (r *Repos) UpdateCommandScript(commandID uint64, script *CommandScript) error {
 	if commandID == 0 {
 		return ErrCommandIDRequired
 	}
 
-	if item.ID == 0 {
-		return ErrCommandItemIDRequired
+	if script.ID == 0 {
+		return ErrCommandScriptIDRequired
 	}
 
-	if item.Script == "" {
-		return ErrCommandItemScriptRequired
+	if script.Script == "" {
+		return ErrCommandScriptScriptRequired
 	}
 
 	now := time.Now().UTC()
 
 	err := r.Store.WithTx(func(tx *store.Tx) error {
-		res, err := tx.Exec(updateCommandItem, item.Script, item.Description, now, item.ID, commandID)
+		res, err := tx.Exec(updateCommandScript, script.Script, script.Description, now, script.ID, commandID)
 
 		if err != nil {
 			return err
@@ -455,12 +455,12 @@ func (r *Repos) UpdateCommandItem(commandID uint64, item *CommandItem) error {
 		}
 
 		if affected == 0 {
-			return ErrCommandItemNotFound
+			return ErrCommandScriptNotFound
 		}
 
-		var updated CommandItem
+		var updated CommandScript
 
-		row := tx.QueryRow(selectCommandItem, commandID, item.ID)
+		row := tx.QueryRow(selectCommandScript, commandID, script.ID)
 
 		if err := row.Scan(
 			&updated.ID,
@@ -473,24 +473,24 @@ func (r *Repos) UpdateCommandItem(commandID uint64, item *CommandItem) error {
 			return err
 		}
 
-		item.ID = updated.ID
-		item.CommandID = updated.CommandID
-		item.Script = updated.Script
-		item.Description = updated.Description
-		item.CreatedAt = updated.CreatedAt
-		item.UpdatedAt = updated.UpdatedAt
+		script.ID = updated.ID
+		script.CommandID = updated.CommandID
+		script.Script = updated.Script
+		script.Description = updated.Description
+		script.CreatedAt = updated.CreatedAt
+		script.UpdatedAt = updated.UpdatedAt
 
 		return nil
 	})
 
 	if err != nil {
-		return fmt.Errorf("repositories: updating command item: %w", err)
+		return fmt.Errorf("repositories: updating command script: %w", err)
 	}
 
 	return nil
 }
 
-// DeleteCommand removes a command and its items.
+// DeleteCommand removes a command and its scripts.
 // If the command does not exist, it returns nil (idempotent).
 func (r *Repos) DeleteCommand(id uint64) error {
 	if id == 0 {
@@ -498,7 +498,7 @@ func (r *Repos) DeleteCommand(id uint64) error {
 	}
 
 	err := r.Store.WithTx(func(tx *store.Tx) error {
-		if _, err := tx.Exec(deleteCommandItemsByCommand, id); err != nil {
+		if _, err := tx.Exec(deleteCommandScriptsByCommand, id); err != nil {
 			return err
 		}
 
@@ -516,24 +516,24 @@ func (r *Repos) DeleteCommand(id uint64) error {
 	return nil
 }
 
-// RemoveCommandItem removes an item from a command.
-// If the item does not exist, it returns nil (idempotent).
-func (r *Repos) RemoveCommandItem(commandID, itemID uint64) error {
+// RemoveCommandScript removes an script from a command.
+// If the script does not exist, it returns nil (idempotent).
+func (r *Repos) RemoveCommandScript(commandID, scriptID uint64) error {
 	if commandID == 0 {
 		return ErrCommandIDRequired
 	}
 
-	if itemID == 0 {
-		return ErrCommandItemIDRequired
+	if scriptID == 0 {
+		return ErrCommandScriptIDRequired
 	}
 
 	err := r.Store.WithTx(func(tx *store.Tx) error {
-		_, err := tx.Exec(deleteCommandItem, itemID, commandID)
+		_, err := tx.Exec(deleteCommandScript, scriptID, commandID)
 		return err
 	})
 
 	if err != nil {
-		return fmt.Errorf("repositories: removing command item: %w", err)
+		return fmt.Errorf("repositories: removing command script: %w", err)
 	}
 
 	return nil

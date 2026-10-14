@@ -171,9 +171,9 @@ func restoreLegacyCommand(r *repositories.Repos, doc legacyDoc, state *legacySta
 			continue
 		}
 
-		item := &repositories.CommandItem{Script: script}
+		item := &repositories.CommandScript{Script: script}
 
-		if err := r.AppendCommandItem(command.id, item); err != nil {
+		if err := r.AppendCommandScript(command.id, item); err != nil {
 			return fmt.Errorf("backup: appending item %q of command %q: %w", script, name, err)
 		}
 
@@ -302,7 +302,7 @@ func readLegacyState(r *repositories.Repos) (*legacyState, error) {
 	}
 
 	for _, c := range commands {
-		items, err := r.GetCommandItems(c.ID)
+		items, err := r.GetCommandScripts(c.ID)
 
 		if err != nil {
 			return nil, fmt.Errorf("backup: listing items of command %d: %w", c.ID, err)

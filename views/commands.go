@@ -176,7 +176,7 @@ Examples:
 
 			fmt.Println()
 
-			items, err := r.GetCommandItems(ID)
+			items, err := r.GetCommandScripts(ID)
 
 			if err != nil {
 				return fmt.Errorf("fail to list command items: %w", err)

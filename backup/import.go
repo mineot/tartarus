@@ -70,7 +70,7 @@ func Import(r *repositories.Repos, path string) error {
 			// reset the two can point at entirely different commands, and
 			// AppendCommandItem overwrites the item's CommandID with the row it
 			// reads back regardless.
-			err = r.AppendCommandItem(c.ID, &repositories.CommandItem{
+			err = r.AppendCommandScript(c.ID, &repositories.CommandScript{
 				Script:      item.Script,
 				Description: item.Description,
 			})

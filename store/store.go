@@ -134,7 +134,7 @@ func (s *Store) Path() string {
 // promoted to a write, and _busy_timeout does not cover that case.
 //
 // _foreign_keys turns on referential enforcement, which is what makes
-// ON DELETE CASCADE and ON UPDATE CASCADE on command_items actually happen. It
+// ON DELETE CASCADE and ON UPDATE CASCADE on command_scripts actually happen. It
 // has to be set here rather than in a migration: SQLite ignores PRAGMA
 // foreign_keys inside a transaction, and migrations run inside one, so a pragma
 // in the SQL was always a no-op. The pool holds a single connection, so the
