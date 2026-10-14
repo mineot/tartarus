@@ -3,6 +3,7 @@ package views
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"tartarus/components"
 	"tartarus/repositories"
 
@@ -25,8 +26,15 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 		Use:   "ls",
 		Short: "List all commands",
 		Args:  cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			listAllCommands(r)
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("filter") && strings.TrimSpace(filterRaw) == "" {
+				return fmt.Errorf("the --filter value cannot be empty")
+			}
+
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return listAllCommands(r)
 		},
 	}
 
@@ -43,25 +51,25 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 		Short: "View a command by id",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return fmt.Errorf("To view a command, you must pass an ID. Example: tartarus cmds v 123")
+				return fmt.Errorf("missing required argument: id (usage: tartarus cmds v <id>)")
 			}
 
 			if len(args) > 1 {
-				return fmt.Errorf("To view a command, 1 argument is expected, but you passed %d arguments", len(args))
+				return fmt.Errorf("expected exactly 1 argument (id), got %d", len(args))
 			}
 
 			return nil
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			idStr := args[0]
 
 			ID, err := strconv.ParseUint(idStr, 10, 64)
 
 			if err != nil {
-				fmt.Printf("Invalid id value: %s", idStr)
+				return fmt.Errorf("invalid id value %q: %w", idStr, err)
 			}
 
-			viewCommand(r, ID)
+			return viewCommand(r, ID)
 		},
 	}
 
@@ -69,8 +77,9 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 		Use:   "c name description",
 		Short: "Create a new command",
 		Args:  cobra.ExactArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Println(args)
+			return nil
 		},
 	}
 
@@ -79,11 +88,11 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 	return rootCmd
 }
 
-func listAllCommands(r *repositories.Repos) {
+func listAllCommands(r *repositories.Repos) error {
 	cmds, err := r.GetCommands(filterRaw)
 
 	if err != nil {
-		fmt.Printf("Fail to list all commands: %v", err)
+		return fmt.Errorf("fail to list all commands: %w", err)
 	}
 
 	list := components.List{
@@ -106,13 +115,15 @@ func listAllCommands(r *repositories.Repos) {
 	}
 
 	list.Print()
+
+	return nil
 }
 
-func viewCommand(r *repositories.Repos, ID uint64) {
+func viewCommand(r *repositories.Repos, ID uint64) error {
 	cmd, err := r.GetCommand(ID)
 
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("fail to view command: %w", err)
 	}
 
 	cmdList := components.List{
@@ -121,6 +132,7 @@ func viewCommand(r *repositories.Repos, ID uint64) {
 		Rows:     [][]string{},
 		Headers:  []string{"Field", "Value"},
 	}
+
 	cmdList.Rows = append(cmdList.Rows, []string{"ID", fmt.Sprintf("%d", cmd.ID)})
 	cmdList.Rows = append(cmdList.Rows, []string{"Name", cmd.Name})
 	cmdList.Rows = append(cmdList.Rows, []string{"Description", cmd.Description})
@@ -131,7 +143,7 @@ func viewCommand(r *repositories.Repos, ID uint64) {
 	items, err := r.GetCommandItems(ID)
 
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("fail to list command items: %w", err)
 	}
 
 	itemList := components.List{
@@ -150,4 +162,6 @@ func viewCommand(r *repositories.Repos, ID uint64) {
 	}
 
 	itemList.Print()
+
+	return nil
 }
