@@ -74,11 +74,27 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 	}
 
 	createCmd := &cobra.Command{
-		Use:   "c name description",
+		Use:   "c <name> <description>",
 		Short: "Create a new command",
-		Args:  cobra.ExactArgs(2),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 2 {
+				return fmt.Errorf("expected at least 2 arguments (name and description), got %d", len(args))
+			}
+
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Println(args)
+			command := repositories.Command{
+				Name:        args[0],
+				Description: strings.Join(args[1:], " "),
+			}
+
+			if err := r.InsertCommand(&command); err != nil {
+				return fmt.Errorf("fail to create command: %w", err)
+			}
+
+			fmt.Printf("Command created with id %d\n", command.ID)
+
 			return nil
 		},
 	}
