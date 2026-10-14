@@ -237,7 +237,7 @@ Before changing any of this:
   lock up front. Without it, a transaction that only reads can fail when it is
   promoted to a write, and the `_busy_timeout` does not cover that case.
 - `_foreign_keys=on` is what makes
-  `command_items.command_id REFERENCES commands(id) ON DELETE CASCADE` real. It
+  `command_scripts.command_id REFERENCES commands(id) ON DELETE CASCADE` real. It
   has to come from the DSN: SQLite ignores `PRAGMA foreign_keys` inside a
   transaction, and migrations run inside one, so the pragma that used to sit on
   line 1 of `0001_create_version_one.up.sql` was always a no-op. Enforcement is
@@ -343,7 +343,7 @@ func (r *Repos) RemoveCommandItem(commandID, itemID uint64) error
 
 ### Nullable columns: `description`
 
-`commands`, `command_items` and `manuals` each carry a `description TEXT`
+`commands`, `command_scripts` and `manuals` each carry a `description TEXT`
 column with no `NOT NULL`. The Go field is a plain `string`, matching `Name`,
 `Script` and `Body`, and every SELECT wraps the column in
 `COALESCE(description, '')`. That wrapper is not cosmetic: `Scan` into a `string`
@@ -410,7 +410,7 @@ Four things about it are deliberate:
 - **It destroys the database.** `ResetMigrations` runs before the first insert, so
   an import always replaces and never merges. Importing on top of existing rows
   would collide with the `UNIQUE` on `commands.name`, `manuals.name` and
-  `command_items.script` anyway.
+  `command_scripts.script` anyway.
 - **The reset is also what makes a failed import recoverable.** The inserts are
   not atomic — every `repositories` write opens its own transaction, and there is
   no `InsertCommandTx` to compose them into one — so a bad row halfway leaves a
@@ -422,7 +422,7 @@ Four things about it are deliberate:
   difference between a rejected file and a rejected file that also destroyed the
   previous data. `import_test.go` asserts that the pre-existing row survives all
   seven rejection cases. The duplicate checks are there because the constraints
-  are global: `command_items.script` is unique across the whole table, so two
+  are global: `command_scripts.script` is unique across the whole table, so two
   different commands cannot hold the same script, and the script set therefore
   cannot be reset per command.
 - **Ids and timestamps in the file are ignored.** `Insert*` stamps
@@ -511,7 +511,7 @@ That is the reason the operation is safe to repeat: the user can re-run
 
 | Legacy document | Becomes | Notes |
 | --- | --- | --- |
-| `cmd:<name>` | a `commands` row plus one `command_items` row per entry of `instructions` | `instructions` is the legacy name for what is now `command_items` |
+| `cmd:<name>` | a `commands` row plus one `command_scripts` row per entry of `instructions` | `instructions` is the legacy name for what is now `command_scripts` |
 | `cmd:<name>` with `description` | the row's `description` | absent means `""` |
 | `manual:<name>` | a `manuals` row | `content` becomes `body`, verbatim |
 | anything else, `config:editor` included | nothing | counted as skipped |
@@ -546,13 +546,13 @@ marker. Three things fall out of that:
   reported in the output.
 - **An item whose script already belongs to another command is skipped and
   named**, not inserted and not fatal. This is the consequence of
-  `command_items.script` being `UNIQUE` across the whole table (item 5 in the
+  `command_scripts.script` being `UNIQUE` across the whole table (item 5 in the
   outstanding work): a script cannot be shared, so the second command to want it
   cannot have it.
 
 The file is validated **before** the first write, same reasoning as `Import`:
 every check is one the schema would refuse anyway, and the export belongs to the
-user. `commands.name` and `manuals.name` are `UNIQUE`; `command_items.script` is
+user. `commands.name` and `manuals.name` are `UNIQUE`; `command_scripts.script` is
 too, so a script repeated inside the file, or across two documents in it, is
 rejected up front rather than halfway through. `restore-legacy_test.go` asserts
 the pre-existing row survives all eight rejection cases.
@@ -637,7 +637,7 @@ bothers someone.
 ## Database schema
 
 Defined in `store/migrations/0001_create_version_one.up.sql`: `commands`,
-`command_items`, `manuals`, `migrations`. A freshly created database has none of
+`command_scripts`, `manuals`, `migrations`. A freshly created database has none of
 them until `RunMigrations` has run — `store.New` only creates the file.
 
 ## Known outstanding work
@@ -647,7 +647,7 @@ In order of urgency. None of it has been dealt with yet.
 Items 1 and 2 used to live here: the double `Open` in `import.go`, and the
 unconverted `import.go` itself. Both are resolved — see the `## Import` section.
 
-1. **`Command.Delete` deletes `command_items` explicitly even though the FK now
+1. **`Command.Delete` deletes `command_scripts` explicitly even though the FK now
    cascades.** It is not wrong, just redundant. Worth deciding whether to keep the
    belt and braces or trust the constraint.
 2. **The root `dev.db` predates the `description` column.** It recorded version 1
@@ -665,7 +665,7 @@ unconverted `import.go` itself. Both are resolved — see the `## Import` sectio
    keeps the store alive after an aborted callback is what makes `mu` span the
    callback in the first place. Either document it or return `ErrTxActive` from
    `Close` when `inTx` is set.
-5. **`command_items.script` is `UNIQUE` globally, not per command.** Two different
+5. **`command_scripts.script` is `UNIQUE` globally, not per command.** Two different
    commands cannot hold the same script. Almost certainly it should be
    `UNIQUE(command_id, script)`. This is an edit to migration 1, so it inherits
    the caveat in the next item: it will not reach an existing database.
