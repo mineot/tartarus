@@ -10,6 +10,7 @@ import (
 const (
 	PrimaryColor   string = "#90a1b9"
 	SecondaryColor string = "#0f172b"
+	TertiaryColor  string = "250"
 	AssetColor     string = "#00d3f2"
 )
 
