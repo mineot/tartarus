@@ -36,7 +36,7 @@ func main() {
 	themes.RenderLogo()
 
 	if err := views.New(r).ExecuteContext(context); err != nil {
-		fmt.Fprintf(os.Stderr, "Tartarus failed execute views: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }

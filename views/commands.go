@@ -15,6 +15,7 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "cmds",
 		Short: "Manage commands",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
@@ -23,6 +24,7 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 	listAllCmd := &cobra.Command{
 		Use:   "ls",
 		Short: "List all commands",
+		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			listAllCommands(r)
 		},
@@ -37,9 +39,19 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 	)
 
 	viewCmd := &cobra.Command{
-		Use:   "v",
-		Short: "View a command by id. Exemplo: v {id}",
-		Args:  cobra.ExactArgs(1),
+		Use:   "v id",
+		Short: "View a command by id",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return fmt.Errorf("To view a command, you must pass an ID. Example: tartarus cmds v 123")
+			}
+
+			if len(args) > 1 {
+				return fmt.Errorf("To view a command, 1 argument is expected, but you passed %d arguments", len(args))
+			}
+
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			idStr := args[0]
 
@@ -53,8 +65,16 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 		},
 	}
 
-	rootCmd.AddCommand(listAllCmd)
-	rootCmd.AddCommand(viewCmd)
+	createCmd := &cobra.Command{
+		Use:   "c name description",
+		Short: "Create a new command",
+		Args:  cobra.ExactArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println(args)
+		},
+	}
+
+	rootCmd.AddCommand(listAllCmd, viewCmd, createCmd)
 
 	return rootCmd
 }
