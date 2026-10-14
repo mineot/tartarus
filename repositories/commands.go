@@ -29,11 +29,15 @@ type Command struct {
 var (
 	ErrCommandNotFound             = errors.New("command not found")
 	ErrCommandNameRequired         = errors.New("command name is required")
+	ErrCommandNameInvalid          = errors.New("command name must contain only lowercase letters and digits")
+	ErrCommandNameTooLong          = errors.New("command name must be at most 12 characters")
 	ErrCommandIDRequired           = errors.New("command id is required")
 	ErrCommandScriptIDRequired     = errors.New("command script id is required")
 	ErrCommandScriptScriptRequired = errors.New("command script script is required")
 	ErrCommandScriptNotFound       = errors.New("command script not found")
 )
+
+const maxCommandNameLength = 12
 
 const (
 	selectCommands = `
@@ -105,6 +109,29 @@ DELETE FROM command_scripts
 WHERE id = ? AND command_id = ?
 `
 )
+
+// validateCommandName rejects empty names, names longer than
+// maxCommandNameLength, and names containing anything other than lowercase
+// letters and digits.
+func validateCommandName(name string) error {
+	if name == "" {
+		return ErrCommandNameRequired
+	}
+
+	if len(name) > maxCommandNameLength {
+		return ErrCommandNameTooLong
+	}
+
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') {
+			return ErrCommandNameInvalid
+		}
+	}
+
+	return nil
+}
 
 // GetCommands returns commands in creation order and the total before pagination.
 // A limit of -1 reads all remaining commands. Other limits must be positive;
@@ -256,8 +283,8 @@ func (r *Repos) GetCommandScript(commandID, scriptID uint64) (CommandScript, err
 // InsertCommand validates and persists a new command.
 // On success, c is populated with inserted values.
 func (r *Repos) InsertCommand(c *Command) error {
-	if c.Name == "" {
-		return ErrCommandNameRequired
+	if err := validateCommandName(c.Name); err != nil {
+		return err
 	}
 
 	now := time.Now().UTC()
@@ -372,8 +399,8 @@ func (r *Repos) UpdateCommand(c *Command) error {
 		return ErrCommandIDRequired
 	}
 
-	if c.Name == "" {
-		return ErrCommandNameRequired
+	if err := validateCommandName(c.Name); err != nil {
+		return err
 	}
 
 	now := time.Now().UTC()
