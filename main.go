@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"tartarus/repositories"
@@ -12,31 +11,30 @@ import (
 )
 
 func main() {
-	context := context.Background()
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+}
 
-	s, err := store.New(context)
+func run() error {
+	ctx := context.Background()
+
+	s, err := store.New(ctx)
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Tartarus failed initialize store: %v\n", err)
+		return fmt.Errorf("Tartarus failed initialize store: %w", err)
 	}
 
-	defer func() {
-		err = errors.Join(
-			err,
-			s.Close(),
-		)
-	}()
+	defer s.Close()
 
 	if err := s.RunMigrations(); err != nil {
-		fmt.Fprintf(os.Stderr, "Tartarus failed run migrations: %v\n", err)
+		return fmt.Errorf("Tartarus failed run migrations: %w", err)
 	}
 
 	r := repositories.New(s)
 
 	themes.RenderLogo()
 
-	if err := views.New(r).ExecuteContext(context); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
+	return views.New(r).ExecuteContext(ctx)
 }

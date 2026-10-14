@@ -27,6 +27,7 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 		viewCommand(r),
 		createCommand(r),
 		editCommand(r),
+		deleteCommand(r),
 	)
 
 	return rootCmd
@@ -323,6 +324,117 @@ Examples:
 
 			fmt.Printf("Command edited with id %d\n", command.ID)
 
+			return nil
+		},
+	}
+
+	return rootCmd
+}
+
+func deleteCommand(r *repositories.Repos) *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "d <id>",
+		Short: "Delete an existing command by id",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 1 || len(args) > 1 {
+				return fmt.Errorf("expected 1 argument (id), got %d", len(args))
+			}
+
+			return nil
+		},
+		Long: `Delete an existing command.
+
+What it does:
+  Removes the command with the given ID together with all of its items.
+
+What it expects:
+  Exactly one positional argument:
+    d <id>   the ID of the command to delete
+
+What it returns:
+  On success it prints "Command deleted with id <id>". It exits non-zero when
+  the argument count is wrong, when the ID is not numeric, or when no command
+  has that ID.
+
+Examples:
+  tartarus cmds d 1
+  tartarus cmds d 42`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			idStr := args[0]
+
+			ID, err := strconv.ParseUint(idStr, 10, 64)
+
+			if err != nil {
+				return fmt.Errorf("invalid id value %q", idStr)
+			}
+
+			command, err := r.GetCommand(ID)
+
+			if err != nil {
+				return fmt.Errorf("fail to get command: %w", err)
+			}
+
+			if command.ID == 0 {
+				return fmt.Errorf("command not found with id %d", ID)
+			}
+
+			if err := r.DeleteCommand(ID); err != nil {
+				return fmt.Errorf("fail to delete command: %w", err)
+			}
+
+			fmt.Printf("Command deleted with id %d\n", command.ID)
+
+			return nil
+		},
+	}
+
+	return rootCmd
+}
+
+func appendCommandItem(r *repositories.Repos) *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "ap <commandId> <name> <script> <description>",
+		Short: "Append a new item to an existing command",
+		Args:  cobra.NoArgs,
+		Long:  ``,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return nil
+		},
+	}
+
+	return rootCmd
+}
+
+func changeCommandItem(r *repositories.Repos) *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "ch <commandId> <commandItemId> <name> <script> <description>",
+		Short: "Change an existing item of an existing command",
+		Args:  cobra.NoArgs,
+		Long:  ``,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return nil
+		},
+	}
+
+	return rootCmd
+}
+
+func removeCommandItem(r *repositories.Repos) *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "rm <commandItemId>",
+		Short: "Remove an existing item of an existing command",
+		Args:  cobra.NoArgs,
+		Long:  ``,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
 			return nil
 		},
 	}
