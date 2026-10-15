@@ -1,10 +1,12 @@
 package views
 
 import (
+	"errors"
 	"fmt"
 	"tartarus/components"
 	"tartarus/repositories"
 
+	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -16,41 +18,85 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 		Short: "Manage commands",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			commands, err := r.GetCommands("")
-
-			if err != nil {
-				return err
-			}
-
-			rows := [][]string{}
-
-			for _, command := range commands {
-				rows = append(rows, []string{
-					command.Name,
-					command.Description,
-				})
-			}
-
-			return components.Table(components.TableOpts{
-				Title:    "Commands",
-				EmptyMsg: "No commands found.",
-				Shortcuts: []components.Shortcut{
-					{
-						Key:   "n",
-						Label: "new command",
-						Run: func(selected int) (quit bool, err error) {
-							fmt.Println("new command")
-							return false, nil
-						},
-					},
-				},
-				Headers: []string{"Name", "Description"},
-				Rows:    rows,
-			})
+			// return tableCommands(r)
+			return formComponent(cmd)
 		},
 	}
 
 	return rootCmd
+}
+
+func tableCommands(r *repositories.Repos) error {
+	commands, err := r.GetCommands("")
+
+	if err != nil {
+		return err
+	}
+
+	rows := [][]string{}
+
+	for _, command := range commands {
+		rows = append(rows, []string{
+			command.Name,
+			command.Description,
+		})
+	}
+
+	return components.Table(components.TableOpts{
+		Title:    "Commands",
+		EmptyMsg: "No commands found.",
+		Shortcuts: []components.Shortcut{
+			{
+				Key:   "n",
+				Label: "new command",
+				Run: func(selected int) (quit bool, err error) {
+					fmt.Println("new command")
+					return false, nil
+				},
+			},
+			{
+				Key:   "e",
+				Label: "edit command",
+				Run: func(selected int) (quit bool, err error) {
+					fmt.Println("edit command")
+					return false, nil
+				},
+			},
+			{
+				Key:   "s",
+				Label: "scripts",
+				Run: func(selected int) (quit bool, err error) {
+					fmt.Println("edit command")
+					return false, nil
+				},
+			},
+		},
+		Headers: []string{"Name", "Description"},
+		Rows:    rows,
+	})
+}
+
+func formComponent(cmd *cobra.Command) error {
+
+	var name, description string
+
+	_, err := components.Form(cmd.Context(), components.FormOpts{
+		Title: "New command",
+		Fields: []huh.Field{
+			huh.NewInput().Key("name").Title("Name").Value(&name),
+			huh.NewInput().Key("description").Title("Description").Value(&description),
+		},
+	})
+
+	if errors.Is(err, huh.ErrUserAborted) {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // func listAllCommands(r *repositories.Repos) *cobra.Command {

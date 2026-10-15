@@ -62,8 +62,9 @@ type FormResult interface {
 //
 // The form renders to stderr, keeping stdout free for the command's output, and
 // runs inline without alternate-screen mode. The returned FormResult is the live
-// *huh.Form, whose getters stay valid after submission. The footer shows Huh's
-// field help plus a global line with Ctrl+C quit and the configured Shortcuts.
+// *huh.Form, whose getters stay valid after submission. The footer is a single
+// line rendered through Huh's help model: the focused field's keybinds first,
+// then the configured Shortcuts, then Ctrl+C quit last.
 func Form(ctx context.Context, opts FormOpts) (FormResult, error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("components: form: context is required")
@@ -179,7 +180,7 @@ func (m formModel) View() tea.View {
 }
 
 func (m formModel) footerView() string {
-	bindings := make([]key.Binding, 0, len(m.order)+1)
+	bindings := append([]key.Binding{}, m.form.KeyBinds()...)
 
 	for _, shortcut := range m.order {
 		bindings = append(bindings, key.NewBinding(
@@ -310,7 +311,7 @@ func newForm(opts FormOpts) (*huh.Form, error) {
 	return huh.NewForm(group).
 		WithAccessible(false).
 		WithTheme(huh.ThemeFunc(formTheme)).
-		WithShowHelp(true).
+		WithShowHelp(false).
 		WithShowErrors(true), nil
 }
 
@@ -321,7 +322,7 @@ func formTheme(isDark bool) *huh.Styles {
 	tertiary := lipgloss.Color(themes.TertiaryColor)
 	asset := lipgloss.Color(themes.AssetColor)
 
-	theme.Group.Title = theme.Group.Title.Foreground(primary).Bold(true)
+	theme.Group.Title = theme.Group.Title.Foreground(primary).Padding(0, 0, 1, 0).Bold(true)
 	theme.Group.Description = theme.Group.Description.Foreground(tertiary)
 
 	for _, field := range []*huh.FieldStyles{&theme.Focused, &theme.Blurred} {
@@ -344,8 +345,8 @@ func formTheme(isDark bool) *huh.Styles {
 	theme.Focused.Base = theme.Focused.Base.BorderForeground(asset)
 	theme.Focused.Card = theme.Focused.Base
 	theme.Focused.Title = theme.Focused.Title.Foreground(asset)
-	theme.Help.ShortKey = theme.Help.ShortKey.Foreground(asset)
-	theme.Help.FullKey = theme.Help.FullKey.Foreground(asset)
+	theme.Help.ShortKey = theme.Help.ShortKey.Foreground(tertiary)
+	theme.Help.FullKey = theme.Help.FullKey.Foreground(tertiary)
 
 	return theme
 }

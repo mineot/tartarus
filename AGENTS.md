@@ -105,9 +105,9 @@ errors preserve `huh.ErrUserAborted` and context cancellation through
   `Note.GetKey` always returns `""`.
 - Duplicate keys are rejected, since Huh stores results in a map keyed by field
   key and a single group cannot hold two fields with the same key.
-- `Form` builds one `huh.NewGroup` and lets Huh own editing, validation,
-  contextual help and error display. Accessible mode is off and the theme is
-  `formTheme`.
+- `Form` builds one `huh.NewGroup` and lets Huh own editing, validation and
+  error display. The component renders the help footer itself (Huh's own help is
+  off, see below). Accessible mode is off and the theme is `formTheme`.
 
 ### Shortcuts and the footer
 
@@ -124,9 +124,11 @@ errors preserve `huh.ErrUserAborted` and context cancellation through
   `KeyBinds()`. `newShortcuts` reads those bindings from the fields after
   `newForm` has applied Huh's keymap, which `newFormModel` guarantees by
   ordering.
-- The footer shows Huh's field help plus a global line, `ctrl+c quit` followed by
-  the configured shortcuts, rendered through `huh.Form.Help()` so it inherits the
-  `formTheme` help styles and width.
+- The footer is a single line rendered through `huh.Form.Help()` so it inherits
+  the `formTheme` help styles and width. Its order is the focused field's enabled
+  `KeyBinds()` first, then the configured shortcuts, then `ctrl+c quit` last.
+  Huh's own help is disabled with `WithShowHelp(false)`, which keeps the line from
+  being duplicated; error display stays on.
 
 ### Context, cancellation and output
 

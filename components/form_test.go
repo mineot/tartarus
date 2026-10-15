@@ -249,6 +249,25 @@ func TestFormModelViewShowsShortcuts(t *testing.T) {
 	}
 }
 
+func TestFormModelFooterOrder(t *testing.T) {
+	m := newShortcutModel(t, []FormShortcut{{Key: "ctrl+s", Label: "save"}})
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	footer := updated.(formModel).footerView()
+
+	field := strings.Index(footer, "submit")
+	shortcut := strings.Index(footer, "save")
+	quit := strings.Index(footer, "quit")
+
+	if field < 0 || shortcut < 0 || quit < 0 {
+		t.Fatalf("want field, shortcut and quit in the footer, got %q", footer)
+	}
+
+	if !(field < shortcut && shortcut < quit) {
+		t.Fatalf("want field < shortcut < quit, got %q", footer)
+	}
+}
+
 func TestFormThemeIsNotNil(t *testing.T) {
 	for _, dark := range []bool{true, false} {
 		if formTheme(dark) == nil {
