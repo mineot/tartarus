@@ -1,6 +1,7 @@
 package views
 
 import (
+	"tartarus/components"
 	"tartarus/repositories"
 
 	"github.com/spf13/cobra"
@@ -18,18 +19,49 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 		},
 	}
 
-	// rootCmd.AddCommand(
-	// 	listAllCommands(r),
-	// 	viewCommand(r),
-	// 	createCommand(r),
-	// 	editCommand(r),
-	// 	deleteCommand(r),
-	// )
+	rootCmd.AddCommand(
+		listAllCommands(r),
+		// viewCommand(r),
+		// createCommand(r),
+		// editCommand(r),
+		// deleteCommand(r),
+	)
 
 	return rootCmd
 }
 
+func listAllCommands(r *repositories.Repos) *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "ls",
+		Short: "List all commands",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			commands, err := r.GetCommands("")
 
+			if err != nil {
+				return err
+			}
+
+			rows := [][]string{}
+
+			for _, command := range commands {
+				rows = append(rows, []string{
+					command.Name,
+					command.Description,
+				})
+			}
+
+			return components.Table(components.TableOpts{
+				Title:    "Commands",
+				EmptyMsg: "No commands found.",
+				Headers:  []string{"Name", "Description"},
+				Rows:     rows,
+			})
+		},
+	}
+
+	return rootCmd
+}
 
 // func listAllCommands(r *repositories.Repos) *cobra.Command {
 // 	rootCmd := &cobra.Command{

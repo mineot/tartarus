@@ -8,46 +8,40 @@ import (
 )
 
 const (
-	primaryColor   string = "#90a1b9"
-	secondaryColor string = "#0f172b"
-	tertiaryColor  string = "250"
-	assetColor     string = "#00d3f2"
-	errorColor     string = "#e7000b"
+	PrimaryColor   string = "#90a1b9"
+	SecondaryColor string = "#0f172b"
+	TertiaryColor  string = "250"
+	AssetColor     string = "#00d3f2"
 )
 
 func GetPrimaryText(value string, bold bool) string {
-	style := lipgloss.NewStyle().Bold(bold).Foreground(lipgloss.Color(primaryColor))
+	style := lipgloss.NewStyle().Bold(bold).Foreground(lipgloss.Color(PrimaryColor))
 	return style.Render(value)
 }
 
 func GetSecondaryText(value string, bold bool) string {
-	style := lipgloss.NewStyle().Bold(bold).Foreground(lipgloss.Color(secondaryColor))
+	style := lipgloss.NewStyle().Bold(bold).Foreground(lipgloss.Color(SecondaryColor))
 	return style.Render(value)
 }
 
 func GetTertiaryText(value string, bold bool) string {
-	style := lipgloss.NewStyle().Bold(bold).Foreground(lipgloss.Color(tertiaryColor))
+	style := lipgloss.NewStyle().Bold(bold).Foreground(lipgloss.Color(TertiaryColor))
 	return style.Render(value)
 }
 
 func GetAssetText(value string, bold bool) string {
-	style := lipgloss.NewStyle().Bold(bold).Foreground(lipgloss.Color(assetColor))
-	return style.Render(value)
-}
-
-func GetErrorText(value string, bold bool) string {
-	style := lipgloss.NewStyle().Bold(bold).Foreground(lipgloss.Color(errorColor))
+	style := lipgloss.NewStyle().Bold(bold).Foreground(lipgloss.Color(AssetColor))
 	return style.Render(value)
 }
 
 func RenderLogo() {
 	title := lipgloss.NewStyle().
 		Bold(true).
-		Background(lipgloss.Color(primaryColor)).
-		Foreground(lipgloss.Color(secondaryColor))
+		Background(lipgloss.Color(PrimaryColor)).
+		Foreground(lipgloss.Color(SecondaryColor))
 
 	version := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(primaryColor))
+		Foreground(lipgloss.Color(PrimaryColor))
 
 	s := strings.Builder{}
 	s.WriteString("\n")
