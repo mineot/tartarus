@@ -23,6 +23,7 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 
 	rootCmd.AddCommand(
 		listAllCommands(r),
+		viewCommand(r),
 	)
 
 	return rootCmd
@@ -106,100 +107,93 @@ Examples:
 	return rootCmd
 }
 
-// func viewCommand(r *repositories.Repos) *cobra.Command {
-// 	rootCmd := &cobra.Command{
-// 		Use:   "v <id>",
-// 		Short: "View a command by id",
-// 		Long: `Show a single command and its items.
+func viewCommand(r *repositories.Repos) *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "v <name>",
+		Short: "View a command by name",
+		Long: `Show a single command and its items.
 
-// What it does:
-//   Reads the command with the given ID and prints its details (ID, name and
-//   description), followed by a second table listing every item that belongs to
-//   it (ID, script and description).
+What it does:
+  Reads the command with the given ID and prints its details (ID, name and
+  description), followed by a second table listing every item that belongs to
+  it (ID, script and description).
 
-// What it expects:
-//   Exactly one positional argument: the numeric command ID.
-//     v <id>   the ID of the command to display
+What it expects:
+  Exactly one positional argument: the numeric command ID.
+    v <id>   the ID of the command to display
 
-// What it returns:
-//   A "Command Details" table with the fields ID, Name and Description, then a
-//   "Command Items" table with the columns ID, Script and Description. If the
-//   command has no items, it prints "No items found" for the second table. It
-//   exits non-zero when the ID is missing, not numeric, or when either database
-//   query fails. A command that does not exist is displayed as an empty row set.
+What it returns:
+  A "Command Details" table with the fields ID, Name and Description, then a
+  "Command Items" table with the columns ID, Script and Description. If the
+  command has no items, it prints "No items found" for the second table. It
+  exits non-zero when the ID is missing, not numeric, or when either database
+  query fails. A command that does not exist is displayed as an empty row set.
 
-// Examples:
-//   tartarus cmds v 1
-//   tartarus cmds v 42`,
-// 		Args: func(cmd *cobra.Command, args []string) error {
-// 			if len(args) == 0 {
-// 				return fmt.Errorf("missing required argument: id (usage: tartarus cmds v <id>)")
-// 			}
+Examples:
+  tartarus cmds v cmdname`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return fmt.Errorf("expected exactly 1 argument (id), got %d", len(args))
+			}
 
-// 			if len(args) > 1 {
-// 				return fmt.Errorf("expected exactly 1 argument (id), got %d", len(args))
-// 			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			command, err := r.GetCommand(args[0])
 
-// 			return nil
-// 		},
-// 		RunE: func(cmd *cobra.Command, args []string) error {
-// 			idStr := args[0]
+			if err != nil {
+				return fmt.Errorf("fail to get command: %w", err)
+			}
 
-// 			ID, err := strconv.ParseUint(idStr, 10, 64)
+			cmdTable := components.Table{
+				Title:    "Command",
+				EmptyMsg: "No Command Found",
+				Rows: [][]string{
+					{
+						"Name:",
+						command.Name,
+					},
+					{
+						"Description:",
+						command.Description,
+					},
+				},
+			}
 
-// 			if err != nil {
-// 				return fmt.Errorf("invalid id value %q", idStr)
-// 			}
+			cmdTable.Render()
 
-// 			command, err := r.GetCommand(ID)
+			fmt.Println()
 
-// 			if err != nil {
-// 				return fmt.Errorf("fail to view command: %w", err)
-// 			}
+			scripts, err := r.GetCommandScripts(command.ID)
 
-// 			cmdList := components.List{
-// 				Title:    "Command Details",
-// 				EmptyMsg: "Command not found",
-// 				Rows:     [][]string{},
-// 				Headers:  []string{"Field", "Value"},
-// 			}
+			if err != nil {
+				return fmt.Errorf("fail to get command scripts: %w", err)
+			}
 
-// 			cmdList.Rows = append(cmdList.Rows, []string{"ID", fmt.Sprintf("%d", command.ID)})
-// 			cmdList.Rows = append(cmdList.Rows, []string{"Name", command.Name})
-// 			cmdList.Rows = append(cmdList.Rows, []string{"Description", command.Description})
-// 			cmdList.Print()
+			scriptRows := [][]string{}
 
-// 			fmt.Println()
+			for _, script := range scripts {
+				scriptRows = append(scriptRows, []string{
+					script.Script,
+					script.Description,
+				})
+			}
 
-// 			items, err := r.GetCommandScripts(ID)
+			cmdScripts := components.Table{
+				Title:    "Command Scripts",
+				EmptyMsg: "No Command Scripts Found",
+				Header:   []string{"Script", "Description"},
+				Rows:     scriptRows,
+			}
 
-// 			if err != nil {
-// 				return fmt.Errorf("fail to list command items: %w", err)
-// 			}
+			cmdScripts.Render()
 
-// 			itemList := components.List{
-// 				Title:    "Command Items",
-// 				EmptyMsg: "No items found",
-// 				Rows:     [][]string{},
-// 				Headers:  []string{"ID", "Script", "Description"},
-// 			}
+			return nil
+		},
+	}
 
-// 			for _, item := range items {
-// 				itemList.Rows = append(itemList.Rows, []string{
-// 					fmt.Sprintf("%d", item.ID),
-// 					item.Script,
-// 					item.Description,
-// 				})
-// 			}
-
-// 			itemList.Print()
-
-// 			return nil
-// 		},
-// 	}
-
-// 	return rootCmd
-// }
+	return rootCmd
+}
 
 // func createCommand(r *repositories.Repos) *cobra.Command {
 // 	rootCmd := &cobra.Command{

@@ -56,7 +56,7 @@ ORDER BY id
 	selectCommand = `
 SELECT id, name, COALESCE(description, ''), created_at, updated_at
 FROM commands
-WHERE id = ?
+WHERE name = ?
 `
 
 	insertCommand = `
@@ -179,10 +179,10 @@ func (r *Repos) GetCommands(searchTerm string) ([]Command, error) {
 	return commands, nil
 }
 
-// GetCommand returns the command with the given id.
+// GetCommand returns the command with the given name.
 // If no command is found, it returns an empty Command and nil error.
-func (r *Repos) GetCommand(id uint64) (Command, error) {
-	rows, err := r.Store.Query(selectCommand, id)
+func (r *Repos) GetCommand(name string) (Command, error) {
+	rows, err := r.Store.Query(selectCommand, name)
 
 	if err != nil {
 		return Command{}, fmt.Errorf("repositories: selecting command: %w", err)

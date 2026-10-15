@@ -80,77 +80,55 @@ retry handling and page-shortcut editing rules do not describe this component.
 command list; it provides no active regression tests for `Table`. Do not restore
 that historical implementation as part of table maintenance.
 
-## Terminal form component
+## Terminal prompt component
 
-`components/form.go` is the self-contained form component, wrapping Huh v2. Keep
-its options, validation, private model, theming and Bubble Tea program lifecycle
-in that file.
+`components/prompt.go` is the self-contained prompt component. Keep its options,
+line reading and rendering in that file. It uses only the standard library: no
+Huh, no Bubble Tea, no Lip Gloss and no raw mode.
 
 ```go
-func Form(ctx context.Context, opts FormOpts) (FormResult, error) // package components
+func Prompt(opts PromptOpts) (string, error) // package components
+func Confirm(opts ConfirmOpts) (bool, error) // package components
 ```
 
-`FormOpts` carries `Title`, `Description`, `Fields []huh.Field` and
-`Shortcuts []FormShortcut`. `Form` runs one Huh group inline and returns the live
-`*huh.Form` as a `FormResult`, whose `Get`/`GetString`/`GetBool`/`GetInt` getters
-read the submitted values. It returns no result on failure or cancellation;
-errors preserve `huh.ErrUserAborted` and context cancellation through
-`errors.Is`.
+`PromptOpts` carries `Label`, `Default` and `Validate`. `ConfirmOpts` carries
+`Question` and `Default`. Both read from `os.Stdin` and write to `os.Stderr`,
+keeping stdout free for the command's output. There is no multi-field model: the
+caller sequences calls to build a multi-step flow.
 
-### Data and validation
+### Prompt
 
-- At least one field is required. A nil field, including a typed nil pointer,
-  and a field whose key is empty or whitespace-only are rejected before the
-  terminal opens. `*huh.Note` is the exception: it needs no key because
-  `Note.GetKey` always returns `""`.
-- Duplicate keys are rejected, since Huh stores results in a map keyed by field
-  key and a single group cannot hold two fields with the same key.
-- `Form` builds one `huh.NewGroup` and lets Huh own editing, validation and
-  error display. The component renders the help footer itself (Huh's own help is
-  off, see below). Accessible mode is off and the theme is `formTheme`.
+- `Prompt` writes `Label: `, reads one line and returns the value trimmed of
+  surrounding whitespace. An empty line returns `Default`.
+- A nonempty `Default` is shown between brackets: `Label [default]: `. There is
+  no editable inline buffer, which would need raw mode; the user types the new
+  value, or submits the empty line to keep the current one.
+- A line without a trailing newline (the last line of a pipe) is returned as-is.
+- `Validate` runs on the value about to be returned, after `Default` has been
+  substituted. On error the prompt does not advance: the error is printed in red
+  (`\x1b[31m`) and the rejected value becomes the new default, so it is shown in
+  brackets and can be adjusted.
+- Ctrl+C is not intercepted; it behaves like any other CLI and the process
+  receives SIGINT.
 
-### Shortcuts and the footer
+### Confirm
 
-- `FormShortcut` mirrors the table's `Shortcut`: `Key`, `Label` and
-  `Run func(focus string) (quit bool, err error)`. `focus` is the focused
-  field's key. A nil `Run` displays the shortcut without acting on it. Returning
-  `quit` aborts (reported as `huh.ErrUserAborted`); returning an error stops the
-  form and `Form` returns it wrapped.
-- Shortcuts are checked before Huh, so a shortcut takes precedence over the
-  field that is focused. A printable key that is not otherwise bound therefore
-  shadows typing in text fields; this is the caller's responsibility.
-- Validation rejects an empty key or label, a duplicate key, and the keys the
-  form already uses: `"ctrl+c"` plus every key of the fields' enabled
-  `KeyBinds()`. `newShortcuts` reads those bindings from the fields after
-  `newForm` has applied Huh's keymap, which `newFormModel` guarantees by
-  ordering.
-- The footer is a single line rendered through `huh.Form.Help()` so it inherits
-  the `formTheme` help styles and width. Its order is the focused field's enabled
-  `KeyBinds()` first, then the configured shortcuts, then `ctrl+c quit` last.
-  Huh's own help is disabled with `WithShowHelp(false)`, which keeps the line from
-  being duplicated; error display stays on.
+- `Confirm` writes `Question (s/N): ` or `Question (S/n): `, depending on
+  `Default`, and reads one line.
+- It accepts `s`, `sim`, `y` and `yes` for true and `n`, `nao` and `no` for
+  false, case-insensitively. An empty line returns `Default`.
+- Any other answer prints a red hint (`responda s ou n`) and asks again.
 
-### Context, cancellation and output
+### Errors and tests
 
-- A nil context or an already cancelled context is an error; `Form` returns
-  before opening the terminal. A context cancelled while the form runs is
-  reported through `errors.Is(err, context.Canceled)` (or `DeadlineExceeded`).
-- Cancellation is Ctrl+C only, Huh's default quit binding. Escape and `q` cannot
-  be added: Escape is used by Select, MultiSelect and FilePicker for filters and
-  back/close, and the Form checks its quit binding before delegating, so a global
-  `q` would be swallowed before text inputs could see it.
-- The program renders to `os.Stderr`, keeping stdout free for the command's
-  output, and runs inline, without alternate-screen/fullscreen mode.
-- `tea.ErrProgramKilled` (a panic or external kill; context cancellation is
-  already caught by the `ctx.Err()` check) gets its own wrapped message.
-
-### Theme and tests
-
-`formTheme` derives `huh.ThemeCharm` and recolors it from `themes`.
-`components/form_test.go` is active: it covers `newForm` validation,
-`newShortcuts` validation, `formModel.Update` shortcut dispatch, the footer view,
-`formTheme` and the pre-terminal context paths. A full interactive run needs a
-TTY and is not exercised by tests.
+- Every error is wrapped as `components: prompt: %w`.
+- A closed input with no data returns `io.ErrUnexpectedEOF`, matchable through
+  `errors.Is`. There is no context parameter and no `ErrAborted` sentinel.
+- `components/prompt_test.go` is active. It drives the unexported `prompt` and
+  `confirm`, which take an `io.Reader` and an `io.Writer`, so no TTY is needed.
+  It covers valid, trimmed, newline-less, defaulted and rejected values, the red
+  reason, the rejected value kept as default, the confirm defaults and answers,
+  write and read errors, and closed input.
 
 ## The project
 
@@ -160,8 +138,8 @@ and export in JSON.
 - Module: `tartarus` (`go.mod`)
 - `go.mod` declares Go 1.26.0
 - SQLite uses `github.com/mattn/go-sqlite3` (CGO). The CLI uses Cobra; the
-  table uses Bubbles v1, Bubble Tea v1 and Lip Gloss v1. The theme package also
-  uses Lip Gloss v2; these import paths are distinct.
+  table and the theme package use Lip Gloss v2. The prompt component uses only
+  the standard library.
 - Current branch: `break/v2`
 
 ## Commands
@@ -214,8 +192,8 @@ not uncomment, fix or "repair" those files unless asked.
 | `helpers/helpers_test.go` | Live. New. |
 | `components/table.go` | Live. Standalone interactive table; see the contract above. |
 | `components/table_test.go` | Commented-out historical command-list tests. |
-| `components/form.go` | Live. Standalone interactive form; see the contract above. |
-| `components/form_test.go` | Live. New. `newForm` validation, `formTheme` and context paths. |
+| `components/prompt.go` | Live. Standalone prompt component; see the contract above. |
+| `components/prompt_test.go` | Live. New. `prompt`/`confirm` via injected reader and writer. |
 | `views/commands.go` | In-progress Cobra command handlers; subcommand registration is commented out. |
 | `main.go` | Live. Opens and migrates the store, renders the logo and executes Cobra. |
 
