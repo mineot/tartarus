@@ -37,6 +37,14 @@ type FormResult interface {
 // It returns no result on failure or cancellation. Errors preserve
 // huh.ErrUserAborted and context cancellation through errors.Is.
 // Fields bound with Value may update caller-owned variables before submission.
+//
+// Cancellation is Ctrl+C only, Huh's default quit binding. Escape and q cannot
+// be added without colliding with field-level bindings (Escape clears filters
+// and closes pickers; q would be swallowed before text inputs see it).
+//
+// The form renders to stderr, keeping stdout free for the command's output, and
+// runs inline without alternate-screen mode. The returned FormResult is the live
+// *huh.Form, whose getters stay valid after submission.
 func Form(ctx context.Context, opts FormOpts) (FormResult, error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("components: form: context is required")
@@ -70,12 +78,16 @@ func Form(ctx context.Context, opts FormOpts) (FormResult, error) {
 		return nil, fmt.Errorf("components: running form: %w", huh.ErrUserAborted)
 	}
 
+	if errors.Is(err, tea.ErrProgramKilled) {
+		return nil, fmt.Errorf("components: running form: program was killed: %w", err)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("components: running form: %w", err)
 	}
 
 	if form.State != huh.StateCompleted {
-		return nil, fmt.Errorf("components: form ended without submission")
+		return nil, fmt.Errorf("components: running form: form ended without submission")
 	}
 
 	return form, nil

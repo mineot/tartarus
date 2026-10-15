@@ -80,6 +80,55 @@ retry handling and page-shortcut editing rules do not describe this component.
 command list; it provides no active regression tests for `Table`. Do not restore
 that historical implementation as part of table maintenance.
 
+## Terminal form component
+
+`components/form.go` is the self-contained form component, wrapping Huh v2. Keep
+its options, validation, private model, theming and Bubble Tea program lifecycle
+in that file.
+
+```go
+func Form(ctx context.Context, opts FormOpts) (FormResult, error) // package components
+```
+
+`FormOpts` carries `Title`, `Description` and `Fields []huh.Field`. `Form` runs
+one Huh group inline and returns the live `*huh.Form` as a `FormResult`, whose
+`Get`/`GetString`/`GetBool`/`GetInt` getters read the submitted values. It
+returns no result on failure or cancellation; errors preserve
+`huh.ErrUserAborted` and context cancellation through `errors.Is`.
+
+### Data and validation
+
+- At least one field is required. A nil field, including a typed nil pointer,
+  and a field whose key is empty or whitespace-only are rejected before the
+  terminal opens. `*huh.Note` is the exception: it needs no key because
+  `Note.GetKey` always returns `""`.
+- Duplicate keys are rejected, since Huh stores results in a map keyed by field
+  key and a single group cannot hold two fields with the same key.
+- `Form` builds one `huh.NewGroup` and lets Huh own editing, validation,
+  contextual help and error display. Accessible mode is off and the theme is
+  `formTheme`.
+
+### Context, cancellation and output
+
+- A nil context or an already cancelled context is an error; `Form` returns
+  before opening the terminal. A context cancelled while the form runs is
+  reported through `errors.Is(err, context.Canceled)` (or `DeadlineExceeded`).
+- Cancellation is Ctrl+C only, Huh's default quit binding. Escape and `q` cannot
+  be added: Escape is used by Select, MultiSelect and FilePicker for filters and
+  back/close, and the Form checks its quit binding before delegating, so a global
+  `q` would be swallowed before text inputs could see it.
+- The program renders to `os.Stderr`, keeping stdout free for the command's
+  output, and runs inline, without alternate-screen/fullscreen mode.
+- `tea.ErrProgramKilled` (a panic or external kill; context cancellation is
+  already caught by the `ctx.Err()` check) gets its own wrapped message.
+
+### Theme and tests
+
+`formTheme` derives `huh.ThemeCharm` and recolors it from `themes`.
+`components/form_test.go` is active: it covers `newForm` validation, `formTheme`
+and the pre-terminal context paths. A full interactive run needs a TTY and is not
+exercised by tests.
+
 ## The project
 
 A CLI to manage and run named sets of terminal commands, with manuals, import
@@ -142,6 +191,8 @@ not uncomment, fix or "repair" those files unless asked.
 | `helpers/helpers_test.go` | Live. New. |
 | `components/table.go` | Live. Standalone interactive table; see the contract above. |
 | `components/table_test.go` | Commented-out historical command-list tests. |
+| `components/form.go` | Live. Standalone interactive form; see the contract above. |
+| `components/form_test.go` | Live. New. `newForm` validation, `formTheme` and context paths. |
 | `views/commands.go` | In-progress Cobra command handlers; subcommand registration is commented out. |
 | `main.go` | Live. Opens and migrates the store, renders the logo and executes Cobra. |
 
