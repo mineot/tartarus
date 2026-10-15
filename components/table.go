@@ -8,9 +8,12 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/table"
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
+
+const noMatchMsg = "No matching rows."
 
 // Shortcut is a custom key binding rendered in the table footer.
 type Shortcut struct {
@@ -69,9 +72,12 @@ type tableModel struct {
 	title         string
 	emptyMsg      string
 	widths        []int
+	allRows       []table.Row
 	shortcuts     map[string]Shortcut
 	helpText      string
 	runErr        error
+	search        textinput.Model
+	searchFocused bool
 	columnPadding int
 	headerHeight  int
 	width         int
@@ -119,7 +125,7 @@ func newTable(opts TableOpts) (*tableModel, error) {
 	}
 
 	help := strings.Builder{}
-	help.WriteString("↑/k/PgUp up • ↓/j/PgDn down")
+	help.WriteString("↑/k/PgUp up • ↓/j/PgDn down • / search")
 
 	for _, shortcut := range opts.Shortcuts {
 		help.WriteString(" • ")
@@ -176,6 +182,11 @@ func newTable(opts TableOpts) (*tableModel, error) {
 		emptyMsg = "No rows found."
 	}
 
+	search := textinput.New()
+	search.Prompt = "/ "
+	search.Placeholder = "type to filter"
+	search.SetStyles(searchStyles())
+
 	return &tableModel{
 		table: table.New(
 			table.WithColumns(cols),
@@ -186,11 +197,27 @@ func newTable(opts TableOpts) (*tableModel, error) {
 		title:         opts.Title,
 		emptyMsg:      emptyMsg,
 		widths:        widths,
+		allRows:       rows,
 		shortcuts:     shortcuts,
 		helpText:      help.String(),
+		search:        search,
 		columnPadding: max(s.Header.GetHorizontalFrameSize(), s.Cell.GetHorizontalFrameSize()),
 		headerHeight:  1 + s.Header.GetVerticalFrameSize(),
 	}, nil
+}
+
+func searchStyles() textinput.Styles {
+	styles := textinput.DefaultStyles(true)
+
+	styles.Focused.Prompt = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(themes.AssetColor))
+	styles.Focused.Text = lipgloss.NewStyle().Foreground(lipgloss.Color(themes.PrimaryColor))
+	styles.Focused.Placeholder = lipgloss.NewStyle().Foreground(lipgloss.Color(themes.TertiaryColor))
+	styles.Blurred.Prompt = lipgloss.NewStyle().Foreground(lipgloss.Color(themes.TertiaryColor))
+	styles.Blurred.Text = lipgloss.NewStyle().Foreground(lipgloss.Color(themes.PrimaryColor))
+	styles.Blurred.Placeholder = lipgloss.NewStyle().Foreground(lipgloss.Color(themes.TertiaryColor))
+	styles.Cursor.Color = lipgloss.Color(themes.AssetColor)
+
+	return styles
 }
 
 // reservedKeys returns the keys the table handles itself: quitting plus every
@@ -200,6 +227,7 @@ func reservedKeys() map[string]struct{} {
 		"q":      {},
 		"esc":    {},
 		"ctrl+c": {},
+		"/":      {},
 	}
 
 	km := table.DefaultKeyMap()
@@ -229,12 +257,42 @@ func (m *tableModel) Init() tea.Cmd {
 func (m *tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "q", "esc", "ctrl+c":
+		key := msg.String()
+
+		if key == "ctrl+c" {
 			return m, tea.Quit
 		}
 
-		if shortcut, ok := m.shortcuts[msg.String()]; ok {
+		if m.searchFocused {
+			switch key {
+			case "esc":
+				m.search.SetValue("")
+				m.search.Blur()
+				m.searchFocused = false
+				m.applyFilter()
+				return m, nil
+			case "enter":
+				m.search.Blur()
+				m.searchFocused = false
+				return m, nil
+			}
+
+			var cmd tea.Cmd
+			m.search, cmd = m.search.Update(msg)
+			m.applyFilter()
+			return m, cmd
+		}
+
+		switch key {
+		case "q", "esc":
+			return m, tea.Quit
+		case "/":
+			m.searchFocused = true
+			m.search.CursorEnd()
+			return m, m.search.Focus()
+		}
+
+		if shortcut, ok := m.shortcuts[key]; ok {
 			if shortcut.Run == nil {
 				return m, nil
 			}
@@ -285,20 +343,26 @@ func (m *tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *tableModel) resize(width, height int) {
 	m.width, m.height, m.ready = width, height, true
-	availableHeight := height - lipgloss.Height(m.footerView()) - 1
+	m.layout()
+}
+
+func (m *tableModel) layout() {
+	m.search.SetWidth(max(1, m.width-lipgloss.Width(m.search.Prompt)))
+
+	availableHeight := m.height - lipgloss.Height(m.footerView()) - lipgloss.Height(m.searchView()) - 2
 
 	if title := m.titleView(); title != "" {
 		availableHeight -= lipgloss.Height(title) - 1
 	}
 
-	m.tooSmall = width < 1 || availableHeight < 1
+	m.tooSmall = m.width < 1 || availableHeight < 1
 
 	if len(m.table.Rows()) == 0 {
 		return
 	}
 
 	cols := slices.Clone(m.table.Columns())
-	availableWidth := width - len(cols)*m.columnPadding
+	availableWidth := m.width - len(cols)*m.columnPadding
 	m.tooSmall = m.tooSmall || availableWidth < len(cols) || availableHeight < m.headerHeight+1
 
 	if m.tooSmall {
@@ -352,6 +416,41 @@ func (m *tableModel) resize(width, height int) {
 	m.table.MoveDown(cursor)
 }
 
+func (m *tableModel) applyFilter() {
+	query := strings.ToLower(m.search.Value())
+
+	filtered := m.allRows
+
+	if query != "" {
+		filtered = make([]table.Row, 0, len(m.allRows))
+
+		for _, row := range m.allRows {
+			for _, cell := range row {
+				if strings.Contains(strings.ToLower(cell), query) {
+					filtered = append(filtered, row)
+					break
+				}
+			}
+		}
+	}
+
+	m.table.SetRows(filtered)
+	m.table.SetCursor(0)
+	m.table.MoveUp(0)
+
+	if m.ready {
+		m.layout()
+	}
+}
+
+func (m *tableModel) searchView() string {
+	if m.width < 1 {
+		return ""
+	}
+
+	return m.search.View()
+}
+
 func (m *tableModel) titleView() string {
 	if m.title == "" || m.width < 1 {
 		return ""
@@ -389,9 +488,16 @@ func (m *tableModel) content() string {
 		return frame.Render("Terminal too small. Resize or press q to exit.")
 	}
 
-	if len(m.table.Rows()) == 0 {
-		return frame.Render(m.titleView() + themes.GetTertiaryText(m.emptyMsg, true) + "\n\n" + m.footerView())
+	var body string
+
+	switch {
+	case len(m.allRows) == 0:
+		body = themes.GetTertiaryText(m.emptyMsg, true)
+	case len(m.table.Rows()) == 0:
+		body = themes.GetTertiaryText(noMatchMsg, true)
+	default:
+		body = m.table.View()
 	}
 
-	return frame.Render(m.titleView() + m.table.View() + "\n\n" + m.footerView())
+	return frame.Render(m.titleView() + body + "\n\n" + m.searchView() + "\n\n" + m.footerView())
 }
