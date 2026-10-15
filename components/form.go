@@ -9,10 +9,24 @@ import (
 	"strings"
 	"tartarus/themes"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 )
+
+// FormShortcut is a custom key binding rendered in the form footer.
+type FormShortcut struct {
+	// Key is matched against the pressed key, for example "ctrl+s" or "f1".
+	Key string
+	// Label is shown next to the key in the footer, for example "save".
+	Label string
+	// Run is called when Key is pressed. focus is the key of the focused field,
+	// or "" when no field is focused. Returning quit stops the form; returning
+	// a non-nil error stops the form and is returned by Form. A nil Run displays
+	// the shortcut without acting on it.
+	Run func(focus string) (quit bool, err error)
+}
 
 // FormOpts configures one group of native Huh fields.
 // Use Key to identify each value, Title for its label, and Validate for custom
@@ -21,6 +35,10 @@ type FormOpts struct {
 	Title       string
 	Description string
 	Fields      []huh.Field
+	// Shortcuts adds custom key bindings to the footer. Keys the form or its
+	// fields already use are rejected. A printable key that is not otherwise
+	// bound shadows typing in text fields.
+	Shortcuts []FormShortcut
 }
 
 // FormResult exposes Huh's value getters after successful submission.
@@ -44,7 +62,8 @@ type FormResult interface {
 //
 // The form renders to stderr, keeping stdout free for the command's output, and
 // runs inline without alternate-screen mode. The returned FormResult is the live
-// *huh.Form, whose getters stay valid after submission.
+// *huh.Form, whose getters stay valid after submission. The footer shows Huh's
+// field help plus a global line with Ctrl+C quit and the configured Shortcuts.
 func Form(ctx context.Context, opts FormOpts) (FormResult, error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("components: form: context is required")
@@ -54,7 +73,7 @@ func Form(ctx context.Context, opts FormOpts) (FormResult, error) {
 		return nil, fmt.Errorf("components: form: %w", err)
 	}
 
-	form, err := newForm(opts)
+	m, err := newFormModel(opts)
 
 	if err != nil {
 		return nil, err
@@ -62,10 +81,10 @@ func Form(ctx context.Context, opts FormOpts) (FormResult, error) {
 
 	// Run Huh's model directly so terminal startup errors are handled before
 	// inspecting the final model. Huh still owns field navigation and validation.
-	form.SubmitCmd = tea.Quit
-	form.CancelCmd = tea.Interrupt
+	m.form.SubmitCmd = tea.Quit
+	m.form.CancelCmd = tea.Interrupt
 
-	_, err = tea.NewProgram(formModel{Model: form},
+	final, err := tea.NewProgram(m,
 		tea.WithContext(ctx),
 		tea.WithOutput(os.Stderr),
 	).Run()
@@ -74,7 +93,17 @@ func Form(ctx context.Context, opts FormOpts) (FormResult, error) {
 		return nil, fmt.Errorf("components: running form: %w", ctxErr)
 	}
 
-	if form.State == huh.StateAborted || errors.Is(err, tea.ErrInterrupted) {
+	if fm, ok := final.(formModel); ok && fm.runErr != nil {
+		return nil, fmt.Errorf("components: running form: %w", fm.runErr)
+	}
+
+	aborted := m.form.State == huh.StateAborted || errors.Is(err, tea.ErrInterrupted)
+
+	if fm, ok := final.(formModel); ok && fm.aborted {
+		aborted = true
+	}
+
+	if aborted {
 		return nil, fmt.Errorf("components: running form: %w", huh.ErrUserAborted)
 	}
 
@@ -86,28 +115,161 @@ func Form(ctx context.Context, opts FormOpts) (FormResult, error) {
 		return nil, fmt.Errorf("components: running form: %w", err)
 	}
 
-	if form.State != huh.StateCompleted {
+	if m.form.State != huh.StateCompleted {
 		return nil, fmt.Errorf("components: running form: form ended without submission")
 	}
 
-	return form, nil
+	return m.form, nil
 }
 
 // Huh fields still render strings; adapt their model to Bubble Tea v2 views.
 type formModel struct {
 	huh.Model
+	form      *huh.Form
+	shortcuts map[string]FormShortcut
+	order     []FormShortcut
+	runErr    error
+	aborted   bool
 }
 
 func (m formModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if press, ok := msg.(tea.KeyPressMsg); ok {
+		if shortcut, exists := m.shortcuts[press.String()]; exists {
+			if shortcut.Run == nil {
+				return m, nil
+			}
+
+			focus := ""
+
+			if field := m.form.GetFocusedField(); field != nil {
+				focus = field.GetKey()
+			}
+
+			quit, err := shortcut.Run(focus)
+
+			if err != nil {
+				m.runErr = err
+				return m, tea.Quit
+			}
+
+			if quit {
+				m.aborted = true
+				return m, tea.Quit
+			}
+
+			return m, nil
+		}
+	}
+
 	var cmd tea.Cmd
 	m.Model, cmd = m.Model.Update(msg)
 	return m, cmd
 }
 
 func (m formModel) View() tea.View {
-	view := tea.NewView(m.Model.View())
+	content := m.Model.View()
+
+	if footer := m.footerView(); footer != "" {
+		content = strings.Join([]string{content, "", footer}, "\n")
+	}
+
+	view := tea.NewView(content)
 	view.ReportFocus = true
 	return view
+}
+
+func (m formModel) footerView() string {
+	bindings := make([]key.Binding, 0, len(m.order)+1)
+
+	for _, shortcut := range m.order {
+		bindings = append(bindings, key.NewBinding(
+			key.WithKeys(shortcut.Key),
+			key.WithHelp(shortcut.Key, shortcut.Label),
+		))
+	}
+
+	bindings = append(bindings, key.NewBinding(
+		key.WithKeys("ctrl+c"),
+		key.WithHelp("ctrl+c", "quit"),
+	))
+
+	return m.form.Help().ShortHelpView(bindings)
+}
+
+func newFormModel(opts FormOpts) (formModel, error) {
+	form, err := newForm(opts)
+
+	if err != nil {
+		return formModel{}, err
+	}
+
+	shortcuts, err := newShortcuts(opts.Shortcuts, opts.Fields)
+
+	if err != nil {
+		return formModel{}, err
+	}
+
+	return formModel{
+		Model:     form,
+		form:      form,
+		shortcuts: shortcuts,
+		order:     opts.Shortcuts,
+	}, nil
+}
+
+func newShortcuts(shortcuts []FormShortcut, fields []huh.Field) (map[string]FormShortcut, error) {
+	reserved := formReservedKeys(fields)
+	byKey := make(map[string]FormShortcut, len(shortcuts))
+
+	for i, shortcut := range shortcuts {
+		if shortcut.Key == "" {
+			return nil, fmt.Errorf("components: form: shortcut %d: key is required", i+1)
+		}
+
+		if shortcut.Label == "" {
+			return nil, fmt.Errorf("components: form: shortcut %d: label is required", i+1)
+		}
+
+		if _, taken := reserved[shortcut.Key]; taken {
+			return nil, fmt.Errorf("components: form: shortcut %d: key %q is reserved", i+1, shortcut.Key)
+		}
+
+		if _, duplicate := byKey[shortcut.Key]; duplicate {
+			return nil, fmt.Errorf("components: form: shortcut %d: duplicate key %q", i+1, shortcut.Key)
+		}
+
+		byKey[shortcut.Key] = shortcut
+	}
+
+	return byKey, nil
+}
+
+// formReservedKeys returns the keys the form handles itself: Ctrl+C quitting
+// plus every key bound by the provided fields, which Huh would otherwise use.
+func formReservedKeys(fields []huh.Field) map[string]struct{} {
+	reserved := map[string]struct{}{
+		"ctrl+c": {},
+	}
+
+	for _, field := range fields {
+		value := reflect.ValueOf(field)
+
+		if !value.IsValid() || (value.Kind() == reflect.Pointer && value.IsNil()) {
+			continue
+		}
+
+		for _, binding := range field.KeyBinds() {
+			if !binding.Enabled() {
+				continue
+			}
+
+			for _, k := range binding.Keys() {
+				reserved[k] = struct{}{}
+			}
+		}
+	}
+
+	return reserved
 }
 
 func newForm(opts FormOpts) (*huh.Form, error) {

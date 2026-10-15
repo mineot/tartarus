@@ -90,11 +90,12 @@ in that file.
 func Form(ctx context.Context, opts FormOpts) (FormResult, error) // package components
 ```
 
-`FormOpts` carries `Title`, `Description` and `Fields []huh.Field`. `Form` runs
-one Huh group inline and returns the live `*huh.Form` as a `FormResult`, whose
-`Get`/`GetString`/`GetBool`/`GetInt` getters read the submitted values. It
-returns no result on failure or cancellation; errors preserve
-`huh.ErrUserAborted` and context cancellation through `errors.Is`.
+`FormOpts` carries `Title`, `Description`, `Fields []huh.Field` and
+`Shortcuts []FormShortcut`. `Form` runs one Huh group inline and returns the live
+`*huh.Form` as a `FormResult`, whose `Get`/`GetString`/`GetBool`/`GetInt` getters
+read the submitted values. It returns no result on failure or cancellation;
+errors preserve `huh.ErrUserAborted` and context cancellation through
+`errors.Is`.
 
 ### Data and validation
 
@@ -107,6 +108,25 @@ returns no result on failure or cancellation; errors preserve
 - `Form` builds one `huh.NewGroup` and lets Huh own editing, validation,
   contextual help and error display. Accessible mode is off and the theme is
   `formTheme`.
+
+### Shortcuts and the footer
+
+- `FormShortcut` mirrors the table's `Shortcut`: `Key`, `Label` and
+  `Run func(focus string) (quit bool, err error)`. `focus` is the focused
+  field's key. A nil `Run` displays the shortcut without acting on it. Returning
+  `quit` aborts (reported as `huh.ErrUserAborted`); returning an error stops the
+  form and `Form` returns it wrapped.
+- Shortcuts are checked before Huh, so a shortcut takes precedence over the
+  field that is focused. A printable key that is not otherwise bound therefore
+  shadows typing in text fields; this is the caller's responsibility.
+- Validation rejects an empty key or label, a duplicate key, and the keys the
+  form already uses: `"ctrl+c"` plus every key of the fields' enabled
+  `KeyBinds()`. `newShortcuts` reads those bindings from the fields after
+  `newForm` has applied Huh's keymap, which `newFormModel` guarantees by
+  ordering.
+- The footer shows Huh's field help plus a global line, `ctrl+c quit` followed by
+  the configured shortcuts, rendered through `huh.Form.Help()` so it inherits the
+  `formTheme` help styles and width.
 
 ### Context, cancellation and output
 
@@ -125,9 +145,10 @@ returns no result on failure or cancellation; errors preserve
 ### Theme and tests
 
 `formTheme` derives `huh.ThemeCharm` and recolors it from `themes`.
-`components/form_test.go` is active: it covers `newForm` validation, `formTheme`
-and the pre-terminal context paths. A full interactive run needs a TTY and is not
-exercised by tests.
+`components/form_test.go` is active: it covers `newForm` validation,
+`newShortcuts` validation, `formModel.Update` shortcut dispatch, the footer view,
+`formTheme` and the pre-terminal context paths. A full interactive run needs a
+TTY and is not exercised by tests.
 
 ## The project
 
