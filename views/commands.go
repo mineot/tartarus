@@ -1,16 +1,29 @@
 package views
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"tartarus/components"
 	"tartarus/repositories"
+	"tartarus/themes"
 
 	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 )
 
+const clearScreen = "\x1b[2J\x1b[H"
+
 var filterRaw string
+
+type commandAction int
+
+const (
+	actionNone commandAction = iota
+	actionNew
+	actionEdit
+	actionScripts
+)
 
 func NewCommands(r *repositories.Repos) *cobra.Command {
 	rootCmd := &cobra.Command{
@@ -18,19 +31,43 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 		Short: "Manage commands",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// return tableCommands(r)
-			return formComponent(cmd)
+			for {
+				fmt.Print(clearScreen)
+				themes.RenderLogo()
+
+				action, err := tableCommands(r)
+
+				if err != nil {
+					return err
+				}
+
+				if action != actionNew {
+					return nil
+				}
+
+				fmt.Print(clearScreen)
+
+				back, err := formComponent(cmd.Context(), r)
+
+				if err != nil {
+					return err
+				}
+
+				if !back {
+					return nil
+				}
+			}
 		},
 	}
 
 	return rootCmd
 }
 
-func tableCommands(r *repositories.Repos) error {
+func tableCommands(r *repositories.Repos) (commandAction, error) {
 	commands, err := r.GetCommands("")
 
 	if err != nil {
-		return err
+		return actionNone, err
 	}
 
 	rows := [][]string{}
@@ -42,7 +79,9 @@ func tableCommands(r *repositories.Repos) error {
 		})
 	}
 
-	return components.Table(components.TableOpts{
+	var action commandAction
+
+	err = components.Table(components.TableOpts{
 		Title:    "Commands",
 		EmptyMsg: "No commands found.",
 		Shortcuts: []components.Shortcut{
@@ -50,15 +89,14 @@ func tableCommands(r *repositories.Repos) error {
 				Key:   "n",
 				Label: "new command",
 				Run: func(selected int) (quit bool, err error) {
-					fmt.Println("new command")
-					return false, nil
+					action = actionNew
+					return true, nil
 				},
 			},
 			{
 				Key:   "e",
 				Label: "edit command",
 				Run: func(selected int) (quit bool, err error) {
-					fmt.Println("edit command")
 					return false, nil
 				},
 			},
@@ -66,7 +104,6 @@ func tableCommands(r *repositories.Repos) error {
 				Key:   "s",
 				Label: "scripts",
 				Run: func(selected int) (quit bool, err error) {
-					fmt.Println("edit command")
 					return false, nil
 				},
 			},
@@ -74,29 +111,54 @@ func tableCommands(r *repositories.Repos) error {
 		Headers: []string{"Name", "Description"},
 		Rows:    rows,
 	})
+
+	if err != nil {
+		return actionNone, err
+	}
+
+	return action, nil
 }
 
-func formComponent(cmd *cobra.Command) error {
-
+func formComponent(ctx context.Context, r *repositories.Repos) (bool, error) {
 	var name, description string
+	back := false
 
-	_, err := components.Form(cmd.Context(), components.FormOpts{
+	_, err := components.Form(ctx, components.FormOpts{
 		Title: "New command",
 		Fields: []huh.Field{
 			huh.NewInput().Key("name").Title("Name").Value(&name),
 			huh.NewInput().Key("description").Title("Description").Value(&description),
 		},
+		Shortcuts: []components.FormShortcut{
+			{
+				Key:   "esc",
+				Label: "back",
+				Run: func(focus string) (quit bool, err error) {
+					back = true
+					return true, nil
+				},
+			},
+		},
 	})
 
 	if errors.Is(err, huh.ErrUserAborted) {
-		return nil
+		return back, nil
 	}
 
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	command := repositories.Command{
+		Name:        name,
+		Description: description,
+	}
+
+	if err := r.InsertCommand(&command); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // func listAllCommands(r *repositories.Repos) *cobra.Command {
