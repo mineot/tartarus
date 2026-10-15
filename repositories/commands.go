@@ -59,6 +59,12 @@ FROM commands
 WHERE name = ?
 `
 
+	selectCommandByID = `
+SELECT id, name, COALESCE(description, ''), created_at, updated_at
+FROM commands
+WHERE id = ?
+`
+
 	insertCommand = `
 INSERT INTO commands (name, description, created_at, updated_at)
 VALUES (?, ?, ?, ?)
@@ -110,10 +116,10 @@ WHERE id = ? AND command_id = ?
 `
 )
 
-// validateCommandName rejects empty names, names longer than
+// ValidateCommandName rejects empty names, names longer than
 // maxCommandNameLength, and names containing anything other than lowercase
 // letters and digits.
-func validateCommandName(name string) error {
+func ValidateCommandName(name string) error {
 	if name == "" {
 		return ErrCommandNameRequired
 	}
@@ -283,7 +289,7 @@ func (r *Repos) GetCommandScript(commandID, scriptID uint64) (CommandScript, err
 // InsertCommand validates and persists a new command.
 // On success, c is populated with inserted values.
 func (r *Repos) InsertCommand(c *Command) error {
-	if err := validateCommandName(c.Name); err != nil {
+	if err := ValidateCommandName(c.Name); err != nil {
 		return err
 	}
 
@@ -306,7 +312,7 @@ func (r *Repos) InsertCommand(c *Command) error {
 
 		var inserted Command
 
-		row := tx.QueryRow(selectCommand, uint64(id))
+		row := tx.QueryRow(selectCommandByID, uint64(id))
 
 		if err := row.Scan(
 			&inserted.ID,
@@ -399,7 +405,7 @@ func (r *Repos) UpdateCommand(c *Command) error {
 		return ErrCommandIDRequired
 	}
 
-	if err := validateCommandName(c.Name); err != nil {
+	if err := ValidateCommandName(c.Name); err != nil {
 		return err
 	}
 
@@ -424,7 +430,7 @@ func (r *Repos) UpdateCommand(c *Command) error {
 
 		var updated Command
 
-		row := tx.QueryRow(selectCommand, c.ID)
+		row := tx.QueryRow(selectCommandByID, c.ID)
 
 		if err := row.Scan(
 			&updated.ID,

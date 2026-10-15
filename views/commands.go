@@ -1,6 +1,7 @@
 package views
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"tartarus/components"
@@ -24,6 +25,7 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 	rootCmd.AddCommand(
 		listAllCommands(r),
 		viewCommand(r),
+		createCommand(r),
 	)
 
 	return rootCmd
@@ -195,56 +197,69 @@ Examples:
 	return rootCmd
 }
 
-// func createCommand(r *repositories.Repos) *cobra.Command {
-// 	rootCmd := &cobra.Command{
-// 		Use:   "c <name> <description>",
-// 		Short: "Create a new command",
-// 		Long: `Create a new command.
+func createCommand(r *repositories.Repos) *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "c",
+		Short: "Create a new command",
+		Long: `Create a new command.
 
-// What it does:
-//   Inserts a new command with the given name and description, then prints the
-//   ID assigned to it.
+What it does:
+  Inserts a new command with the given name and description, then prints the
+  ID assigned to it.
 
-// What it expects:
-//   Exactly two positional arguments:
-//     c <name> <description>   the command name and its description
+What it expects:
+  Exactly two positional arguments:
+    c <name> <description>   the command name and its description
 
-//   The name is required and must be unique; an empty or already-used name is
-//   rejected.
+  The name is required and must be unique; an empty or already-used name is
+  rejected.
 
-// What it returns:
-//   On success it prints "Command created with id <id>". It exits non-zero when
-//   the argument count is wrong or when the insert fails (for example, a missing
-//   or duplicate name).
+What it returns:
+  On success it prints "Command created with id <id>". It exits non-zero when
+  the argument count is wrong or when the insert fails (for example, a missing
+  or duplicate name).
 
-// Examples:
-//   tartarus cmds c deploy "Deploy the app to production"
-//   tartarus cmds c build "Compile the project"`,
-// 		Args: func(cmd *cobra.Command, args []string) error {
-// 			if len(args) < 2 || len(args) > 2 {
-// 				return fmt.Errorf("expected 2 arguments (name and description), got %d", len(args))
-// 			}
+Examples:
+  tartarus cmds c deploy "Deploy the app to production"
+  tartarus cmds c build "Compile the project"`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var command = repositories.Command{}
 
-// 			return nil
-// 		},
-// 		RunE: func(cmd *cobra.Command, args []string) error {
-// 			command := repositories.Command{
-// 				Name:        args[0],
-// 				Description: args[1],
-// 			}
+			command.Name, _ = components.Prompt(components.PromptOpts{
+				Label:   "Name",
+				Default: "",
+				Validate: func(name string) error {
+					return repositories.ValidateCommandName(name)
+				},
+			})
 
-// 			if err := r.InsertCommand(&command); err != nil {
-// 				return fmt.Errorf("fail to create command: %w", err)
-// 			}
+			command.Description, _ = components.Prompt(components.PromptOpts{
+				Label:   "Description",
+				Default: "",
+				Validate: func(description string) error {
+					if description == "" {
+						return errors.New("description is required")
+					}
 
-// 			fmt.Printf("Command created with id %d\n", command.ID)
+					return nil
+				},
+			})
 
-// 			return nil
-// 		},
-// 	}
+			err := r.InsertCommand(&command)
 
-// 	return rootCmd
-// }
+			if err != nil {
+				return fmt.Errorf("fail to insert command: %w", err)
+			}
+
+			fmt.Printf("\nCommand successfully created %s\n", command.Name)
+
+			return nil
+		},
+	}
+
+	return rootCmd
+}
 
 // func editCommand(r *repositories.Repos) *cobra.Command {
 // 	rootCmd := &cobra.Command{
