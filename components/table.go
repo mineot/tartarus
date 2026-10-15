@@ -5,9 +5,9 @@ import (
 	"slices"
 	"tartarus/themes"
 
-	"github.com/charmbracelet/bubbles/table"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/table"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // TableOpts configures a standalone terminal table.
@@ -33,7 +33,7 @@ func Table(opts TableOpts) error {
 		return err
 	}
 
-	if _, err := tea.NewProgram(m, tea.WithMouseCellMotion()).Run(); err != nil {
+	if _, err := tea.NewProgram(m).Run(); err != nil {
 		return fmt.Errorf("components: running table: %w", err)
 	}
 
@@ -135,7 +135,7 @@ func (m *tableModel) Init() tea.Cmd {
 
 func (m *tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
 			return m, tea.Quit
@@ -150,16 +150,13 @@ func (m *tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if mouse, ok := msg.(tea.MouseMsg); ok {
-		if mouse.Action == tea.MouseActionPress {
-			switch mouse.Button {
-			case tea.MouseButtonWheelUp:
-				m.table.MoveUp(1)
-			case tea.MouseButtonWheelDown:
-				m.table.MoveDown(1)
-			}
+	if mouse, ok := msg.(tea.MouseWheelMsg); ok {
+		switch mouse.Button {
+		case tea.MouseWheelUp:
+			m.table.MoveUp(1)
+		case tea.MouseWheelDown:
+			m.table.MoveDown(1)
 		}
-
 		return m, nil
 	}
 
@@ -258,7 +255,13 @@ func (m *tableModel) footerView() string {
 		Render(help)
 }
 
-func (m *tableModel) View() string {
+func (m *tableModel) View() tea.View {
+	view := tea.NewView(m.content())
+	view.MouseMode = tea.MouseModeCellMotion
+	return view
+}
+
+func (m *tableModel) content() string {
 	if !m.ready || m.width < 1 || m.height < 1 {
 		return ""
 	}
