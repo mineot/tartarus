@@ -3,12 +3,27 @@ package components
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"tartarus/themes"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
+
+// Shortcut is a custom key binding rendered in the table footer.
+type Shortcut struct {
+	// Key is matched against the pressed key, for example "e" or "ctrl+d".
+	Key string
+	// Label is shown next to the key in the footer, for example "edit".
+	Label string
+	// Run is called when Key is pressed. selected is the current row index, or
+	// -1 when the table has no rows. Returning quit stops the table; returning
+	// a non-nil error stops the table and is returned by Table. A nil Run
+	// displays the shortcut without acting on it.
+	Run func(selected int) (quit bool, err error)
+}
 
 // TableOpts configures a standalone terminal table.
 type TableOpts struct {
@@ -19,6 +34,9 @@ type TableOpts struct {
 	// Widths specifies positive content widths, one per header. When omitted,
 	// columns fit their headers and data. Explicit widths cap the content width.
 	Widths []int
+	// Shortcuts adds custom key bindings to the footer. Keys the table already
+	// uses for navigation or quitting are rejected.
+	Shortcuts []Shortcut
 	// Deprecated: selection is always highlighted and navigation is always enabled.
 	// Retained for caller compatibility. Enter does not perform an action.
 	Selectable bool
@@ -33,8 +51,14 @@ func Table(opts TableOpts) error {
 		return err
 	}
 
-	if _, err := tea.NewProgram(m).Run(); err != nil {
+	final, err := tea.NewProgram(m).Run()
+
+	if err != nil {
 		return fmt.Errorf("components: running table: %w", err)
+	}
+
+	if fm, ok := final.(*tableModel); ok && fm.runErr != nil {
+		return fm.runErr
 	}
 
 	return nil
@@ -45,6 +69,9 @@ type tableModel struct {
 	title         string
 	emptyMsg      string
 	widths        []int
+	shortcuts     map[string]Shortcut
+	helpText      string
+	runErr        error
 	columnPadding int
 	headerHeight  int
 	width         int
@@ -67,6 +94,41 @@ func newTable(opts TableOpts) (*tableModel, error) {
 			return nil, fmt.Errorf("components: table: column %d width must be positive", i+1)
 		}
 	}
+
+	reserved := reservedKeys()
+	shortcuts := make(map[string]Shortcut, len(opts.Shortcuts))
+
+	for i, shortcut := range opts.Shortcuts {
+		if shortcut.Key == "" {
+			return nil, fmt.Errorf("components: table: shortcut %d: key is required", i+1)
+		}
+
+		if shortcut.Label == "" {
+			return nil, fmt.Errorf("components: table: shortcut %d: label is required", i+1)
+		}
+
+		if _, taken := reserved[shortcut.Key]; taken {
+			return nil, fmt.Errorf("components: table: shortcut %d: key %q is reserved", i+1, shortcut.Key)
+		}
+
+		if _, duplicate := shortcuts[shortcut.Key]; duplicate {
+			return nil, fmt.Errorf("components: table: shortcut %d: duplicate key %q", i+1, shortcut.Key)
+		}
+
+		shortcuts[shortcut.Key] = shortcut
+	}
+
+	help := strings.Builder{}
+	help.WriteString("↑/k/PgUp up • ↓/j/PgDn down")
+
+	for _, shortcut := range opts.Shortcuts {
+		help.WriteString(" • ")
+		help.WriteString(shortcut.Key)
+		help.WriteString(" ")
+		help.WriteString(shortcut.Label)
+	}
+
+	help.WriteString(" • q quit")
 
 	rows := make([]table.Row, len(opts.Rows))
 
@@ -124,9 +186,40 @@ func newTable(opts TableOpts) (*tableModel, error) {
 		title:         opts.Title,
 		emptyMsg:      emptyMsg,
 		widths:        widths,
+		shortcuts:     shortcuts,
+		helpText:      help.String(),
 		columnPadding: max(s.Header.GetHorizontalFrameSize(), s.Cell.GetHorizontalFrameSize()),
 		headerHeight:  1 + s.Header.GetVerticalFrameSize(),
 	}, nil
+}
+
+// reservedKeys returns the keys the table handles itself: quitting plus every
+// key in the default navigation keymap.
+func reservedKeys() map[string]struct{} {
+	reserved := map[string]struct{}{
+		"q":      {},
+		"esc":    {},
+		"ctrl+c": {},
+	}
+
+	km := table.DefaultKeyMap()
+
+	for _, binding := range []key.Binding{
+		km.LineUp,
+		km.LineDown,
+		km.PageUp,
+		km.PageDown,
+		km.HalfPageUp,
+		km.HalfPageDown,
+		km.GotoTop,
+		km.GotoBottom,
+	} {
+		for _, k := range binding.Keys() {
+			reserved[k] = struct{}{}
+		}
+	}
+
+	return reserved
 }
 
 func (m *tableModel) Init() tea.Cmd {
@@ -139,6 +232,31 @@ func (m *tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
 			return m, tea.Quit
+		}
+
+		if shortcut, ok := m.shortcuts[msg.String()]; ok {
+			if shortcut.Run == nil {
+				return m, nil
+			}
+
+			selected := -1
+
+			if len(m.table.Rows()) > 0 {
+				selected = m.table.Cursor()
+			}
+
+			quit, err := shortcut.Run(selected)
+
+			if err != nil {
+				m.runErr = err
+				return m, tea.Quit
+			}
+
+			if quit {
+				return m, tea.Quit
+			}
+
+			return m, nil
 		}
 
 	case tea.WindowSizeMsg:
@@ -248,11 +366,10 @@ func (m *tableModel) footerView() string {
 		return ""
 	}
 
-	const help = "↑/k/PgUp up • ↓/j/PgDn down • q quit"
 	return lipgloss.NewStyle().
 		Foreground(lipgloss.Color(themes.TertiaryColor)).
-		Width(min(m.width, lipgloss.Width(help))).
-		Render(help)
+		Width(min(m.width, lipgloss.Width(m.helpText))).
+		Render(m.helpText)
 }
 
 func (m *tableModel) View() tea.View {

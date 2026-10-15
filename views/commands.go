@@ -1,6 +1,7 @@
 package views
 
 import (
+	"fmt"
 	"tartarus/components"
 	"tartarus/repositories"
 
@@ -13,27 +14,6 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "cmds",
 		Short: "Manage commands",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Help()
-		},
-	}
-
-	rootCmd.AddCommand(
-		listAllCommands(r),
-		// viewCommand(r),
-		// createCommand(r),
-		// editCommand(r),
-		// deleteCommand(r),
-	)
-
-	return rootCmd
-}
-
-func listAllCommands(r *repositories.Repos) *cobra.Command {
-	rootCmd := &cobra.Command{
-		Use:   "ls",
-		Short: "List all commands",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			commands, err := r.GetCommands("")
@@ -54,8 +34,18 @@ func listAllCommands(r *repositories.Repos) *cobra.Command {
 			return components.Table(components.TableOpts{
 				Title:    "Commands",
 				EmptyMsg: "No commands found.",
-				Headers:  []string{"Name", "Description"},
-				Rows:     rows,
+				Shortcuts: []components.Shortcut{
+					{
+						Key:   "n",
+						Label: "new command",
+						Run: func(selected int) (quit bool, err error) {
+							fmt.Println("new command")
+							return false, nil
+						},
+					},
+				},
+				Headers: []string{"Name", "Description"},
+				Rows:    rows,
 			})
 		},
 	}
