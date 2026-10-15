@@ -1,29 +1,15 @@
 package views
 
 import (
-	"context"
-	"errors"
 	"fmt"
+	"strings"
 	"tartarus/components"
 	"tartarus/repositories"
-	"tartarus/themes"
 
-	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 )
 
-const clearScreen = "\x1b[2J\x1b[H"
-
 var filterRaw string
-
-type commandAction int
-
-const (
-	actionNone commandAction = iota
-	actionNew
-	actionEdit
-	actionScripts
-)
 
 func NewCommands(r *repositories.Repos) *cobra.Command {
 	rootCmd := &cobra.Command{
@@ -31,213 +17,94 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 		Short: "Manage commands",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			for {
-				fmt.Print(clearScreen)
-				themes.RenderLogo()
-
-				action, err := tableCommands(r)
-
-				if err != nil {
-					return err
-				}
-
-				if action != actionNew {
-					return nil
-				}
-
-				fmt.Print(clearScreen)
-
-				back, err := formComponent(cmd.Context(), r)
-
-				if err != nil {
-					return err
-				}
-
-				if !back {
-					return nil
-				}
-			}
+			return cmd.Help()
 		},
 	}
+
+	rootCmd.AddCommand(
+		listAllCommands(r),
+	)
 
 	return rootCmd
 }
 
-func tableCommands(r *repositories.Repos) (commandAction, error) {
-	commands, err := r.GetCommands("")
+func listAllCommands(r *repositories.Repos) *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "ls",
+		Short: "List all commands",
+		Args:  cobra.NoArgs,
+		Long: `List every command stored in the database as a table with its ID, name and
+description.
 
-	if err != nil {
-		return actionNone, err
-	}
+What it does:
+  Reads all commands from the store and prints them ordered by ID. When a
+  filter is given, only commands whose name or description contains the filter
+  as a literal substring are shown (SQLite LIKE, ASCII case-insensitive).
 
-	rows := [][]string{}
+What it expects:
+  No positional arguments. One optional flag:
+    -f, --filter <text>   literal substring matched against the name or
+                          description. An empty or whitespace-only value is
+                          rejected.
 
-	for _, command := range commands {
-		rows = append(rows, []string{
-			command.Name,
-			command.Description,
-		})
-	}
+What it returns:
+  A table with the columns ID, Name and Description. If nothing matches, it
+  prints "No commands found" instead. It exits non-zero when the filter is
+  invalid or when the database query fails.
 
-	var action commandAction
+Examples:
+  tartarus cmds ls
+  tartarus cmds ls --filter deploy
+  tartarus cmds ls -f "build"`,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("filter") && strings.TrimSpace(filterRaw) == "" {
+				return fmt.Errorf("the --filter value cannot be empty")
+			}
 
-	err = components.Table(components.TableOpts{
-		Title:    "Commands",
-		EmptyMsg: "No commands found.",
-		Shortcuts: []components.Shortcut{
-			{
-				Key:   "n",
-				Label: "new command",
-				Run: func(selected int) (quit bool, err error) {
-					action = actionNew
-					return true, nil
-				},
-			},
-			{
-				Key:   "e",
-				Label: "edit command",
-				Run: func(selected int) (quit bool, err error) {
-					return false, nil
-				},
-			},
-			{
-				Key:   "s",
-				Label: "scripts",
-				Run: func(selected int) (quit bool, err error) {
-					return false, nil
-				},
-			},
+			return nil
 		},
-		Headers: []string{"Name", "Description"},
-		Rows:    rows,
-	})
+		RunE: func(cmd *cobra.Command, args []string) error {
+			commands, err := r.GetCommands(filterRaw)
 
-	if err != nil {
-		return actionNone, err
+			if err != nil {
+				return fmt.Errorf("fail to get commands: %w", err)
+			}
+
+			var rows [][]string
+
+			for _, command := range commands {
+				rows = append(rows, []string{
+					command.Name,
+					command.Description,
+				})
+			}
+
+			table := components.Table{
+				Title:    "List all commands",
+				EmptyMsg: "No commands found",
+				Rows:     rows,
+				Header: []string{
+					"Name",
+					"Description",
+				},
+			}
+
+			table.Render()
+
+			return nil
+		},
 	}
 
-	return action, nil
+	rootCmd.Flags().StringVarP(
+		&filterRaw,
+		"filter",
+		"f",
+		"",
+		"Filter commands by name or description. Example: -f <name> or --filter <description>",
+	)
+
+	return rootCmd
 }
-
-func formComponent(ctx context.Context, r *repositories.Repos) (bool, error) {
-	var name, description string
-	back := false
-
-	_, err := components.Form(ctx, components.FormOpts{
-		Title: "New command",
-		Fields: []huh.Field{
-			huh.NewInput().Key("name").Title("Name").Value(&name),
-			huh.NewInput().Key("description").Title("Description").Value(&description),
-		},
-		Shortcuts: []components.FormShortcut{
-			{
-				Key:   "esc",
-				Label: "back",
-				Run: func(focus string) (quit bool, err error) {
-					back = true
-					return true, nil
-				},
-			},
-		},
-	})
-
-	if errors.Is(err, huh.ErrUserAborted) {
-		return back, nil
-	}
-
-	if err != nil {
-		return false, err
-	}
-
-	command := repositories.Command{
-		Name:        name,
-		Description: description,
-	}
-
-	if err := r.InsertCommand(&command); err != nil {
-		return false, err
-	}
-
-	return true, nil
-}
-
-// func listAllCommands(r *repositories.Repos) *cobra.Command {
-// 	rootCmd := &cobra.Command{
-// 		Use:   "ls",
-// 		Short: "List all commands",
-// 		Args:  cobra.NoArgs,
-// 		Long: `List every command stored in the database as a table with its ID, name and
-// description.
-
-// What it does:
-//   Reads all commands from the store and prints them ordered by ID. When a
-//   filter is given, only commands whose name or description contains the filter
-//   as a literal substring are shown (SQLite LIKE, ASCII case-insensitive).
-
-// What it expects:
-//   No positional arguments. One optional flag:
-//     -f, --filter <text>   literal substring matched against the name or
-//                           description. An empty or whitespace-only value is
-//                           rejected.
-
-// What it returns:
-//   A table with the columns ID, Name and Description. If nothing matches, it
-//   prints "No commands found" instead. It exits non-zero when the filter is
-//   invalid or when the database query fails.
-
-// Examples:
-//   tartarus cmds ls
-//   tartarus cmds ls --filter deploy
-//   tartarus cmds ls -f "build"`,
-// 		PreRunE: func(cmd *cobra.Command, args []string) error {
-// 			if cmd.Flags().Changed("filter") && strings.TrimSpace(filterRaw) == "" {
-// 				return fmt.Errorf("the --filter value cannot be empty")
-// 			}
-
-// 			return nil
-// 		},
-// 		RunE: func(cmd *cobra.Command, args []string) error {
-// 			cmds, err := r.GetCommands(filterRaw)
-
-// 			if err != nil {
-// 				return fmt.Errorf("fail to list all commands: %w", err)
-// 			}
-
-// 			list := components.List{
-// 				Title:    "List of Commands",
-// 				EmptyMsg: "No commands found",
-// 				Headers: []string{
-// 					"ID",
-// 					"Name",
-// 					"Description",
-// 				},
-// 				Rows: [][]string{},
-// 			}
-
-// 			for _, cmd := range cmds {
-// 				list.Rows = append(list.Rows, []string{
-// 					fmt.Sprintf("%d", cmd.ID),
-// 					cmd.Name,
-// 					cmd.Description,
-// 				})
-// 			}
-
-// 			list.Print()
-
-// 			return nil
-// 		},
-// 	}
-
-// 	rootCmd.Flags().StringVarP(
-// 		&filterRaw,
-// 		"filter",
-// 		"f",
-// 		"",
-// 		"Filter commands by name or description. Example: -f <name> or --filter <description>",
-// 	)
-
-// 	return rootCmd
-// }
 
 // func viewCommand(r *repositories.Repos) *cobra.Command {
 // 	rootCmd := &cobra.Command{
