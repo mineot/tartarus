@@ -38,17 +38,21 @@ func (t *Table) Render() {
 }
 
 func (t *Table) renderHeader() {
-	fmt.Fprintln(t.tw, strings.Join(t.Header, "\t"))
+	if len(t.Header) > 0 {
+		fmt.Fprintln(t.tw, strings.Join(t.Header, "\t"))
+	}
 }
 
 func (t *Table) renderHeaderLines() {
-	var lines []string
+	if len(t.Header) > 0 {
+		var lines []string
 
-	for _, h := range t.Header {
-		lines = append(lines, strings.Repeat("-", len(h)))
+		for _, h := range t.Header {
+			lines = append(lines, strings.Repeat("-", len(h)))
+		}
+
+		fmt.Fprintln(t.tw, strings.Join(lines, "\t"))
 	}
-
-	fmt.Fprintln(t.tw, strings.Join(lines, "\t"))
 }
 
 func (t *Table) renderRow() {
