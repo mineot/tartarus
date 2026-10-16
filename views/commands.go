@@ -26,6 +26,7 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 		listAllCommands(r),
 		viewCommand(r),
 		createCommand(r),
+		editCommand(r),
 	)
 
 	return rootCmd
@@ -135,7 +136,7 @@ Examples:
   tartarus cmds v cmdname`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
-				return fmt.Errorf("expected exactly 1 argument (id), got %d", len(args))
+				return fmt.Errorf("expected exactly 1 argument (name), got %d", len(args))
 			}
 
 			return nil
@@ -272,79 +273,92 @@ Examples:
 	return rootCmd
 }
 
-// func editCommand(r *repositories.Repos) *cobra.Command {
-// 	rootCmd := &cobra.Command{
-// 		Use:   "e <id> <name> <description>",
-// 		Short: "Edit an existing command by id",
-// 		Args: func(cmd *cobra.Command, args []string) error {
-// 			if len(args) < 3 || len(args) > 3 {
-// 				return fmt.Errorf("expected 3 arguments (id, name and description), got %d", len(args))
-// 			}
+func editCommand(r *repositories.Repos) *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "e <name>",
+		Short: "Edit an existing command by name",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return fmt.Errorf("expected exactly 1 argument (name), got %d", len(args))
+			}
 
-// 			return nil
-// 		},
-// 		Long: `Edit an existing command.
+			return nil
+		},
+		Long: `Edit an existing command.
 
-// What it does:
-//   Loads the command with the given ID and updates its name and description.
-//   An empty argument is ignored, keeping the current value, so you can change
-//   only one field at a time without retyping the other.
+What it does:
+  Loads the command with the given ID and updates its name and description.
+  An empty argument is ignored, keeping the current value, so you can change
+  only one field at a time without retyping the other.
 
-// What it expects:
-//   Exactly three positional arguments:
-//     e <id> <name> <description>   the ID of the command to edit, plus its new
-//                                   name and description. Pass "" to keep the
-//                                   current value.
+What it expects:
+  Exactly three positional arguments:
+    e <id> <name> <description>   the ID of the command to edit, plus its new
+                                  name and description. Pass "" to keep the
+                                  current value.
 
-//   The name, when changed, must be unique; an already-used name is rejected.
+  The name, when changed, must be unique; an already-used name is rejected.
 
-// What it returns:
-//   On success it prints "Command edited with id <id>". It exits non-zero when
-//   the argument count is wrong, when the ID is not numeric or does not exist,
-//   or when the update fails (for example, a duplicate name).
+What it returns:
+  On success it prints "Command edited with id <id>". It exits non-zero when
+  the argument count is wrong, when the ID is not numeric or does not exist,
+  or when the update fails (for example, a duplicate name).
 
-// Examples:
-//   tartarus cmds e 1 deploy "Deploy the app to staging"
-//   tartarus cmds e 1 "" "Only a new description"`,
-// 		RunE: func(cmd *cobra.Command, args []string) error {
-// 			idStr := args[0]
+Examples:
+  tartarus cmds e 1 deploy "Deploy the app to staging"
+  tartarus cmds e 1 "" "Only a new description"`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var command = repositories.Command{}
+			var err error
 
-// 			ID, err := strconv.ParseUint(idStr, 10, 64)
+			command, err = r.GetCommand(args[0])
 
-// 			if err != nil {
-// 				return fmt.Errorf("invalid id value %q", idStr)
-// 			}
+			if err != nil {
+				return err
+			}
 
-// 			command, err := r.GetCommand(ID)
+			command.Name, err = components.Prompt(components.PromptOpts{
+				Label:   "Name",
+				Default: command.Name,
+				Validate: func(name string) error {
+					return repositories.ValidateCommandName(name)
+				},
+			})
 
-// 			if err != nil {
-// 				return fmt.Errorf("fail to get command: %w", err)
-// 			}
+			if err != nil {
+				return err
+			}
 
-// 			if command.ID == 0 {
-// 				return fmt.Errorf("command not found with id %d", ID)
-// 			}
+			command.Description, err = components.Prompt(components.PromptOpts{
+				Label:   "Description",
+				Default: command.Description,
+				Validate: func(description string) error {
+					if description == "" {
+						return errors.New("description is required")
+					}
 
-// 			if args[1] != "" && args[1] != command.Name {
-// 				command.Name = args[1]
-// 			}
+					return nil
+				},
+			})
 
-// 			if args[2] != "" && args[2] != command.Description {
-// 				command.Description = args[2]
-// 			}
+			if err != nil {
+				return err
+			}
 
-// 			if err := r.UpdateCommand(&command); err != nil {
-// 				return fmt.Errorf("fail to edit command: %w", err)
-// 			}
+			err = r.UpdateCommand(&command)
 
-// 			fmt.Printf("Command edited with id %d\n", command.ID)
+			if err != nil {
+				return fmt.Errorf("fail to update command: %w", err)
+			}
 
-// 			return nil
-// 		},
-// 	}
+			fmt.Printf("\nCommand successfully edited %s\n", command.Name)
 
-// 	return rootCmd
-// }
+			return nil
+		},
+	}
+
+	return rootCmd
+}
 
 // func deleteCommand(r *repositories.Repos) *cobra.Command {
 // 	rootCmd := &cobra.Command{
