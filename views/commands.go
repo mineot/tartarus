@@ -27,6 +27,7 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 		viewCommand(r),
 		createCommand(r),
 		editCommand(r),
+		deleteCommand(r),
 	)
 
 	return rootCmd
@@ -276,7 +277,7 @@ Examples:
 func editCommand(r *repositories.Repos) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "e <name>",
-		Short: "Edit an existing command by name",
+		Short: "Edit a command by name",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expected exactly 1 argument (name), got %d", len(args))
@@ -360,65 +361,72 @@ Examples:
 	return rootCmd
 }
 
-// func deleteCommand(r *repositories.Repos) *cobra.Command {
-// 	rootCmd := &cobra.Command{
-// 		Use:   "d <id>",
-// 		Short: "Delete an existing command by id",
-// 		Args: func(cmd *cobra.Command, args []string) error {
-// 			if len(args) < 1 || len(args) > 1 {
-// 				return fmt.Errorf("expected 1 argument (id), got %d", len(args))
-// 			}
+func deleteCommand(r *repositories.Repos) *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "d <name>",
+		Short: "Delete a command by name",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 1 || len(args) > 1 {
+				return fmt.Errorf("expected 1 argument (name), got %d", len(args))
+			}
 
-// 			return nil
-// 		},
-// 		Long: `Delete an existing command.
+			return nil
+		},
+		Long: `Delete an existing command.
 
-// What it does:
-//   Removes the command with the given ID together with all of its items.
+What it does:
+  Removes the command with the given ID together with all of its items.
 
-// What it expects:
-//   Exactly one positional argument:
-//     d <id>   the ID of the command to delete
+What it expects:
+  Exactly one positional argument:
+    d <id>   the ID of the command to delete
 
-// What it returns:
-//   On success it prints "Command deleted with id <id>". It exits non-zero when
-//   the argument count is wrong, when the ID is not numeric, or when no command
-//   has that ID.
+What it returns:
+  On success it prints "Command deleted with id <id>". It exits non-zero when
+  the argument count is wrong, when the ID is not numeric, or when no command
+  has that ID.
 
-// Examples:
-//   tartarus cmds d 1
-//   tartarus cmds d 42`,
-// 		RunE: func(cmd *cobra.Command, args []string) error {
-// 			idStr := args[0]
+Examples:
+  tartarus cmds d 1
+  tartarus cmds d 42`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var command = repositories.Command{}
+			var err error
 
-// 			ID, err := strconv.ParseUint(idStr, 10, 64)
+			command, err = r.GetCommand(args[0])
 
-// 			if err != nil {
-// 				return fmt.Errorf("invalid id value %q", idStr)
-// 			}
+			if err != nil {
+				return err
+			}
 
-// 			command, err := r.GetCommand(ID)
+			question, err := components.Confirm(components.ConfirmOpts{
+				Question:   fmt.Sprintf("Are you sure you want to delete this command '%s'?", command.Name),
+				YesDefault: false,
+			})
 
-// 			if err != nil {
-// 				return fmt.Errorf("fail to get command: %w", err)
-// 			}
+			if err != nil {
+				return err
+			}
 
-// 			if command.ID == 0 {
-// 				return fmt.Errorf("command not found with id %d", ID)
-// 			}
+			if !question {
+				fmt.Printf("\nThe command was not deleted!")
+				return nil
+			}
 
-// 			if err := r.DeleteCommand(ID); err != nil {
-// 				return fmt.Errorf("fail to delete command: %w", err)
-// 			}
+			err = r.DeleteCommand(command.ID)
 
-// 			fmt.Printf("Command deleted with id %d\n", command.ID)
+			if err != nil {
+				return fmt.Errorf("fail to delete command: %w", err)
+			}
 
-// 			return nil
-// 		},
-// 	}
+			fmt.Printf("\nCommand successfully deleted %s\n", command.Name)
 
-// 	return rootCmd
-// }
+			return nil
+		},
+	}
+
+	return rootCmd
+}
 
 // func appendCommandItem(r *repositories.Repos) *cobra.Command {
 // 	rootCmd := &cobra.Command{
