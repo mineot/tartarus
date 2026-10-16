@@ -140,7 +140,7 @@ func TestUpdateCommandScriptRequiresName(t *testing.T) {
 
 	script.Name = ""
 
-	err := r.UpdateCommandScript(c.ID, script)
+	err := r.UpdateCommandScript(script)
 
 	if !errors.Is(err, ErrCommandScriptNameRequired) {
 		t.Fatalf("want ErrCommandScriptNameRequired, got %v", err)

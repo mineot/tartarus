@@ -107,6 +107,12 @@ ORDER BY id
 	selectCommandScript = `
 SELECT id, command_id, name, script, COALESCE(description, ''), created_at, updated_at
 FROM command_scripts
+WHERE command_id = ? AND name = ?
+`
+
+	selectCommandScriptByID = `
+SELECT id, command_id, name, script, COALESCE(description, ''), created_at, updated_at
+FROM command_scripts
 WHERE command_id = ? AND id = ?
 `
 
@@ -129,6 +135,10 @@ WHERE id = ? AND command_id = ?
 
 func (c *Command) Exists() bool {
 	return c.ID > 0 && c.Name != ""
+}
+
+func (c *CommandScript) Exists() bool {
+	return c.ID > 0 && c.Name != "" && c.Script != ""
 }
 
 // ValidateCommandName rejects empty names, names longer than
@@ -344,8 +354,8 @@ func (r *Repos) GetCommandScriptsByName(commandID uint64, searchTerm string) ([]
 
 // GetCommandScript returns a specific script for a command.
 // If not found, returns empty CommandScript and nil error.
-func (r *Repos) GetCommandScript(commandID, scriptID uint64) (CommandScript, error) {
-	rows, err := r.Store.Query(selectCommandScript, commandID, scriptID)
+func (r *Repos) GetCommandScript(commandID uint64, scriptName string) (CommandScript, error) {
+	rows, err := r.Store.Query(selectCommandScript, commandID, scriptName)
 
 	if err != nil {
 		return CommandScript{}, fmt.Errorf("repositories: selecting command script: %w", err)
@@ -471,7 +481,7 @@ func (r *Repos) AppendCommandScript(script *CommandScript) error {
 
 		var inserted CommandScript
 
-		row := tx.QueryRow(selectCommandScript, script.CommandID, uint64(id))
+		row := tx.QueryRow(selectCommandScriptByID, script.CommandID, uint64(id))
 
 		if err := row.Scan(
 			&inserted.ID,
@@ -563,8 +573,8 @@ func (r *Repos) UpdateCommand(c *Command) error {
 }
 
 // UpdateCommandScript validates and updates a command script.
-func (r *Repos) UpdateCommandScript(commandID uint64, script *CommandScript) error {
-	if commandID == 0 {
+func (r *Repos) UpdateCommandScript(script *CommandScript) error {
+	if script.CommandID == 0 {
 		return ErrCommandIDRequired
 	}
 
@@ -583,7 +593,7 @@ func (r *Repos) UpdateCommandScript(commandID uint64, script *CommandScript) err
 	now := time.Now().UTC()
 
 	err := r.Store.WithTx(func(tx *store.Tx) error {
-		res, err := tx.Exec(updateCommandScript, script.Name, script.Script, script.Description, now, script.ID, commandID)
+		res, err := tx.Exec(updateCommandScript, script.Name, script.Script, script.Description, now, script.ID, script.CommandID)
 
 		if err != nil {
 			return err
@@ -601,7 +611,7 @@ func (r *Repos) UpdateCommandScript(commandID uint64, script *CommandScript) err
 
 		var updated CommandScript
 
-		row := tx.QueryRow(selectCommandScript, commandID, script.ID)
+		row := tx.QueryRow(selectCommandScriptByID, script.CommandID, script.ID)
 
 		if err := row.Scan(
 			&updated.ID,

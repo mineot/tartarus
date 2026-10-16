@@ -9,24 +9,28 @@ import (
 )
 
 const (
-	msgNoCmdFound        = "No command found!"
-	msgNoCmdScrsFound    = "No command scripts found!"
-	msgNoCmdsFound       = "No commands found!"
-	msgNoDeletedCmd      = "The command was not deleted!"
-	msgSuccessCreatedCmd = "Command successfully created"
-	msgSuccessDeletedCmd = "Command successfully deleted"
-	msgSuccessEditedCmd  = "Command successfully edited"
+	msgNoCmdFound         = "No command found!"
+	msgNoCmdScrsFound     = "No command scripts found!"
+	msgNoCmdsFound        = "No commands found!"
+	msgNoCmdSrcFound      = "No command script found!"
+	msgNoDeletedCmd       = "The command was not deleted!"
+	msgSuccessCreatedCmd  = "Command successfully created"
+	msgSuccessDeletedCmd  = "Command successfully deleted"
+	msgSuccessEditedCmd   = "Command successfully edited"
+	msgSuccessAppendedCmd = "Command script successfully appended"
+	msgSuccessChangedCmd  = "Command script successfully changed"
 
-	textAppSrcCmd   = "Append script to a command"
-	textCmd         = "Command"
-	textCmdSrcs     = "Command scripts"
-	textCreateCmd   = "Create new command"
-	textDeleteCmd   = "Delete Command"
-	textDescription = "Description"
-	textEditCmd     = "Edit command"
-	textListAllCmds = "List all commands"
-	textName        = "Name"
-	textScript      = "Script"
+	textAppSrcCmd    = "Append script to a command"
+	textChangeSrcCmd = "Change script of a command"
+	textViewCmd      = "View Command"
+	textCmdSrcs      = "Command scripts"
+	textCreateCmd    = "Create new command"
+	textDeleteCmd    = "Delete Command"
+	textDescription  = "Description"
+	textEditCmd      = "Edit command"
+	textListAllCmds  = "List all commands"
+	textName         = "Name"
+	textScript       = "Script"
 
 	reqDescription = "Description is required"
 	reqScript      = "Script is required"
@@ -42,7 +46,7 @@ func failTo(description string, err error) error {
 }
 
 func validateArgs(total int, argName string, args []string) error {
-	if len(args) != 1 {
+	if len(args) != total {
 		return fmt.Errorf("expected exactly %d argument (%s), got %d", total, argName, len(args))
 	}
 
@@ -183,4 +187,6 @@ Examples:
   tartarus cmds d deploy`
 
 	londDescAppendScriptCmd = `` // TODO: criar esse conteúdo, precisa representar o que esse comando faz
+
+	londDescChangedScriptCmd = `` // TODO: criar esse conteúdo, precisa representar o que esse comando faz
 )
