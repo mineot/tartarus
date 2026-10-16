@@ -253,9 +253,9 @@ func TestViewCommandRendersTheCommandAndItsScripts(t *testing.T) {
 	r := newTestRepos(t)
 	command := insertTestCommand(t, r, "build", "compiles")
 
-	script := repositories.CommandScript{Name: "gobuild", Script: "go build ./...", Description: "compiles"}
+	script := repositories.CommandScript{CommandID: command.ID, Name: "gobuild", Script: "go build ./...", Description: "compiles"}
 
-	if err := r.AppendCommandScript(command.ID, &script); err != nil {
+	if err := r.AppendCommandScript(&script); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 

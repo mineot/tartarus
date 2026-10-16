@@ -96,18 +96,18 @@ func TestExportWritesCommandsWithTheirScriptsInOrder(t *testing.T) {
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	firstScript := &repositories.CommandScript{Name: "build1", Script: "go build ./...", Description: "compila"}
-	if err := r.AppendCommandScript(first.ID, firstScript); err != nil {
+	firstScript := &repositories.CommandScript{CommandID: first.ID, Name: "build1", Script: "go build ./...", Description: "compila"}
+	if err := r.AppendCommandScript(firstScript); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
-	secondScript := &repositories.CommandScript{Name: "build2", Script: "go test ./...", Description: "testa"}
-	if err := r.AppendCommandScript(first.ID, secondScript); err != nil {
+	secondScript := &repositories.CommandScript{CommandID: first.ID, Name: "build2", Script: "go test ./...", Description: "testa"}
+	if err := r.AppendCommandScript(secondScript); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
-	otherScript := &repositories.CommandScript{Name: "test1", Script: "make test", Description: "testa via make"}
-	if err := r.AppendCommandScript(second.ID, otherScript); err != nil {
+	otherScript := &repositories.CommandScript{CommandID: second.ID, Name: "test1", Script: "make test", Description: "testa via make"}
+	if err := r.AppendCommandScript(otherScript); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
@@ -245,7 +245,7 @@ func TestExportWritesAnEmptyDescriptionAsAnEmptyString(t *testing.T) {
 		t.Fatalf("InsertManual: %v", err)
 	}
 
-	if err := r.AppendCommandScript(c.ID, &repositories.CommandScript{Name: "lista", Script: "ls"}); err != nil {
+	if err := r.AppendCommandScript(&repositories.CommandScript{CommandID: c.ID, Name: "lista", Script: "ls"}); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 

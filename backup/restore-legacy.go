@@ -197,11 +197,12 @@ func restoreLegacyCommand(r *repositories.Repos, doc legacyDoc, state *legacySta
 		// A legacy instruction carries no name; one is derived from the command
 		// and the position so a rerun produces the same one.
 		entry := &repositories.CommandScript{
-			Name:   state.nextScriptName(name, position),
-			Script: script,
+			CommandID: command.id,
+			Name:      state.nextScriptName(name, position),
+			Script:    script,
 		}
 
-		if err := r.AppendCommandScript(command.id, entry); err != nil {
+		if err := r.AppendCommandScript(entry); err != nil {
 			return fmt.Errorf("backup: appending script %q of command %q: %w", script, name, err)
 		}
 

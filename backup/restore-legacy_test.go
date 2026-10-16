@@ -446,8 +446,8 @@ func TestRestoreFromLegacySkipsAnScriptWhoseScriptBelongsToAnotherCommand(t *tes
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	script := &repositories.CommandScript{Name: "aptupdate", Script: "sudo apt update"}
-	if err := r.AppendCommandScript(existing.ID, script); err != nil {
+	script := &repositories.CommandScript{CommandID: existing.ID, Name: "aptupdate", Script: "sudo apt update"}
+	if err := r.AppendCommandScript(script); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 

@@ -901,7 +901,8 @@ func TestAppendCommandScriptSuccess(t *testing.T) {
 	}
 
 	item := &CommandScript{Name: "npmtest", Script: "npm test", Description: "roda a suite de testes"}
-	if err := r.AppendCommandScript(c.ID, item); err != nil {
+	item.CommandID = c.ID
+	if err := r.AppendCommandScript(item); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
@@ -946,7 +947,8 @@ func TestAppendCommandScriptWithoutDescription(t *testing.T) {
 	}
 
 	item := &CommandScript{Name: "list", Script: "ls"}
-	if err := r.AppendCommandScript(c.ID, item); err != nil {
+	item.CommandID = c.ID
+	if err := r.AppendCommandScript(item); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
@@ -968,7 +970,7 @@ func TestAppendCommandScriptCommandIDRequired(t *testing.T) {
 	r := New(s)
 
 	item := &CommandScript{Name: "x", Script: "x"}
-	err := r.AppendCommandScript(0, item)
+	err := r.AppendCommandScript(item)
 	if !errors.Is(err, ErrCommandIDRequired) {
 		t.Fatalf("want ErrCommandIDRequired, got %v", err)
 	}
@@ -984,7 +986,8 @@ func TestAppendCommandScriptScriptRequired(t *testing.T) {
 	}
 
 	item := &CommandScript{Name: "x", Script: ""}
-	err := r.AppendCommandScript(c.ID, item)
+	item.CommandID = c.ID
+	err := r.AppendCommandScript(item)
 	if !errors.Is(err, ErrCommandScriptScriptRequired) {
 		t.Fatalf("want ErrCommandScriptScriptRequired, got %v", err)
 	}
@@ -995,7 +998,8 @@ func TestAppendCommandScriptToNonExistentCommand(t *testing.T) {
 	r := New(s)
 
 	item := &CommandScript{Name: "x", Script: "x"}
-	err := r.AppendCommandScript(999, item)
+	item.CommandID = 999
+	err := r.AppendCommandScript(item)
 	if err == nil {
 		t.Fatal("want an error appending to a nonexistent command")
 	}
@@ -1010,11 +1014,11 @@ func TestAppendCommandScriptScriptUniqueness(t *testing.T) {
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	if err := r.AppendCommandScript(c.ID, &CommandScript{Name: "dup1", Script: "dup"}); err != nil {
+	if err := r.AppendCommandScript(&CommandScript{CommandID: c.ID, Name: "dup1", Script: "dup"}); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
-	err := r.AppendCommandScript(c.ID, &CommandScript{Name: "dup2", Script: "dup"})
+	err := r.AppendCommandScript(&CommandScript{CommandID: c.ID, Name: "dup2", Script: "dup"})
 	if err == nil {
 		t.Fatal("want a UNIQUE error")
 	}
@@ -1033,7 +1037,7 @@ func TestAppendCommandScriptPropagatesAClosedStore(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	err := r.AppendCommandScript(c.ID, &CommandScript{Name: "x", Script: "x"})
+	err := r.AppendCommandScript(&CommandScript{CommandID: c.ID, Name: "x", Script: "x"})
 	if !errors.Is(err, store.ErrClosed) {
 		t.Fatalf("want store.ErrClosed, got %v", err)
 	}
@@ -1048,7 +1052,7 @@ func TestAppendCommandScriptIsRejectedInsideATransaction(t *testing.T) {
 		if err := r.InsertCommand(c); err != nil {
 			return err
 		}
-		return r.AppendCommandScript(c.ID, &CommandScript{Name: "x", Script: "x"})
+		return r.AppendCommandScript(&CommandScript{CommandID: c.ID, Name: "x", Script: "x"})
 	})
 
 	if !errors.Is(err, store.ErrTxActive) {
@@ -1066,7 +1070,8 @@ func TestUpdateCommandScriptSuccess(t *testing.T) {
 	}
 
 	item := &CommandScript{Name: "old", Script: "old", Description: "descricao antiga"}
-	if err := r.AppendCommandScript(c.ID, item); err != nil {
+	item.CommandID = c.ID
+	if err := r.AppendCommandScript(item); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 	id := item.ID
@@ -1123,7 +1128,8 @@ func TestUpdateCommandScriptClearsTheDescription(t *testing.T) {
 	}
 
 	item := &CommandScript{Name: "s", Script: "s", Description: "descricao que sera removida"}
-	if err := r.AppendCommandScript(c.ID, item); err != nil {
+	item.CommandID = c.ID
+	if err := r.AppendCommandScript(item); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
@@ -1176,7 +1182,8 @@ func TestUpdateCommandScriptScriptRequired(t *testing.T) {
 	}
 
 	item := &CommandScript{Name: "old", Script: "old"}
-	if err := r.AppendCommandScript(c.ID, item); err != nil {
+	item.CommandID = c.ID
+	if err := r.AppendCommandScript(item); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
@@ -1213,7 +1220,8 @@ func TestUpdateCommandScriptNotFoundWrongCommandID(t *testing.T) {
 	}
 
 	item := &CommandScript{Name: "s", Script: "s"}
-	if err := r.AppendCommandScript(c.ID, item); err != nil {
+	item.CommandID = c.ID
+	if err := r.AppendCommandScript(item); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
@@ -1233,11 +1241,12 @@ func TestUpdateCommandScriptScriptUniqueness(t *testing.T) {
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	if err := r.AppendCommandScript(c.ID, &CommandScript{Name: "a", Script: "a"}); err != nil {
+	if err := r.AppendCommandScript(&CommandScript{CommandID: c.ID, Name: "a", Script: "a"}); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 	item := &CommandScript{Name: "b", Script: "b"}
-	if err := r.AppendCommandScript(c.ID, item); err != nil {
+	item.CommandID = c.ID
+	if err := r.AppendCommandScript(item); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
@@ -1258,7 +1267,8 @@ func TestUpdateCommandScriptPropagatesAClosedStore(t *testing.T) {
 	}
 
 	item := &CommandScript{Name: "s", Script: "s"}
-	if err := r.AppendCommandScript(c.ID, item); err != nil {
+	item.CommandID = c.ID
+	if err := r.AppendCommandScript(item); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
@@ -1283,7 +1293,8 @@ func TestUpdateCommandScriptIsRejectedInsideATransaction(t *testing.T) {
 			return err
 		}
 		item := &CommandScript{Name: "s", Script: "s"}
-		if err := r.AppendCommandScript(c.ID, item); err != nil {
+		item.CommandID = c.ID
+		if err := r.AppendCommandScript(item); err != nil {
 			return err
 		}
 		item.Script = "x"
@@ -1305,7 +1316,8 @@ func TestRemoveCommandScriptSuccess(t *testing.T) {
 	}
 
 	item := &CommandScript{Name: "rm", Script: "rm"}
-	if err := r.AppendCommandScript(c.ID, item); err != nil {
+	item.CommandID = c.ID
+	if err := r.AppendCommandScript(item); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
@@ -1370,7 +1382,8 @@ func TestRemoveCommandScriptWrongCommandID(t *testing.T) {
 	}
 
 	item := &CommandScript{Name: "s", Script: "s"}
-	if err := r.AppendCommandScript(c.ID, item); err != nil {
+	item.CommandID = c.ID
+	if err := r.AppendCommandScript(item); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
@@ -1398,7 +1411,8 @@ func TestRemoveCommandScriptPropagatesAClosedStore(t *testing.T) {
 	}
 
 	item := &CommandScript{Name: "s", Script: "s"}
-	if err := r.AppendCommandScript(c.ID, item); err != nil {
+	item.CommandID = c.ID
+	if err := r.AppendCommandScript(item); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
@@ -1422,7 +1436,8 @@ func TestRemoveCommandScriptIsRejectedInsideATransaction(t *testing.T) {
 			return err
 		}
 		item := &CommandScript{Name: "s", Script: "s"}
-		if err := r.AppendCommandScript(c.ID, item); err != nil {
+		item.CommandID = c.ID
+		if err := r.AppendCommandScript(item); err != nil {
 			return err
 		}
 		return r.RemoveCommandScript(c.ID, item.ID)

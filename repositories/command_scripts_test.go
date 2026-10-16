@@ -18,7 +18,8 @@ func TestGetCommandScriptsByName(t *testing.T) {
 
 	for _, name := range []string{"buildimage", "pushimage", "restart"} {
 		script := &CommandScript{Name: name, Script: "run " + name}
-		if err := r.AppendCommandScript(c.ID, script); err != nil {
+		script.CommandID = c.ID
+		if err := r.AppendCommandScript(script); err != nil {
 			t.Fatalf("AppendCommandScript: %v", err)
 		}
 	}
@@ -115,7 +116,7 @@ func TestAppendCommandScriptRequiresName(t *testing.T) {
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	err := r.AppendCommandScript(c.ID, &CommandScript{Script: "ls"})
+	err := r.AppendCommandScript(&CommandScript{CommandID: c.ID, Script: "ls"})
 
 	if !errors.Is(err, ErrCommandScriptNameRequired) {
 		t.Fatalf("want ErrCommandScriptNameRequired, got %v", err)
@@ -132,7 +133,8 @@ func TestUpdateCommandScriptRequiresName(t *testing.T) {
 	}
 
 	script := &CommandScript{Name: "lista", Script: "ls"}
-	if err := r.AppendCommandScript(c.ID, script); err != nil {
+	script.CommandID = c.ID
+	if err := r.AppendCommandScript(script); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
@@ -154,7 +156,7 @@ func TestAppendCommandScriptRejectsInvalidName(t *testing.T) {
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	err := r.AppendCommandScript(c.ID, &CommandScript{Name: "build-1", Script: "ls"})
+	err := r.AppendCommandScript(&CommandScript{CommandID: c.ID, Name: "build-1", Script: "ls"})
 
 	if !errors.Is(err, ErrCommandScriptNameInvalid) {
 		t.Fatalf("want ErrCommandScriptNameInvalid, got %v", err)

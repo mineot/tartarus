@@ -69,9 +69,9 @@ func Import(r *repositories.Repos, path string) error {
 		for _, script := range cmd.Scripts {
 			// c.ID is the id the row just got, not cmd.ID from the file: after a
 			// reset the two can point at entirely different commands, and
-			// AppendCommandScript overwrites the script's CommandID with the row it
-			// reads back regardless.
-			err = r.AppendCommandScript(c.ID, &repositories.CommandScript{
+			// AppendCommandScript would then attach the script to the wrong one.
+			err = r.AppendCommandScript(&repositories.CommandScript{
+				CommandID:   c.ID,
 				Name:        script.Name,
 				Script:      script.Script,
 				Description: script.Description,

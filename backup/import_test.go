@@ -428,7 +428,8 @@ func TestExportThenImportReproducesTheDatabase(t *testing.T) {
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	if err := src.AppendCommandScript(build.ID, &repositories.CommandScript{
+	if err := src.AppendCommandScript(&repositories.CommandScript{
+		CommandID:   build.ID,
 		Name:        "gobuild",
 		Script:      "go build ./...",
 		Description: "compila",
@@ -436,7 +437,7 @@ func TestExportThenImportReproducesTheDatabase(t *testing.T) {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
-	if err := src.AppendCommandScript(build.ID, &repositories.CommandScript{Name: "makebuild", Script: "make build"}); err != nil {
+	if err := src.AppendCommandScript(&repositories.CommandScript{CommandID: build.ID, Name: "makebuild", Script: "make build"}); err != nil {
 		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
