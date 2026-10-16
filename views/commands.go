@@ -28,6 +28,7 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 		createCommand(r),
 		editCommand(r),
 		deleteCommand(r),
+		appendCommandScript(r),
 	)
 
 	return rootCmd
@@ -322,38 +323,87 @@ func deleteCommand(r *repositories.Repos) *cobra.Command {
 	return rootCmd
 }
 
-// func appendCommandItem(r *repositories.Repos) *cobra.Command {
-// 	rootCmd := &cobra.Command{
-// 		Use:   "ap <commandName>",
-// 		Short: "Append a new script to a command",
-// 		Args:  cobra.NoArgs,
-// 		Long:  ``, // TODO: criar esse conteúdo, precisa representar o que esse comando faz
-// 		PreRunE: func(cmd *cobra.Command, args []string) error {
-// 			if len(args) < 1 || len(args) > 1 {
-// 				return fmt.Errorf("expected 1 argument (commandName), got %d", len(args))
-// 			}
+func appendCommandScript(r *repositories.Repos) *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "ap <commandName>",
+		Short: textAppSrcCmd,
+		Long:  londDescAppendScriptCmd,
+		Args: func(cmd *cobra.Command, args []string) error {
+			return validateArgs(1, "commandName", args)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var command repositories.Command
+			var err error
 
-// 			return nil
-// 		},
-// 		RunE: func(cmd *cobra.Command, args []string) error {
-// 			var command repositories.Command
-// 			var err error
+			if command, err = r.GetCommand(args[0]); err != nil {
+				return err
+			}
 
-// 			if command, err = r.GetCommand(args[0]); err != nil {
-// 				return err
-// 			}
+			if !command.Exists() {
+				fmt.Println(msgNoCmdFound)
+				return nil
+			}
 
-// 			if !command.Exists() {
-// 				fmt.Println("Commands not found")
-// 				return nil
-// 			}
+			components.PromptTitle(textAppSrcCmd)
 
-// 			return nil
-// 		},
-// 	}
+			var script = repositories.CommandScript{CommandID: command.ID}
 
-// 	return rootCmd
-// }
+			script.Name, err = components.Prompt(components.PromptOpts{
+				Label: textName,
+				Validate: func(name string) error {
+					return repositories.ValidateCommandScriptName(name)
+				},
+			})
+
+			if err != nil {
+				return err
+			}
+
+			script.Script, err = components.Prompt(components.PromptOpts{
+				Label: textScript,
+				Validate: func(script string) error {
+					if script == "" {
+						// TODO: validar o comando, se ele é um comando valido e funcional
+						return errors.New(reqScript)
+					}
+
+					return nil
+				},
+			})
+
+			if err != nil {
+				return err
+			}
+
+			script.Description, err = components.Prompt(components.PromptOpts{
+				Label: textDescription,
+				Validate: func(description string) error {
+					if description == "" {
+						return errors.New(reqDescription)
+					}
+
+					return nil
+				},
+			})
+
+			if err != nil {
+				return err
+			}
+
+			err = r.AppendCommandScript(&script)
+
+			if err != nil {
+				return failTo("append command script", err)
+			}
+
+			successMsg(strings.Join([]string{"Script appended to command", script.Name}, ": "))
+
+			return nil
+		},
+	}
+
+	return rootCmd
+}
 
 // // func changeCommandItem(r *repositories.Repos) *cobra.Command {
 // // 	rootCmd := &cobra.Command{

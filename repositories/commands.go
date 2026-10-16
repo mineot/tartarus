@@ -431,8 +431,8 @@ func (r *Repos) InsertCommand(c *Command) error {
 }
 
 // AppendCommandScript validates and appends an script to a command.
-func (r *Repos) AppendCommandScript(commandID uint64, script *CommandScript) error {
-	if commandID == 0 {
+func (r *Repos) AppendCommandScript(script *CommandScript) error {
+	if script.CommandID == 0 {
 		return ErrCommandIDRequired
 	}
 
@@ -449,7 +449,15 @@ func (r *Repos) AppendCommandScript(commandID uint64, script *CommandScript) err
 	var id int64
 
 	err := r.Store.WithTx(func(tx *store.Tx) error {
-		res, err := tx.Exec(insertCommandScript, commandID, script.Name, script.Script, script.Description, now, now)
+		res, err := tx.Exec(
+			insertCommandScript,
+			script.CommandID,
+			script.Name,
+			script.Script,
+			script.Description,
+			now,
+			now,
+		)
 
 		if err != nil {
 			return err
@@ -463,7 +471,7 @@ func (r *Repos) AppendCommandScript(commandID uint64, script *CommandScript) err
 
 		var inserted CommandScript
 
-		row := tx.QueryRow(selectCommandScript, commandID, uint64(id))
+		row := tx.QueryRow(selectCommandScript, script.CommandID, uint64(id))
 
 		if err := row.Scan(
 			&inserted.ID,

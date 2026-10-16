@@ -17,6 +17,7 @@ const (
 	msgSuccessDeletedCmd = "Command successfully deleted"
 	msgSuccessEditedCmd  = "Command successfully edited"
 
+	textAppSrcCmd   = "Append script to a command"
 	textCmd         = "Command"
 	textCmdSrcs     = "Command scripts"
 	textCreateCmd   = "Create new command"
@@ -25,8 +26,10 @@ const (
 	textEditCmd     = "Edit command"
 	textListAllCmds = "List all commands"
 	textName        = "Name"
+	textScript      = "Script"
 
 	reqDescription = "Description is required"
+	reqScript      = "Script is required"
 )
 
 var (
@@ -178,4 +181,6 @@ What it returns:
 
 Examples:
   tartarus cmds d deploy`
+
+	londDescAppendScriptCmd = `` // TODO: criar esse conteúdo, precisa representar o que esse comando faz
 )
