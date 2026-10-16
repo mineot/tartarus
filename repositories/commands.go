@@ -127,6 +127,10 @@ WHERE id = ? AND command_id = ?
 `
 )
 
+func (c *Command) Exists() bool {
+	return c.ID > 0 && c.Name != ""
+}
+
 // ValidateCommandName rejects empty names, names longer than
 // maxCommandNameLength, and names containing anything other than lowercase
 // letters and digits.
