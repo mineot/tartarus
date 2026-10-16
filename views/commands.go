@@ -120,7 +120,7 @@ func viewCommand(r *repositories.Repos) *cobra.Command {
 What it does:
   Reads the command with the given ID and prints its details (ID, name and
   description), followed by a second table listing every item that belongs to
-  it (ID, script and description).
+  it (name, script and description).
 
 What it expects:
   Exactly one positional argument: the numeric command ID.
@@ -128,7 +128,7 @@ What it expects:
 
 What it returns:
   A "Command Details" table with the fields ID, Name and Description, then a
-  "Command Items" table with the columns ID, Script and Description. If the
+  "Command Items" table with the columns Name, Script and Description. If the
   command has no items, it prints "No items found" for the second table. It
   exits non-zero when the ID is missing, not numeric, or when either database
   query fails. A command that does not exist is displayed as an empty row set.
@@ -178,6 +178,7 @@ Examples:
 
 			for _, script := range scripts {
 				scriptRows = append(scriptRows, []string{
+					script.Name,
 					script.Script,
 					script.Description,
 				})
@@ -186,7 +187,7 @@ Examples:
 			cmdScripts := components.Table{
 				Title:    "Command scripts",
 				EmptyMsg: "No command scripts found",
-				Header:   []string{"Script", "Description"},
+				Header:   []string{"Name", "Script", "Description"},
 				Rows:     scriptRows,
 			}
 

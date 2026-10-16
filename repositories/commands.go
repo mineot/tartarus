@@ -11,6 +11,7 @@ import (
 type CommandScript struct {
 	ID          uint64
 	CommandID   uint64
+	Name        string
 	Script      string
 	Description string
 	CreatedAt   time.Time
@@ -33,6 +34,9 @@ var (
 	ErrCommandNameTooLong          = errors.New("command name must be at most 12 characters")
 	ErrCommandIDRequired           = errors.New("command id is required")
 	ErrCommandScriptIDRequired     = errors.New("command script id is required")
+	ErrCommandScriptNameRequired   = errors.New("command script name is required")
+	ErrCommandScriptNameInvalid    = errors.New("command script name must contain only lowercase letters and digits")
+	ErrCommandScriptNameTooLong    = errors.New("command script name must be at most 12 characters")
 	ErrCommandScriptScriptRequired = errors.New("command script script is required")
 	ErrCommandScriptNotFound       = errors.New("command script not found")
 )
@@ -87,26 +91,33 @@ WHERE id = ?
 `
 
 	selectCommandScripts = `
-SELECT id, command_id, script, COALESCE(description, ''), created_at, updated_at
+SELECT id, command_id, name, script, COALESCE(description, ''), created_at, updated_at
 FROM command_scripts
 WHERE command_id = ?
 ORDER BY id
 `
 
+	selectCommandScriptsByName = `
+SELECT id, command_id, name, script, COALESCE(description, ''), created_at, updated_at
+FROM command_scripts
+WHERE command_id = ? AND name LIKE ?
+ORDER BY id
+`
+
 	selectCommandScript = `
-SELECT id, command_id, script, COALESCE(description, ''), created_at, updated_at
+SELECT id, command_id, name, script, COALESCE(description, ''), created_at, updated_at
 FROM command_scripts
 WHERE command_id = ? AND id = ?
 `
 
 	insertCommandScript = `
-INSERT INTO command_scripts (command_id, script, description, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO command_scripts (command_id, name, script, description, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?)
 `
 
 	updateCommandScript = `
 UPDATE command_scripts
-SET script = ?, description = ?, updated_at = ?
+SET name = ?, script = ?, description = ?, updated_at = ?
 WHERE id = ? AND command_id = ?
 `
 
@@ -133,6 +144,29 @@ func ValidateCommandName(name string) error {
 
 		if (c < 'a' || c > 'z') && (c < '0' || c > '9') {
 			return ErrCommandNameInvalid
+		}
+	}
+
+	return nil
+}
+
+// ValidateCommandScriptName rejects empty names, names longer than
+// maxCommandNameLength, and names containing anything other than lowercase
+// letters and digits. It applies the same rule as ValidateCommandName.
+func ValidateCommandScriptName(name string) error {
+	if name == "" {
+		return ErrCommandScriptNameRequired
+	}
+
+	if len(name) > maxCommandNameLength {
+		return ErrCommandScriptNameTooLong
+	}
+
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') {
+			return ErrCommandScriptNameInvalid
 		}
 	}
 
@@ -235,6 +269,57 @@ func (r *Repos) GetCommandScripts(commandID uint64) ([]CommandScript, error) {
 		if err := rows.Scan(
 			&script.ID,
 			&script.CommandID,
+			&script.Name,
+			&script.Script,
+			&script.Description,
+			&script.CreatedAt,
+			&script.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("repositories: scanning command script: %w", err)
+		}
+
+		scripts = append(scripts, script)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("repositories: iterating command scripts: %w", err)
+	}
+
+	return scripts, nil
+}
+
+// GetCommandScriptsByName returns the scripts of a command whose name matches
+// searchTerm as a literal substring (SQLite LIKE, ASCII case-insensitive),
+// ordered by id. An empty search matches every script of the command.
+func (r *Repos) GetCommandScriptsByName(commandID uint64, searchTerm string) ([]CommandScript, error) {
+	if commandID == 0 {
+		return nil, ErrCommandIDRequired
+	}
+
+	var query = selectCommandScripts
+
+	if searchTerm != "" {
+		searchTerm = "%" + searchTerm + "%"
+		query = selectCommandScriptsByName
+	}
+
+	rows, err := r.Store.Query(query, commandID, searchTerm)
+
+	if err != nil {
+		return nil, fmt.Errorf("repositories: selecting command scripts: %w", err)
+	}
+
+	defer rows.Close()
+
+	var scripts []CommandScript
+
+	for rows.Next() {
+		var script CommandScript
+
+		if err := rows.Scan(
+			&script.ID,
+			&script.CommandID,
+			&script.Name,
 			&script.Script,
 			&script.Description,
 			&script.CreatedAt,
@@ -270,6 +355,7 @@ func (r *Repos) GetCommandScript(commandID, scriptID uint64) (CommandScript, err
 		if err := rows.Scan(
 			&script.ID,
 			&script.CommandID,
+			&script.Name,
 			&script.Script,
 			&script.Description,
 			&script.CreatedAt,
@@ -346,6 +432,10 @@ func (r *Repos) AppendCommandScript(commandID uint64, script *CommandScript) err
 		return ErrCommandIDRequired
 	}
 
+	if err := ValidateCommandScriptName(script.Name); err != nil {
+		return err
+	}
+
 	if script.Script == "" {
 		return ErrCommandScriptScriptRequired
 	}
@@ -355,7 +445,7 @@ func (r *Repos) AppendCommandScript(commandID uint64, script *CommandScript) err
 	var id int64
 
 	err := r.Store.WithTx(func(tx *store.Tx) error {
-		res, err := tx.Exec(insertCommandScript, commandID, script.Script, script.Description, now, now)
+		res, err := tx.Exec(insertCommandScript, commandID, script.Name, script.Script, script.Description, now, now)
 
 		if err != nil {
 			return err
@@ -374,6 +464,7 @@ func (r *Repos) AppendCommandScript(commandID uint64, script *CommandScript) err
 		if err := row.Scan(
 			&inserted.ID,
 			&inserted.CommandID,
+			&inserted.Name,
 			&inserted.Script,
 			&inserted.Description,
 			&inserted.CreatedAt,
@@ -384,6 +475,7 @@ func (r *Repos) AppendCommandScript(commandID uint64, script *CommandScript) err
 
 		script.ID = inserted.ID
 		script.CommandID = inserted.CommandID
+		script.Name = inserted.Name
 		script.Script = inserted.Script
 		script.Description = inserted.Description
 		script.CreatedAt = inserted.CreatedAt
@@ -468,6 +560,10 @@ func (r *Repos) UpdateCommandScript(commandID uint64, script *CommandScript) err
 		return ErrCommandScriptIDRequired
 	}
 
+	if err := ValidateCommandScriptName(script.Name); err != nil {
+		return err
+	}
+
 	if script.Script == "" {
 		return ErrCommandScriptScriptRequired
 	}
@@ -475,7 +571,7 @@ func (r *Repos) UpdateCommandScript(commandID uint64, script *CommandScript) err
 	now := time.Now().UTC()
 
 	err := r.Store.WithTx(func(tx *store.Tx) error {
-		res, err := tx.Exec(updateCommandScript, script.Script, script.Description, now, script.ID, commandID)
+		res, err := tx.Exec(updateCommandScript, script.Name, script.Script, script.Description, now, script.ID, commandID)
 
 		if err != nil {
 			return err
@@ -498,6 +594,7 @@ func (r *Repos) UpdateCommandScript(commandID uint64, script *CommandScript) err
 		if err := row.Scan(
 			&updated.ID,
 			&updated.CommandID,
+			&updated.Name,
 			&updated.Script,
 			&updated.Description,
 			&updated.CreatedAt,
@@ -508,6 +605,7 @@ func (r *Repos) UpdateCommandScript(commandID uint64, script *CommandScript) err
 
 		script.ID = updated.ID
 		script.CommandID = updated.CommandID
+		script.Name = updated.Name
 		script.Script = updated.Script
 		script.Description = updated.Description
 		script.CreatedAt = updated.CreatedAt

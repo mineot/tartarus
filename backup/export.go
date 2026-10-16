@@ -11,7 +11,7 @@ import (
 // exportPerm is the permission bits of the exported file.
 const exportPerm = 0644
 
-// Export writes every command, command item and manual to path as JSON.
+// Export writes every command, command script and manual to path as JSON.
 //
 // It takes the repositories rather than opening anything: the store is opened
 // once per process and handed in, so the file that gets exported is the file the
@@ -35,29 +35,30 @@ func Export(r *repositories.Repos, path string) error {
 	}
 
 	for _, c := range commands {
-		items, err := r.GetCommandScripts(c.ID)
+		scripts, err := r.GetCommandScripts(c.ID)
 
 		if err != nil {
-			return fmt.Errorf("backup: listing items of command %d: %w", c.ID, err)
+			return fmt.Errorf("backup: listing scripts of command %d: %w", c.ID, err)
 		}
 
 		entry := command{
 			ID:          c.ID,
 			Name:        c.Name,
 			Description: c.Description,
-			Items:       []commandItem{},
+			Scripts:     []commandScript{},
 			CreatedAt:   c.CreatedAt,
 			UpdatedAt:   c.UpdatedAt,
 		}
 
-		for _, item := range items {
-			entry.Items = append(entry.Items, commandItem{
-				ID:          item.ID,
-				CommandID:   item.CommandID,
-				Script:      item.Script,
-				Description: item.Description,
-				CreatedAt:   item.CreatedAt,
-				UpdatedAt:   item.UpdatedAt,
+		for _, script := range scripts {
+			entry.Scripts = append(entry.Scripts, commandScript{
+				ID:          script.ID,
+				CommandID:   script.CommandID,
+				Name:        script.Name,
+				Script:      script.Script,
+				Description: script.Description,
+				CreatedAt:   script.CreatedAt,
+				UpdatedAt:   script.UpdatedAt,
 			})
 		}
 

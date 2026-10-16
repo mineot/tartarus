@@ -178,7 +178,7 @@ func (s *Store) RunMigrations() error {
 // path; the guarantee is the single transaction.
 func (s *Store) ResetMigrations() error {
 	return s.WithTx(func(tx *Tx) error {
-		// dropAllTables has to list command_items before commands. With foreign
+		// dropAllTables has to list command_scripts before commands. With foreign
 		// keys enforced, dropping a table that other tables point at performs an
 		// implicit delete of its rows, which fails on an immediate constraint
 		// while the children are still there. The order is a contract between

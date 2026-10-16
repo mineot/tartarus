@@ -4,41 +4,43 @@ import (
 	"time"
 )
 
-// commandItem is one entry of a command, mirroring a row of command_items.
+// commandScript is one script of a command, mirroring a row of command_scripts.
 //
-// Script is the text to run and Description is free text that may be left empty.
-// Both are written even when empty, since no field in this format uses omitempty.
+// Name is the script name and Script is the text to run; both are required by the
+// schema. Description is free text that may be left empty. Every field is
+// written even when empty, since no field in this format uses omitempty.
 //
 // CommandID repeats the id of the owning command, which the nesting in jsonFile
-// already implies. It was in the format before items were nested, it is redundant
+// already implies. It was in the format before scripts were nested, it is redundant
 // now, and it is kept and exported rather than dropped: it is the value the row
 // actually carries, and dropping a column from a backup format is a decision worth
 // making deliberately rather than by omission.
-type commandItem struct {
+type commandScript struct {
 	ID          uint64    `json:"id"`
 	CommandID   uint64    `json:"command_id"`
+	Name        string    `json:"name"`
 	Script      string    `json:"script"`
 	Description string    `json:"description"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// command is a named command with its items nested inside, mirroring a row of
-// commands plus every row of its command_items.
+// command is a named command with its scripts nested inside, mirroring a row of
+// commands plus every row of its command_scripts.
 //
-// Items is the nested list rather than a separate top-level array, so a command
-// and its items stay together when the file is read. Export initializes it to an
-// empty slice, so a command with no items marshals as [] rather than null.
+// Scripts is the nested list rather than a separate top-level array, so a command
+// and its scripts stay together when the file is read. Export initializes it to an
+// empty slice, so a command with no scripts marshals as [] rather than null.
 //
 // ID is the id the command had in the exported database. Nothing in the format
 // requires an import to reuse it.
 type command struct {
-	ID          uint64        `json:"id"`
-	Name        string        `json:"name"`
-	Description string        `json:"description"`
-	Items       []commandItem `json:"items"`
-	CreatedAt   time.Time     `json:"created_at"`
-	UpdatedAt   time.Time     `json:"updated_at"`
+	ID          uint64          `json:"id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Scripts     []commandScript `json:"scripts"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
 }
 
 // manual is a free-form document, mirroring a row of manuals.
@@ -55,7 +57,7 @@ type manual struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// jsonFile is the top-level shape of a backup file: every command with its items,
+// jsonFile is the top-level shape of a backup file: every command with its scripts,
 // then every manual.
 //
 // Both slices are initialized before marshalling, so an empty database produces

@@ -65,8 +65,8 @@ func rowCount(t *testing.T, s *Store, table string) int {
 	switch table {
 	case "commands":
 		query = `SELECT COUNT(*) FROM commands`
-	case "command_items":
-		query = `SELECT COUNT(*) FROM command_items`
+	case "command_scripts":
+		query = `SELECT COUNT(*) FROM command_scripts`
 	case "migrations":
 		query = `SELECT COUNT(*) FROM migrations`
 	default:
@@ -105,7 +105,7 @@ func TestRunMigrationsCreatesSchema(t *testing.T) {
 		t.Fatalf("RunMigrations: %v", err)
 	}
 
-	want := []string{"command_items", "commands", "manuals", "migrations"}
+	want := []string{"command_scripts", "commands", "manuals", "migrations"}
 
 	if got := tableNames(t, s); !slices.Equal(got, want) {
 		t.Fatalf("want %v, got %v", want, got)
@@ -155,7 +155,7 @@ func TestRunMigrationsIsIdempotent(t *testing.T) {
 		t.Fatalf("the second call should be a no-op, got %d versions", got)
 	}
 
-	want := []string{"command_items", "commands", "manuals", "migrations"}
+	want := []string{"command_scripts", "commands", "manuals", "migrations"}
 
 	if got := tableNames(t, s); !slices.Equal(got, want) {
 		t.Fatalf("want %v, got %v", want, got)
@@ -187,7 +187,7 @@ func TestResetMigrationsRecreatesSchema(t *testing.T) {
 		t.Fatalf("ResetMigrations: %v", err)
 	}
 
-	want := []string{"command_items", "commands", "manuals", "migrations"}
+	want := []string{"command_scripts", "commands", "manuals", "migrations"}
 
 	if got := tableNames(t, s); !slices.Equal(got, want) {
 		t.Fatalf("want %v, got %v", want, got)
@@ -232,35 +232,35 @@ func TestForeignKeysAreEnabled(t *testing.T) {
 	}
 }
 
-func TestForeignKeyRejectsOrphanItem(t *testing.T) {
+func TestForeignKeyRejectsOrphanScript(t *testing.T) {
 	s := newEmptyStore(t)
 
 	if err := s.RunMigrations(); err != nil {
 		t.Fatalf("RunMigrations: %v", err)
 	}
 
-	const insertItem = `INSERT INTO command_items (command_id, script, created_at, updated_at) VALUES (?, ?, ?, ?)`
+	const insertScript = `INSERT INTO command_scripts (command_id, name, script, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
 
 	err := s.WithTx(func(tx *Tx) error {
-		_, err := tx.Exec(insertItem, 999, "ls -la", nowForTest(), nowForTest())
+		_, err := tx.Exec(insertScript, 999, "ls", "ls -la", nowForTest(), nowForTest())
 
 		return err
 	})
 
 	if err == nil {
-		t.Fatal("a command_items row with a nonexistent command_id should have failed")
+		t.Fatal("a command_scripts row with a nonexistent command_id should have failed")
 	}
 
 	if !strings.Contains(err.Error(), "FOREIGN KEY") {
 		t.Fatalf("want a FOREIGN KEY error, got %v", err)
 	}
 
-	if got := rowCount(t, s, "command_items"); got != 0 {
+	if got := rowCount(t, s, "command_scripts"); got != 0 {
 		t.Fatalf("the refused insert should not have survived, got %d", got)
 	}
 }
 
-func TestForeignKeyCascadeDeletesItems(t *testing.T) {
+func TestForeignKeyCascadeDeletesScripts(t *testing.T) {
 	s := newEmptyStore(t)
 
 	if err := s.RunMigrations(); err != nil {
@@ -268,22 +268,22 @@ func TestForeignKeyCascadeDeletesItems(t *testing.T) {
 	}
 
 	const insertCommand = `INSERT INTO commands (name, created_at, updated_at) VALUES (?, ?, ?)`
-	const insertItem = `INSERT INTO command_items (command_id, script, created_at, updated_at) VALUES (?, ?, ?, ?)`
+	const insertScript = `INSERT INTO command_scripts (command_id, name, script, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
 
 	if err := s.WithTx(func(tx *Tx) error {
 		if _, err := tx.Exec(insertCommand, "build", nowForTest(), nowForTest()); err != nil {
 			return err
 		}
 
-		_, err := tx.Exec(insertItem, 1, "go build ./...", nowForTest(), nowForTest())
+		_, err := tx.Exec(insertScript, 1, "build", "go build ./...", nowForTest(), nowForTest())
 
 		return err
 	}); err != nil {
 		t.Fatalf("inserting: %v", err)
 	}
 
-	if got := rowCount(t, s, "command_items"); got != 1 {
-		t.Fatalf("want 1 command_item, got %d", got)
+	if got := rowCount(t, s, "command_scripts"); got != 1 {
+		t.Fatalf("want 1 command_script, got %d", got)
 	}
 
 	const deleteCommand = `DELETE FROM commands WHERE id = 1`
@@ -296,8 +296,8 @@ func TestForeignKeyCascadeDeletesItems(t *testing.T) {
 		t.Fatalf("deleting command: %v", err)
 	}
 
-	if got := rowCount(t, s, "command_items"); got != 0 {
-		t.Fatalf("the cascade should have deleted the command_item, got %d", got)
+	if got := rowCount(t, s, "command_scripts"); got != 0 {
+		t.Fatalf("the cascade should have deleted the command_script, got %d", got)
 	}
 
 	if got := rowCount(t, s, "commands"); got != 0 {

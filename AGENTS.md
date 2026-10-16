@@ -4,109 +4,81 @@ State of the Tartarus project. Read this before touching anything.
 
 ## Terminal table component
 
-`components/table.go` is the self-contained terminal table component. Keep its
-options, validation, private model, sizing, keyboard handling, rendering and
-Bubble Tea program lifecycle in that file.
+`components/table.go` is the self-contained table renderer. Keep its fields and
+rendering in that file. It is a one-shot `fmt`-style renderer built on
+`text/tabwriter`, not a Bubble Tea program.
 
 ```go
-func Table(opts TableOpts) error // package components
+type Table struct {
+	Header   []string
+	Rows     [][]string
+	EmptyMsg string
+	Title    string
+	tw       *tabwriter.Writer
+}
+
+func (t *Table) Render()
 ```
 
-`TableOpts` contains `Title`, `Headers`, `Rows`, `EmptyMsg`, `Widths` and
-`Selectable`. `Table` validates the options before opening the terminal, creates
-its private `tableModel` through `newTable`, and runs Bubble Tea inline in the normal
-terminal screen, without alternate-screen/fullscreen mode. It returns validation or program errors to the caller without printing
-them. A Cobra command can return `components.Table(opts)` from `RunE`; the caller
-loads repository data and converts it to `[][]string` before invoking the table.
-There is no public `NewTable`, `TableModel`, underlying-model accessor or
-`SetRows` API.
+The type and its four data fields are exported and set directly; `tw` is private
+and created inside `Render`. There is no constructor, no options struct and no
+error return. `Render` writes to `os.Stdout` and drops write errors.
 
-### Data and validation
+### Rendering
 
-- At least one header is required. Every row must have exactly one cell per
-  header; malformed rows are rejected before Bubbles can render them.
-- `Widths` may be omitted. Otherwise it must contain one positive integer per
-  header. Widths describe content space, excluding cell padding.
-- Headers are copied into column structs; each row and the widths slice are
-  copied, so later changes to the caller's slices do not change the model.
-- An empty data set shows `EmptyMsg`, defaulting to `No rows found.`. The title
-  is optional and uses the primary theme style; empty text uses the tertiary
-  style. Header borders use `themes.PrimaryColor`; the selected row uses
-  `themes.AssetColor`.
-- The table receives an in-memory data set. It performs no database queries,
-  database pagination, filtering, retries, editing or asynchronous loading.
+- `Title` is printed first through Lip Gloss in `themes.PrimaryColor`, followed
+  by a blank line.
+- `Header` is optional. When present it is written first, then a separator row
+  with one run of `-` per header, then the data rows. Each run is
+  `strings.Repeat("-", len(h))` — the header's **byte** length, not its terminal
+  cell width, so a multi-byte header under-lines.
+- Cells are joined with `\t`; `text/tabwriter` (minwidth 1, tabwidth 1, padding
+  2, space padchar) does the column alignment.
+- An empty or nil `Rows` prints `EmptyMsg` and returns; the header and separator
+  are not printed in that case. `EmptyMsg` has no default, so an unset one prints
+  an empty line.
+- The table is not interactive: there is no validation, no width measurement or
+  truncation, no paging, no keyboard or mouse handling and no `q` to quit. The
+  table receives an in-memory data set and performs no database queries.
 
-### Terminal size and interaction
+### Historical UI
 
-- `Init` starts no command. Rendering waits for `tea.WindowSizeMsg`.
-- Resizing deducts the title, header, footer and padding from the available space.
-  Natural column widths are measured from all headers and rows using terminal
-  cell widths. Explicit widths cap those measurements. Columns shrink when
-  needed to fit the terminal and recover their measured widths when it grows;
-  spare terminal width is not used to stretch the table.
-- At most ten data rows are visible, fewer for smaller data sets or terminals.
-  Additional rows are reached by keyboard scrolling. The current cursor
-  is retained across resizing. Rendering is clipped to the terminal dimensions.
-- If a nonempty table cannot fit all columns, its header and at least one row,
-  it displays `Terminal too small. Resize or press q to exit.` instead.
-- Bubbles always handles row navigation and scrolling (including up/down and
-  Page Up/Page Down). The selected row is always highlighted with reverse
-  video, bold text and `themes.AssetColor`, including when options are
-  omitted. `Selectable` is deprecated and retained only for source compatibility;
-  its value no longer disables the highlight.
-- Mouse reporting is enabled with `tea.WithMouseCellMotion`. Wheel up/down
-  moves the current selection by one row and scrolls it into view, sharing the
-  keyboard cursor. Click selection is not implemented: inline mouse coordinates
-  are relative to the terminal, not to the table origin. Selection is visual only: Enter does not return or execute a row.
-- The footer shows `↑/k/PgUp up • ↓/j/PgDn down • q quit`, wrapping on narrow
-  terminals. Arrows and `j`/`k` move one row; PgUp/PgDn move one visible page.
-  Its height and separator are reserved before calculating visible rows.
-- `q`, Escape and Ctrl+C quit regardless of focus, empty state or terminal size.
-  No root Bubble Tea model or page-shortcut dispatcher is required.
-
-### Cobra integration and historical UI
-
-`main.go` opens and migrates the store, creates the repository, renders the logo
-and calls `views.New(r).ExecuteContext(ctx)`. The store is closed before `main`
-reports an execution error. `main` also recognizes `components.ErrInterrupted`
-and exits with code 130 after printing a newline, instead of reporting it as a
-failure. The current entry point has no legacy restore flag.
-
-The command views are being reworked: `tartarus cmds ls` currently calls
-`Table` with sample rows. Repository loading and the other command handlers
-remain unfinished.
-
-The former `CommandsList`, `MenuCmds`, five-row database pagination, `/` search,
-retry handling and page-shortcut editing rules do not describe this component.
-`components/table_test.go` currently contains commented-out tests for the old
-command list; it provides no active regression tests for `Table`. Do not restore
-that historical implementation as part of table maintenance.
+The former interactive table — `TableOpts`, `Widths`, `Selectable`, ten visible
+rows, scrolling, the footer, `Terminal too small`, mouse reporting and the
+Bubble Tea program lifecycle — does not describe this component.
+`components/table_test.go` does not exist.
 
 ## Terminal prompt component
 
 `components/prompt.go` is the self-contained prompt component. Keep its options,
-line reading and rendering in that file. It uses only the standard library: no
-Huh, no Bubble Tea, no Lip Gloss and no raw mode.
+line reading and rendering in that file. The prompt loop and line reading use
+only the standard library; Lip Gloss is used only by `PromptTitle`.
 
 ```go
+var ErrInterrupted = errors.New("interrupted")
+
 func Prompt(opts PromptOpts) (string, error) // package components
 func Confirm(opts ConfirmOpts) (bool, error) // package components
+func PromptTitle(title string)               // package components
 ```
 
 `PromptOpts` carries `Label`, `Default` and `Validate`. `ConfirmOpts` carries
-`Question` and `Default`. Both read from `os.Stdin` and write to `os.Stderr`,
-keeping stdout free for the command's output. There is no multi-field model: the
-caller sequences calls to build a multi-step flow.
+`Question` and `YesDefault`. `Prompt` and `Confirm` read from `os.Stdin` and
+write to `os.Stderr`, keeping stdout free for the command's output;
+`PromptTitle` writes to `os.Stdout` in `themes.PrimaryColor`, followed by a blank
+line. There is no multi-field model: the caller sequences calls to build a
+multi-step flow.
 
 ### Prompt
 
 - `Prompt` writes `Label: `, reads one line and returns the value trimmed of
-  surrounding whitespace. An empty line returns `Default`.
-- A nonempty `Default` is shown between brackets: `Label [default]: `. There is
-  no editable inline buffer, which would need raw mode; the user types the new
-  value, or submits the empty line to keep the current one.
+  surrounding whitespace. An empty line returns the current default.
+- A nonempty default is shown between brackets: `Label [default]: `. There is no
+  editable inline buffer, which would need raw mode; the user types the new value
+  or submits the empty line to keep the current one.
 - A line without a trailing newline (the last line of a pipe) is returned as-is.
-- `Validate` runs on the value about to be returned, after `Default` has been
+  Carriage returns are dropped.
+- `Validate` runs on the value about to be returned, after the default has been
   substituted. On error the prompt does not advance: the error is printed in red
   (`\x1b[31m`) and the rejected value becomes the new default, so it is shown in
   brackets and can be adjusted.
@@ -125,22 +97,54 @@ caller sequences calls to build a multi-step flow.
 
 ### Confirm
 
-- `Confirm` writes `Question (s/N): ` or `Question (S/n): `, depending on
-  `Default`, and reads one line.
-- It accepts `s`, `sim`, `y` and `yes` for true and `n`, `nao` and `no` for
-  false, case-insensitively. An empty line returns `Default`.
-- Any other answer prints a red hint (`responda s ou n`) and asks again.
+- `Confirm` writes `Question (y/N): ` or `Question (Y/n): `, depending on
+  `YesDefault`, and reads one line.
+- It accepts `y` and `yes` for true and `no` for false, case-insensitively. An
+  empty line returns `YesDefault`.
+- Any other answer — `n` included — prints the red hint `replay y ou n` and asks
+  again. There is no `s`/`sim`/`nao` handling.
 
-### Errors and tests
+### Errors, line reading and tests
 
 - Every error is wrapped as `components: prompt: %w`.
-- A closed input with no data returns `io.ErrUnexpectedEOF`, matchable through
-  `errors.Is`. There is no context parameter and no `ErrAborted` sentinel.
-- `components/prompt_test.go` is active. It drives the unexported `prompt` and
-  `confirm`, which take an `io.Reader` and an `io.Writer`, so no TTY is needed.
-  It covers valid, trimmed, newline-less, defaulted and rejected values, the red
-  reason, the rejected value kept as default, the confirm defaults and answers,
-  write and read errors, and closed input.
+- `readLine` drops `\r`, terminates on `\n`, and returns the bytes read so far on
+  EOF. A closed input with no data returns `io.ErrUnexpectedEOF`, matchable
+  through `errors.Is`. There is no context parameter and no `ErrAborted`
+  sentinel.
+- `components/prompt_test.go` is not present. When it is restored it should drive
+  the unexported `prompt` and `confirm`, which take an `io.Reader` and an
+  `io.Writer`, so no TTY is needed, covering valid, trimmed, newline-less,
+  defaulted and rejected values, the red reason, the rejected value kept as
+  default, the confirm defaults and answers, write and read errors, and closed
+  input.
+
+## CLI and views
+
+`main.go` opens and migrates the store (`store.New`, then `RunMigrations`),
+creates the repository with `repositories.New`, renders the logo with
+`themes.RenderLogo`, and calls `views.New(r).ExecuteContext(ctx)`. The store is
+closed by `defer` before `main` reports an execution error. `main` also
+recognizes `components.ErrInterrupted` and exits with code 130 after printing a
+newline, instead of reporting it as a failure. The entry point has no legacy
+restore flag.
+
+`views/views.go` defines the root `tartarus` command (version `2.0.0`, usage and
+errors silenced) and registers `views.NewCommands(r)` under `cmds`.
+`views/commands.go` implements `cmds` with these handlers:
+
+| Subcommand | Behaviour |
+| --- | --- |
+| `ls` | Reads `GetCommands(filter)` and renders a `Table` with `Name`/`Description`. `-f/--filter` is an optional literal substring; an empty or whitespace-only value is rejected in `PreRunE`. |
+| `v <name>` | `GetCommand(name)`, renders a headerless `Table` (Name/Description), then `GetCommandScripts(command.ID)` in a `Table` with `Name`/`Script`/`Description`. |
+| `c` | Prompts interactively for name and description with `components.Prompt`, validates the name with `ValidateCommandName`, and calls `InsertCommand`. |
+| `e <name>` | `GetCommand(name)`, re-prompts with the current values as `Default`, and calls `UpdateCommand`. |
+| `d <name>` | `GetCommand(name)`, asks for confirmation with `components.Confirm`, and calls `DeleteCommand`. |
+
+The three item handlers `appendCommandItem`, `changeCommandItem` and
+`removeCommandItem` (`ap`/`ch`/`rm`) remain commented out at the bottom of
+`views/commands.go` and still reference the old `command_items` names. Do not
+uncomment, fix or "repair" them unless asked; they are the only remaining
+`CommandItem` spelling in the tree.
 
 ## The project
 
@@ -150,8 +154,8 @@ and export in JSON.
 - Module: `tartarus` (`go.mod`)
 - `go.mod` declares Go 1.26.0
 - SQLite uses `github.com/mattn/go-sqlite3` (CGO). The CLI uses Cobra; the
-  table and the theme package use Lip Gloss v2. The prompt component uses only
-  the standard library.
+  table, the theme package and `components.PromptTitle` use Lip Gloss v2. The
+  prompt loop uses only the standard library.
 - Current branch: `break/v2`
 
 ## Commands
@@ -177,9 +181,12 @@ Tests exist in `store/`, `helpers/`, `repositories/` and `backup/`.
 
 ## Current state: rework in progress
 
-This repository is being reworked. **The commented out code is not broken — it
-was switched off on purpose** so the `store` could be rewritten in isolation. Do
-not uncomment, fix or "repair" those files unless asked.
+This repository is being reworked. The former test files have been reactivated
+and adjusted to the current APIs, and the store, repositories and backup layers
+have been converted. The command views are implemented and active; only the
+`ap`/`ch`/`rm` item handlers at the bottom of `views/commands.go` are commented
+out on purpose, and still reference the old `command_items` API. Do not
+uncomment, fix or "repair" them unless asked.
 
 | File | State |
 | --- | --- |
@@ -187,26 +194,28 @@ not uncomment, fix or "repair" those files unless asked.
 | `store/tx.go` | Live. New. |
 | `store/store_test.go` | Live. New. |
 | `store/migration.go` | Live. Rewritten for `WithTx` (see below). |
-| `store/migration_test.go` | Live. New. |
+| `store/migration_test.go` | Live. New; uses `command_scripts`. |
 | `repositories/commands.go` | Live. CRUD for commands and `CommandScript` rows in `command_scripts`. |
 | `repositories/manuals.go` | Live. Full CRUD for manuals converted. |
-| `repositories/manuals_test.go` | Tests currently commented out; historical assertions are not active coverage. |
-| `repositories/commands_test.go` | Tests currently commented out; historical assertions are not active coverage. |
+| `repositories/manuals_test.go` | Live. Reactivated and adjusted. |
+| `repositories/commands_test.go` | Live. Reactivated and adjusted. |
+| `repositories/command_scripts_test.go` | Live. New; `CommandScript` CRUD, search and validation. |
 | `backup/import.go` | Live. Rewritten (see below). |
 | `backup/export.go` | Live. Rewritten (see below). |
 | `backup/export_test.go` | Live. New. |
-| `backup/import_test.go` | Tests currently commented out; historical assertions are not active coverage. |
+| `backup/import_test.go` | Live. Reactivated and adjusted. |
 | `backup/backup.go` | Live. Only the JSON structs for the backup format. |
 | `backup/restore-legacy.go` | Live. New. Reads a legacy v1.x export (see below). |
-| `backup/restore-legacy_test.go` | Tests currently commented out; historical assertions are not active coverage. |
+| `backup/restore-legacy_test.go` | Live. Reactivated and adjusted. |
 | `backup/testdata/legacy.json` | Live. A real v1.x export, used as the fixture. |
 | `helpers/helpers.go` | Live. `GetStorePath` and `SetDevStorePath`. |
 | `helpers/helpers_test.go` | Live. New. |
-| `components/table.go` | Live. Standalone interactive table; see the contract above. |
-| `components/table_test.go` | Commented-out historical command-list tests. |
+| `components/table.go` | Live. Tabwriter-based table renderer; see the contract above. |
+| `components/table_test.go` | Not present. |
 | `components/prompt.go` | Live. Standalone prompt component; see the contract above. |
-| `components/prompt_test.go` | Live. New. `prompt`/`confirm` via injected reader and writer. |
-| `views/commands.go` | In-progress Cobra command handlers; subcommand registration is commented out. |
+| `components/prompt_test.go` | Not present. |
+| `views/views.go` | Live. Root `tartarus` Cobra command; registers `cmds`. |
+| `views/commands.go` | Live. `cmds` with `ls`/`v`/`c`/`e`/`d`; the `ap`/`ch`/`rm` item handlers are commented out. |
 | `main.go` | Live. Opens and migrates the store, renders the logo and executes Cobra. |
 
 `store.New` is the only consumer of `helpers.GetStorePath`. The prod/dev policy
@@ -411,13 +420,14 @@ func (r *Repos) DeleteManual(id uint64) error
 
 // commands
 func (r *Repos) GetCommands(searchTerm string) ([]Command, error)
-func (r *Repos) GetCommand(id uint64) (Command, error)
+func (r *Repos) GetCommand(name string) (Command, error)
 func (r *Repos) InsertCommand(c *Command) error
 func (r *Repos) UpdateCommand(c *Command) error
 func (r *Repos) DeleteCommand(id uint64) error
 
 // command scripts
 func (r *Repos) GetCommandScripts(commandID uint64) ([]CommandScript, error)
+func (r *Repos) GetCommandScriptsByName(commandID uint64, searchTerm string) ([]CommandScript, error)
 func (r *Repos) GetCommandScript(commandID, scriptID uint64) (CommandScript, error)
 func (r *Repos) AppendCommandScript(commandID uint64, script *CommandScript) error
 func (r *Repos) UpdateCommandScript(commandID uint64, script *CommandScript) error
@@ -431,6 +441,16 @@ A nonempty search is wrapped in `%` and applied with SQLite `LIKE` to name and
 `COALESCE(description, '')`. `%` and `_` are not escaped, so they remain wildcard
 characters. Backup readers use `GetCommands("")`. The pagination/literal-search
 comment above the implementation is stale.
+
+`CommandScript` carries a required `Name`, and so do `AppendCommandScript` and
+`UpdateCommandScript`. Its name is validated with `ValidateCommandScriptName`,
+which applies the same rule as `ValidateCommandName` — 1–12 ASCII lowercase
+letters/digits — and returns `ErrCommandScriptNameRequired`,
+`ErrCommandScriptNameTooLong` or `ErrCommandScriptNameInvalid`.
+`GetCommandScriptsByName` mirrors `GetCommands(searchTerm)` for the scripts
+of one command: an empty search matches every script of the command, a nonempty
+one is wrapped in `%` and matched with `LIKE` against `name`, and the result is
+ordered by id; `commandID == 0` returns `ErrCommandIDRequired` before any query.
 
 - **Reads go through `Store.Query`, not `WithTx`.** A read needs no transaction,
   and `_txlock=immediate` would make `WithTx` take the write lock regardless,
@@ -459,10 +479,9 @@ description reaches the database as `''`, and a NULL row reads back as `""`. If
 NULL and empty ever need to be told apart, drop the `COALESCE` and use
 `sql.NullString` on the struct — do not add a second code path.
 
-The historical tests write NULL directly through the `nullable` helper in
-`commands_test.go`, also used by `manuals_test.go`. Both files are currently
-commented out, so those cases are not active coverage. The repository write
-path itself cannot produce NULL descriptions.
+The tests write NULL directly through the `nullable` helper in
+`commands_test.go`, also used by `manuals_test.go`. Both files are active
+coverage. The repository write path itself cannot produce NULL descriptions.
 
 ## Export
 
@@ -487,7 +506,7 @@ Three things about it are deliberate:
   closed store propagates `store.ErrClosed`. Both sentinels survive the `backup:`
   wrap through `errors.Is`, which is why `Export` wraps rather than returning
   bare.
-- **It runs one query per command for that command's items**, an N+1 over a pool of
+- **It runs one query per command for that command's scripts**, an N+1 over a pool of
   one connection. Sequential reads are fine — `GetCommands` drains and closes its
   rows before returning, so the connection is free for the next read — and a single
   `LEFT JOIN` would cut the query count if it ever matters. Ordering is free too:
@@ -514,8 +533,8 @@ Four things about it are deliberate:
 
 - **It destroys the database.** `ResetMigrations` runs before the first insert, so
   an import always replaces and never merges. Importing on top of existing rows
-  would collide with the `UNIQUE` on `commands.name`, `manuals.name` and
-  `command_scripts.script` anyway.
+  would collide with the `UNIQUE` on `commands.name`, `command_scripts.name`,
+  `command_scripts.script` and `manuals.name` anyway.
 - **The reset is also what makes a failed import recoverable.** The inserts are
   not atomic — every `repositories` write opens its own transaction, and there is
   no `InsertCommandTx` to compose them into one — so a bad row halfway leaves a
@@ -523,35 +542,36 @@ Four things about it are deliberate:
   that partial state before the constraints can collide with it. A single
   transaction would be the better answer and needs new repository methods.
 - **The file is validated before the reset, not after.** Every check in
-  `validate` is one the database would reject on insert; running them first is the
+  `validate` is one the database or the repository would refuse on insert — the
+  database for the `UNIQUE` constraints, the repository for the script name rule
+  — and running them first is the
   difference between a rejected file and a rejected file that also destroyed the
-  previous data. The currently disabled `import_test.go` contains historical
-  assertions that the pre-existing row survives seven rejection cases. The duplicate checks are there because the constraints
-  are global: `command_scripts.script` is unique across the whole table, so two
-  different commands cannot hold the same script, and the script set therefore
-  cannot be reset per command.
+  previous data. `import_test.go` asserts that the pre-existing row survives seven
+  rejection cases. The duplicate checks are there because the constraints
+  are global: `command_scripts.name` and `command_scripts.script` are unique
+  across the whole table, so two different commands cannot hold the same name or
+  the same script, and the script set therefore cannot be reset per command.
 - **Ids and timestamps in the file are ignored.** `Insert*` stamps
   `time.Now().UTC()` and lets SQLite assign ids from `AUTOINCREMENT`, so imported
   rows carry import time and freshly numbered ids. The old code set `CreatedAt`
   on the struct it passed in, which was already dead — the repository overwrites
-  it from the row it reads back. The currently disabled round-trip test does not compare
+  it from the row it reads back. The round-trip test does not compare
   ids across the two databases; it compares names, bodies, scripts and
-  descriptions, and separately asserts that each imported item's `command_id`
+  descriptions, and separately asserts that each imported script's `command_id`
   matches the command it is nested under.
 
 That last point is where the old code was actually **wrong**, not just wasteful:
-it built each item with `CommandID: cmd.ID`, the id from the file, which after a
+it built each script with `CommandID: cmd.ID`, the id from the file, which after a
 reset points at whatever row happens to sit at that id now — silently attaching
-items to the wrong command. `Import` passes the `c.ID` that `InsertCommand` just
-assigned. `AppendCommandScript` overwrites `item.CommandID` with the row it reads
+scripts to the wrong command. `Import` passes the `c.ID` that `InsertCommand` just
+assigned. `AppendCommandScript` overwrites `script.CommandID` with the row it reads
 back regardless, so passing the wrong id would have been caught, but only after a
 failed insert, not before.
 
 Like `Export`, `Import` must not be called from inside a `store.WithTx` callback,
 but it fails with a **different sentinel**: `Export`'s reads return
 `store.ErrUseTx`, while `Import` reaches `Store.WithTx` through `ResetMigrations`
-and gets `store.ErrTxActive`. The export assertion is active; the import
-assertion is in the currently disabled test file.
+and gets `store.ErrTxActive`. Both assertions are active.
 
 Neither backup operation is currently wired into a Cobra command (item 3).
 
@@ -609,7 +629,7 @@ array, so the file is the winning revision of every document, untyped:
 
 The format is a flat array with no type field, so **the prefix of `_id` is the
 only discriminator**. `backup/testdata/legacy.json` is a real export, and it is
-the fixture used by the currently disabled legacy restore tests.
+the fixture used by the legacy restore tests.
 
 `~/.tartarus/db/commands` is never read, written or deleted by the new code.
 That is the reason the operation is safe to repeat: the user can re-run
@@ -619,7 +639,7 @@ That is the reason the operation is safe to repeat: the user can re-run
 
 | Legacy document | Becomes | Notes |
 | --- | --- | --- |
-| `cmd:<name>` | a `commands` row plus one `command_scripts` row per entry of `instructions` | `instructions` is the legacy name for what is now `command_scripts` |
+| `cmd:<name>` | a `commands` row plus one `command_scripts` row per entry of `instructions` | a legacy name can break the command rule (underscores, hyphens, more than 12 characters), so the row is created under a sanitized, truncated name that satisfies `ValidateCommandName`; the mapping from legacy name to command name is derived from the file alone, so a rerun derives the same name and finds the row instead of inserting a duplicate. `instructions` is the legacy name for what is now `command_scripts`; a legacy instruction carries no name, so one is generated from the sanitized, truncated command name plus the instruction position, must satisfy `ValidateCommandScriptName`, and is made unique against every `command_scripts.name` |
 | `cmd:<name>` with `description` | the row's `description` | absent means `""` |
 | `manual:<name>` | a `manuals` row | `content` becomes `body`, verbatim |
 | anything else, `config:editor` included | nothing | counted as skipped |
@@ -652,8 +672,8 @@ marker. Three things fall out of that:
 - **A manual that already exists is left alone.** Deciding which of two bodies
   wins would mean comparing timestamps, which `Import` also ignores. Skipping is
   reported in the output.
-- **An item whose script already belongs to another command is skipped and
-  named**, not inserted and not fatal. This is the consequence of
+- **A legacy instruction whose script already belongs to another command is
+  skipped and named**, not inserted and not fatal. This is the consequence of
   `command_scripts.script` being `UNIQUE` across the whole table (item 5 in the
   outstanding work): a script cannot be shared, so the second command to want it
   cannot have it.
@@ -662,9 +682,8 @@ The file is validated **before** the first write, same reasoning as `Import`:
 every check is one the schema would refuse anyway, and the export belongs to the
 user. `commands.name` and `manuals.name` are `UNIQUE`; `command_scripts.script` is
 too, so a script repeated inside the file, or across two documents in it, is
-rejected up front rather than halfway through. The currently disabled
-`restore-legacy_test.go` contains historical assertions that the pre-existing
-row survives eight rejection cases.
+rejected up front rather than halfway through. `restore-legacy_test.go` asserts
+that the pre-existing row survives eight rejection cases.
 
 Nothing here is atomic: every `repositories` write opens its own transaction and
 there is no `InsertCommandTx`. That was a real risk for `Import` and is
@@ -672,7 +691,7 @@ tolerable here **only** because of the convergence above — which is the same
 reason `Import` can survive its own partial failure, by resetting first.
 
 The report goes to **stdout** as one summary line plus one line per skipped
-document or item. The signature returns only an error, and a restore the user
+document or script. The signature returns only an error, and a restore the user
 ran by hand deserves an answer in words; if that ever changes shape, return a
 struct instead of printing.
 
@@ -685,8 +704,7 @@ Like `Export`, `RestoreFromLegacy` must not be called from inside a
 `store.WithTx` callback, but it fails with the **read** sentinel:
 `readLegacyState` runs first and goes through `Store.Query`, so the error is
 `store.ErrUseTx`. `Import` gets `store.ErrTxActive` instead, from
-`ResetMigrations`. The historical tests cover these two sentinels, but import
-and legacy restore tests are currently disabled.
+`ResetMigrations`. Both assertions are active.
 
 ## Testing outside `store`
 
@@ -706,18 +724,17 @@ the variable, so tests using it must not run in parallel.
 ### Test files carry no comments
 
 Active test code should contain no explanatory comments; helper rationale
-belongs here. Several test files are currently disabled by commenting out their
-contents. The helper names below include those historical definitions, not a
-claim that they all run today:
+belongs here. All test files are active. The helper names below list the current
+definitions:
 
 | Helper | Why it exists |
 | --- | --- |
 | `repositories.newTestStore` | the only door into a database from outside `store`, and why it must not run in parallel |
 | `backup.newTestStore`, `exportPath`, `readExport` | a third copy of the same door, for the same reason, plus a scratch path and a reparse of what `Export` wrote |
 | `backup.legacyPath`, `legacyFixture` | point at `backup/testdata/legacy.json` and restore from it, so the fixture is a real v1.x export rather than an invented one |
-| `backup.itemScripts`, `commandNames`, `manualNames` | read one shape back out of the repositories, so an assertion can name a command by its name instead of by id |
+| `backup.scriptTexts`, `commandNames`, `manualNames` | read one shape back out of the repositories, so an assertion can name a command by its name instead of by id |
 | `repositories.nullable` | the only way to write SQL NULL, which the repository's own write path cannot produce |
-| `repositories.insertTestCommand`, `insertTestCommandItem`, `insertManual` | set up rows the repository API would not allow |
+| `repositories.insertTestCommand`, `insertTestCommandScript`, `insertManual` | set up rows the repository API would not allow |
 | `store.newEmptyStore` | `store.newTestStore` creates an `items` table, which gets in the way of asserting on what `RunMigrations` builds |
 | `helpers.setVersion`, `markRoot` | swap the link-time version and plant a `go.mod` marker |
 
@@ -740,15 +757,17 @@ The application tables are defined in
 | Table | Columns and constraints |
 | --- | --- |
 | `commands` | `id INTEGER PRIMARY KEY AUTOINCREMENT`; unique, non-null `name`; nullable `description`; non-null `created_at` and `updated_at`. |
-| `command_scripts` | `id INTEGER PRIMARY KEY AUTOINCREMENT`; non-null `command_id`; globally unique, non-null `script`; nullable `description`; non-null `created_at` and `updated_at`. |
+| `command_scripts` | `id INTEGER PRIMARY KEY AUTOINCREMENT`; non-null `command_id`; globally unique, non-null `name`; globally unique, non-null `script`; nullable `description`; non-null `created_at` and `updated_at`. |
 | `manuals` | `id INTEGER PRIMARY KEY AUTOINCREMENT`; unique, non-null `name`; non-null `body`; nullable `description`; non-null `created_at` and `updated_at`. |
 | `migrations` | `id INTEGER PRIMARY KEY AUTOINCREMENT`; non-null `version_date` and `version_number`. |
 
 `command_scripts.command_id` references `commands.id` with both
 `ON DELETE CASCADE` and `ON UPDATE CASCADE`. Foreign keys are enabled through
-the store DSN. `script` uniqueness is global, not scoped to `command_id`.
-The repository additionally validates command names as 1–12 ASCII lowercase
-letters/digits; that restriction is not a SQL `CHECK` constraint.
+the store DSN. `name` and `script` uniqueness are global, not scoped to
+`command_id`.
+The repository additionally validates command names and command script names as
+1–12 ASCII lowercase letters/digits; that restriction is not a SQL `CHECK`
+constraint.
 
 Both the version-1 down migration and `0000_drop_all_tables.sql` drop
 `command_scripts` before `commands`. Only the reset script drops `migrations`.
@@ -759,21 +778,33 @@ version-1 database caveat above.
 
 Use `command_scripts` in current SQL and `CommandScript` / `*CommandScript*`
 methods in the repository API. `command_items` is the old SQL name.
-The backup format still uses `items` (`json:"items"`) and the private
-`commandItem` type in `backup/backup.go`. That serialized field has not been
-renamed to `scripts`; do not change the backup format as a side effect of the
-SQL/API rename. Legacy `instructions` entries map to `command_scripts` rows.
+The backup format was renamed to match: `backup/backup.go` now nests
+`Scripts []commandScript` under `json:"scripts"`, and the private type is
+`commandScript`. This is an intentional change to the serialized format, not a
+side effect of the SQL/API rename. There is **no backward compatibility**: a file
+written by an older build carries `"items"`, which `json.Unmarshal` ignores, so
+`Import` reads the command with an empty `Scripts` slice and silently drops every
+script. Old backups must be re-exported with a current build, or the `items` key
+renamed to `scripts` by hand. `commandScript` carries a `name` field, matching the
+SQL column, and a script name is required on import. Legacy `instructions` entries
+map to `command_scripts` rows.
 
-### Rename follow-up still outstanding
+### Rename follow-up
 
-- Active `store/migration_test.go` assertions and SQL still reference
-  `command_items`, so its schema and foreign-key tests need alignment with
-  `command_scripts` before they can validate the new schema.
-- The reset comment in `store/migration.go` and comments in `backup/backup.go`,
-  `backup/import.go` and `backup/restore-legacy.go` still use the old SQL name.
-- Commented-out repository and backup tests retain old APIs, including
-  `CommandItem` methods and the paginated `GetCommands` signature. They need
-  deliberate updates before reactivation, not a blanket uncomment operation.
+The rename is complete in code and the tests are active:
+
+- `store/migration_test.go` now asserts against `command_scripts`, including the
+  foreign-key reject and cascade cases.
+- The reset comment in `store/migration.go` names `command_scripts`.
+- `repositories/commands_test.go` uses `CommandScript` and the current
+  `GetCommands(searchTerm)` signature.
+- `backup/import_test.go` and `backup/restore-legacy_test.go` use
+  `CommandScript`/`scripts`, pass the required script `name`, and no longer use
+  the paginated `GetCommands` signature.
+
+The only remaining `command_items`/`CommandItem` spelling is in the disabled
+`views/commands.go` item handlers (`appendCommandItem`, `changeCommandItem`,
+`removeCommandItem`), which are left switched off on purpose.
 
 ## Known outstanding work
 
@@ -789,9 +820,9 @@ unconverted `import.go` itself. Both are resolved — see the `## Import` sectio
    descriptions and the old `command_items` name require an explicit migration
    strategy. The current reset script does not remove the old table; see the
    migration and schema sections above.
-3. **Cobra table integration is unfinished.** Wire command handlers to
-   `components.Table(opts)` and return its errors from `RunE`. Backup import,
-   export and legacy restore also have no current CLI handlers.
+3. **Backup has no CLI handlers.** `backup.Export`, `backup.Import` and
+   `backup.RestoreFromLegacy` are implemented and tested but not registered as
+   Cobra commands. The command views are already wired to `components.Table`.
 4. **`s.Close()` from inside a `WithTx` callback deadlocks.** `WithTx` holds
    `s.mu` for the whole callback and `Close` takes `s.mu`, and `sync.Mutex` is not
    reentrant. There is no guard and the doc comment does not warn about it. This
@@ -817,9 +848,10 @@ unconverted `import.go` itself. Both are resolved — see the `## Import` sectio
 8. **Naming and doc gaps in `repositories`.** `manuals.go` uses
     `selectManualQuery` where `commands.go` uses `selectCommand`; the command
     error sentinels lack doc comments, while `Command` and `CommandScript`
-    already have them. `GetCommand`/`GetManual` do not reject
-    `id == 0` although every `Update*`/`Delete*` does, and `GetCommands` does not
-    document the nil slice that `GetManuals` documents.
+    already have them. `GetCommand` looks up by name and returns a zero `Command`
+    with no error when nothing matches, while `GetManual` looks up by id and does
+    not reject `id == 0` although every `Update*`/`Delete*` does. `GetCommands`
+    does not document the nil slice that `GetManuals` documents.
 
 ## Style
 

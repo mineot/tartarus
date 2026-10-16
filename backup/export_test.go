@@ -82,7 +82,7 @@ func TestExportOnEmptyDatabaseWritesEmptyArrays(t *testing.T) {
 	}
 }
 
-func TestExportWritesCommandsWithTheirItemsInOrder(t *testing.T) {
+func TestExportWritesCommandsWithTheirScriptsInOrder(t *testing.T) {
 	s := newTestStore(t)
 	r := repositories.New(s)
 
@@ -96,19 +96,19 @@ func TestExportWritesCommandsWithTheirItemsInOrder(t *testing.T) {
 		t.Fatalf("InsertCommand: %v", err)
 	}
 
-	firstItem := &repositories.CommandScript{Script: "go build ./...", Description: "compila"}
-	if err := r.AppendCommandScript(first.ID, firstItem); err != nil {
-		t.Fatalf("AppendCommandItem: %v", err)
+	firstScript := &repositories.CommandScript{Name: "build1", Script: "go build ./...", Description: "compila"}
+	if err := r.AppendCommandScript(first.ID, firstScript); err != nil {
+		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
-	secondItem := &repositories.CommandScript{Script: "go test ./...", Description: "testa"}
-	if err := r.AppendCommandScript(first.ID, secondItem); err != nil {
-		t.Fatalf("AppendCommandItem: %v", err)
+	secondScript := &repositories.CommandScript{Name: "build2", Script: "go test ./...", Description: "testa"}
+	if err := r.AppendCommandScript(first.ID, secondScript); err != nil {
+		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
-	otherItem := &repositories.CommandScript{Script: "make test", Description: "testa via make"}
-	if err := r.AppendCommandScript(second.ID, otherItem); err != nil {
-		t.Fatalf("AppendCommandItem: %v", err)
+	otherScript := &repositories.CommandScript{Name: "test1", Script: "make test", Description: "testa via make"}
+	if err := r.AppendCommandScript(second.ID, otherScript); err != nil {
+		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
 	path := exportPath(t)
@@ -135,36 +135,36 @@ func TestExportWritesCommandsWithTheirItemsInOrder(t *testing.T) {
 		t.Fatalf("command timestamps not exported: %+v", file.Commands[0])
 	}
 
-	if len(file.Commands[0].Items) != 2 {
-		t.Fatalf("want 2 items, got %d", len(file.Commands[0].Items))
+	if len(file.Commands[0].Scripts) != 2 {
+		t.Fatalf("want 2 scripts, got %d", len(file.Commands[0].Scripts))
 	}
 
-	for index, want := range []*repositories.CommandScript{firstItem, secondItem} {
-		got := file.Commands[0].Items[index]
+	for index, want := range []*repositories.CommandScript{firstScript, secondScript} {
+		got := file.Commands[0].Scripts[index]
 
-		if got.ID != want.ID || got.CommandID != first.ID || got.Script != want.Script {
-			t.Fatalf("item %d not exported correctly: %+v", index, got)
+		if got.ID != want.ID || got.CommandID != first.ID || got.Name != want.Name || got.Script != want.Script {
+			t.Fatalf("script %d not exported correctly: %+v", index, got)
 		}
 
 		if got.Description != want.Description {
-			t.Fatalf("want item description %q, got %q", want.Description, got.Description)
+			t.Fatalf("want script description %q, got %q", want.Description, got.Description)
 		}
 
 		if !got.CreatedAt.Equal(want.CreatedAt) || !got.UpdatedAt.Equal(want.UpdatedAt) {
-			t.Fatalf("item %d timestamps not exported: %+v", index, got)
+			t.Fatalf("script %d timestamps not exported: %+v", index, got)
 		}
 	}
 
-	if len(file.Commands[1].Items) != 1 || file.Commands[1].Items[0].Script != "make test" {
-		t.Fatalf("second command items not exported: %+v", file.Commands[1])
+	if len(file.Commands[1].Scripts) != 1 || file.Commands[1].Scripts[0].Script != "make test" {
+		t.Fatalf("second command scripts not exported: %+v", file.Commands[1])
 	}
 
-	if file.Commands[1].Items[0].CommandID != second.ID {
-		t.Fatalf("want command_id %d, got %d", second.ID, file.Commands[1].Items[0].CommandID)
+	if file.Commands[1].Scripts[0].CommandID != second.ID {
+		t.Fatalf("want command_id %d, got %d", second.ID, file.Commands[1].Scripts[0].CommandID)
 	}
 }
 
-func TestExportWritesACommandWithoutItemsAsAnEmptyArray(t *testing.T) {
+func TestExportWritesACommandWithoutScriptsAsAnEmptyArray(t *testing.T) {
 	s := newTestStore(t)
 	r := repositories.New(s)
 
@@ -184,8 +184,8 @@ func TestExportWritesACommandWithoutItemsAsAnEmptyArray(t *testing.T) {
 		t.Fatalf("ReadFile: %v", err)
 	}
 
-	if !strings.Contains(string(data), `"items": []`) {
-		t.Fatalf("want an empty items array, got %q", string(data))
+	if !strings.Contains(string(data), `"scripts": []`) {
+		t.Fatalf("want an empty scripts array, got %q", string(data))
 	}
 }
 
@@ -236,7 +236,7 @@ func TestExportWritesAnEmptyDescriptionAsAnEmptyString(t *testing.T) {
 	s := newTestStore(t)
 	r := repositories.New(s)
 
-	c := &repositories.Command{Name: "sem descricao"}
+	c := &repositories.Command{Name: "semdescricao"}
 	if err := r.InsertCommand(c); err != nil {
 		t.Fatalf("InsertCommand: %v", err)
 	}
@@ -245,8 +245,8 @@ func TestExportWritesAnEmptyDescriptionAsAnEmptyString(t *testing.T) {
 		t.Fatalf("InsertManual: %v", err)
 	}
 
-	if err := r.AppendCommandScript(c.ID, &repositories.CommandScript{Script: "ls"}); err != nil {
-		t.Fatalf("AppendCommandItem: %v", err)
+	if err := r.AppendCommandScript(c.ID, &repositories.CommandScript{Name: "lista", Script: "ls"}); err != nil {
+		t.Fatalf("AppendCommandScript: %v", err)
 	}
 
 	path := exportPath(t)
@@ -271,8 +271,8 @@ func TestExportWritesAnEmptyDescriptionAsAnEmptyString(t *testing.T) {
 		t.Fatalf("want empty descriptions: %+v %+v", file.Commands[0], file.Manuals[0])
 	}
 
-	if file.Commands[0].Items[0].Description != "" {
-		t.Fatalf("want empty item description: %+v", file.Commands[0].Items[0])
+	if file.Commands[0].Scripts[0].Description != "" {
+		t.Fatalf("want empty script description: %+v", file.Commands[0].Scripts[0])
 	}
 }
 

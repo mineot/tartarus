@@ -14,7 +14,8 @@ import (
 // It destroys whatever was there: the schema is dropped and rebuilt by
 // ResetMigrations before the first insert, so an import is always a replacement
 // and never a merge. Importing on top of existing rows would hit the UNIQUE
-// constraints on commands.name, command_items.script and manuals.name anyway.
+// constraints on commands.name, command_scripts.name, command_scripts.script and
+// manuals.name anyway.
 //
 // The reset is also what makes a failed import recoverable. The inserts are not
 // atomic — every repositories write opens its own transaction — so a bad row
@@ -65,18 +66,19 @@ func Import(r *repositories.Repos, path string) error {
 			return fmt.Errorf("backup: inserting command %q: %w", cmd.Name, err)
 		}
 
-		for _, item := range cmd.Items {
+		for _, script := range cmd.Scripts {
 			// c.ID is the id the row just got, not cmd.ID from the file: after a
 			// reset the two can point at entirely different commands, and
-			// AppendCommandItem overwrites the item's CommandID with the row it
+			// AppendCommandScript overwrites the script's CommandID with the row it
 			// reads back regardless.
 			err = r.AppendCommandScript(c.ID, &repositories.CommandScript{
-				Script:      item.Script,
-				Description: item.Description,
+				Name:        script.Name,
+				Script:      script.Script,
+				Description: script.Description,
 			})
 
 			if err != nil {
-				return fmt.Errorf("backup: appending item %q of command %q: %w", item.Script, cmd.Name, err)
+				return fmt.Errorf("backup: appending script %q of command %q: %w", script.Script, cmd.Name, err)
 			}
 		}
 	}
@@ -106,11 +108,13 @@ func Import(r *repositories.Repos, path string) error {
 //
 // The duplicate checks exist because the constraints are global rather than
 // scoped to a command. commands.name and manuals.name are unique on their own,
-// and command_items.script is unique across the whole table, so two different
-// commands cannot hold the same script — which looks like a schema mistake
-// rather than a rule, and is worth reporting as one.
+// and command_scripts.name and command_scripts.script are unique across the
+// whole table, so two different commands cannot hold the same script name or the
+// same script — which looks like a schema mistake rather than a rule, and is
+// worth reporting as one.
 func validate(file jsonFile) error {
 	names := make(map[string]struct{}, len(file.Commands))
+	scriptNames := make(map[string]struct{})
 	scripts := make(map[string]struct{})
 
 	for i, cmd := range file.Commands {
@@ -124,16 +128,26 @@ func validate(file jsonFile) error {
 
 		names[cmd.Name] = struct{}{}
 
-		for _, item := range cmd.Items {
-			if item.Script == "" {
-				return fmt.Errorf("command %q has an item with no script", cmd.Name)
+		for _, script := range cmd.Scripts {
+			if err := repositories.ValidateCommandScriptName(script.Name); err != nil {
+				return fmt.Errorf("command %q has an invalid script name %q: %w", cmd.Name, script.Name, err)
 			}
 
-			if _, ok := scripts[item.Script]; ok {
-				return fmt.Errorf("script %q appears more than once, and it is unique across all commands", item.Script)
+			if _, ok := scriptNames[script.Name]; ok {
+				return fmt.Errorf("script name %q appears more than once, and it is unique across all commands", script.Name)
 			}
 
-			scripts[item.Script] = struct{}{}
+			scriptNames[script.Name] = struct{}{}
+
+			if script.Script == "" {
+				return fmt.Errorf("command %q has a script with no script", cmd.Name)
+			}
+
+			if _, ok := scripts[script.Script]; ok {
+				return fmt.Errorf("script %q appears more than once, and it is unique across all commands", script.Script)
+			}
+
+			scripts[script.Script] = struct{}{}
 		}
 	}
 

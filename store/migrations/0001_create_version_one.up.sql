@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS commands (
 CREATE TABLE IF NOT EXISTS command_scripts (
 	id				INTEGER		NOT NULL PRIMARY KEY AUTOINCREMENT,
 	command_id  	INTEGER		NOT NULL,
+	name			TEXT		NOT NULL UNIQUE,
 	script			TEXT		NOT NULL UNIQUE,
 	description		TEXT,
 	created_at		TIMESTAMP	NOT NULL,

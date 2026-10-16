@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"tartarus/repositories"
@@ -28,6 +29,14 @@ const (
 	legacyManualPrefix  = "manual:"
 )
 
+// maxScriptNameLength mirrors the limit ValidateCommandScriptName enforces. It is
+// duplicated because that limit is unexported in repositories.
+const maxScriptNameLength = 12
+
+// maxCommandNameLength mirrors the limit ValidateCommandName enforces, for the
+// same reason maxScriptNameLength exists.
+const maxCommandNameLength = 12
+
 // legacyCommand is a command already in the database, with the scripts it
 // holds. The set is what makes a second run converge instead of colliding.
 type legacyCommand struct {
@@ -40,6 +49,7 @@ type legacyCommand struct {
 type legacyState struct {
 	commands    map[string]legacyCommand
 	scriptOwner map[string]string
+	scriptNames map[string]struct{}
 	manuals     map[string]struct{}
 }
 
@@ -47,17 +57,21 @@ type legacyState struct {
 // to take a second look.
 type legacyReport struct {
 	commands int
-	items    int
+	scripts  int
 	manuals  int
 	skipped  int
 	notes    []string
 }
 
 // RestoreFromLegacy writes the contents of a legacy v1.x export into the
-// database: every cmd: document becomes a command with one command item per
+// database: every cmd: document becomes a command with one command script per
 // entry of instructions, and every manual: document becomes a manual whose body
 // is the document's content. Any other document, config:editor among them, has
 // no equivalent here and is skipped.
+//
+// A legacy command name can break the command name rule (underscores, hyphens,
+// more than maxCommandNameLength characters), so the command is created under a
+// sanitized, truncated name; see deriveCommandNames.
 //
 // It is a merge, not a replacement, and unlike Import it resets nothing. The
 // legacy folder is never deleted, so the export can be produced again and the
@@ -70,7 +84,7 @@ type legacyReport struct {
 //
 // The file is validated before the first write. Every check is one the database
 // would refuse anyway — commands.name and manuals.name are UNIQUE, and so is
-// command_items.script, globally — and the file belongs to the user, not to us
+// command_scripts.script, globally — and the file belongs to the user, not to us
 // to rewrite. Reporting it beats half a restore followed by a constraint error.
 //
 // Nothing here is atomic: every repositories write opens its own transaction,
@@ -107,6 +121,8 @@ func RestoreFromLegacy(r *repositories.Repos, path string) error {
 		return err
 	}
 
+	derived := deriveCommandNames(docs)
+
 	var report legacyReport
 
 	for _, doc := range docs {
@@ -114,7 +130,7 @@ func RestoreFromLegacy(r *repositories.Repos, path string) error {
 
 		switch {
 		case strings.HasPrefix(doc.ID, legacyCommandPrefix):
-			docErr = restoreLegacyCommand(r, doc, state, &report)
+			docErr = restoreLegacyCommand(r, doc, state, derived, &report)
 		case strings.HasPrefix(doc.ID, legacyManualPrefix):
 			docErr = restoreLegacyManual(r, doc, state, &report)
 		default:
@@ -134,11 +150,18 @@ func RestoreFromLegacy(r *repositories.Repos, path string) error {
 // restoreLegacyCommand inserts the command named by the document, or reuses the
 // one already there, and then appends the instructions it does not have yet.
 //
-// The command id handed to AppendCommandItem is the one InsertCommand assigned,
+// The legacy name can break the command name rule — underscores, hyphens and more
+// than maxCommandNameLength characters are all common in a v1.x export — so the
+// row is created under the sanitized name deriveCommandNames assigned it. That
+// mapping depends only on the file, so a second run derives the same name and
+// finds the row instead of inserting a duplicate.
+//
+// The command id handed to AppendCommandScript is the one InsertCommand assigned,
 // or the one the existing row carries. It is never anything from the file: a
 // legacy document carries no ids at all.
-func restoreLegacyCommand(r *repositories.Repos, doc legacyDoc, state *legacyState, report *legacyReport) error {
-	name := strings.TrimPrefix(doc.ID, legacyCommandPrefix)
+func restoreLegacyCommand(r *repositories.Repos, doc legacyDoc, state *legacyState, derived map[string]string, report *legacyReport) error {
+	legacy := strings.TrimPrefix(doc.ID, legacyCommandPrefix)
+	name := derived[legacy]
 
 	command, ok := state.commands[name]
 
@@ -157,7 +180,7 @@ func restoreLegacyCommand(r *repositories.Repos, doc legacyDoc, state *legacySta
 		report.commands++
 	}
 
-	for _, script := range doc.Instructions {
+	for position, script := range doc.Instructions {
 		if _, ok := command.scripts[script]; ok {
 			continue
 		}
@@ -166,23 +189,168 @@ func restoreLegacyCommand(r *repositories.Repos, doc legacyDoc, state *legacySta
 		// inserted at all, since the constraint covers the whole table. Skipping
 		// it and saying so beats failing the command over one line.
 		if owner, ok := state.scriptOwner[script]; ok {
-			report.note("item %q of command %q was skipped: the script already belongs to command %q",
+			report.note("script %q of command %q was skipped: the script already belongs to command %q",
 				script, name, owner)
 			continue
 		}
 
-		item := &repositories.CommandScript{Script: script}
+		// A legacy instruction carries no name; one is derived from the command
+		// and the position so a rerun produces the same one.
+		entry := &repositories.CommandScript{
+			Name:   state.nextScriptName(name, position),
+			Script: script,
+		}
 
-		if err := r.AppendCommandScript(command.id, item); err != nil {
-			return fmt.Errorf("backup: appending item %q of command %q: %w", script, name, err)
+		if err := r.AppendCommandScript(command.id, entry); err != nil {
+			return fmt.Errorf("backup: appending script %q of command %q: %w", script, name, err)
 		}
 
 		command.scripts[script] = struct{}{}
 		state.scriptOwner[script] = name
-		report.items++
+		report.scripts++
 	}
 
 	return nil
+}
+
+// deriveCommandNames assigns every command document a name the command name rule
+// accepts, mapping the legacy name to the sanitized one. A legacy name can hold
+// characters the rule forbids and can be longer than maxCommandNameLength, so the
+// name is stripped and truncated; two legacy names that collapse to the same
+// candidate get a numeric suffix.
+//
+// The mapping depends only on the documents, never on what the database already
+// holds. That is what makes a rerun converge: the same file produces the same
+// names, so the second run finds the rows the first one wrote instead of deriving
+// a fresh name and hitting the UNIQUE constraint.
+func deriveCommandNames(docs []legacyDoc) map[string]string {
+	derived := make(map[string]string)
+	taken := make(map[string]struct{})
+
+	for _, doc := range docs {
+		if !strings.HasPrefix(doc.ID, legacyCommandPrefix) {
+			continue
+		}
+
+		legacy := strings.TrimPrefix(doc.ID, legacyCommandPrefix)
+
+		if _, ok := derived[legacy]; ok {
+			continue
+		}
+
+		base := commandNameBase(legacy)
+		name := base
+
+		for counter := 2; ; counter++ {
+			if _, ok := taken[name]; !ok {
+				break
+			}
+
+			suffix := strconv.Itoa(counter)
+			room := maxCommandNameLength - len(suffix)
+
+			if room < 0 {
+				room = 0
+			}
+
+			prefix := base
+
+			if len(prefix) > room {
+				prefix = prefix[:room]
+			}
+
+			name = prefix + suffix
+		}
+
+		taken[name] = struct{}{}
+		derived[legacy] = name
+	}
+
+	return derived
+}
+
+// commandNameBase strips every character the command name rule does not allow and
+// truncates the result to maxCommandNameLength. A name made only of forbidden
+// characters falls back to "command", so the result is never empty.
+func commandNameBase(command string) string {
+	var b strings.Builder
+
+	for i := 0; i < len(command); i++ {
+		c := command[i]
+
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			b.WriteByte(c)
+		}
+	}
+
+	if b.Len() == 0 {
+		return "command"
+	}
+
+	base := b.String()
+
+	if len(base) > maxCommandNameLength {
+		base = base[:maxCommandNameLength]
+	}
+
+	return base
+}
+
+// nextScriptName returns a command script name no row already holds. Legacy
+// documents carry no name for their instructions, so one is derived from the
+// command and the instruction position and made unique against every name the
+// database has, since command_scripts.name is UNIQUE across the whole table.
+//
+// The derived name has to pass the same rule the repository applies to a
+// command name: at most maxScriptNameLength lowercase letters and digits, with no
+// separator. A legacy command name, however, can hold characters that rule
+// forbids, so the base is sanitized and truncated before the counter is added.
+func (state *legacyState) nextScriptName(command string, position int) string {
+	base := scriptNameBase(command)
+
+	for counter := position + 1; ; counter++ {
+		suffix := strconv.Itoa(counter)
+
+		room := maxScriptNameLength - len(suffix)
+
+		if room < 0 {
+			room = 0
+		}
+
+		prefix := base
+
+		if len(prefix) > room {
+			prefix = prefix[:room]
+		}
+
+		name := prefix + suffix
+
+		if _, taken := state.scriptNames[name]; !taken {
+			state.scriptNames[name] = struct{}{}
+			return name
+		}
+	}
+}
+
+// scriptNameBase strips every character the command name rule does not allow. A
+// name made only of forbidden characters falls back to "script", so the result is
+// never empty.
+func scriptNameBase(command string) string {
+	var b strings.Builder
+
+	for i := 0; i < len(command); i++ {
+		c := command[i]
+
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			b.WriteByte(c)
+		}
+	}
+
+	if b.Len() == 0 {
+		return "script"
+	}
+
+	return b.String()
 }
 
 // restoreLegacyManual inserts the manual named by the document, unless one of
@@ -279,7 +447,7 @@ func validateLegacy(docs []legacyDoc) error {
 // readLegacyState reads what the database already holds, in one pass before
 // anything is written.
 //
-// It runs one query per command for that command's items, the same N+1 Export
+// It runs one query per command for that command's scripts, the same N+1 Export
 // runs. The connection is free again between reads, so this costs queries, not
 // correctness, and it buys the convergence the whole function rests on.
 func readLegacyState(r *repositories.Repos) (*legacyState, error) {
@@ -298,21 +466,23 @@ func readLegacyState(r *repositories.Repos) (*legacyState, error) {
 	state := &legacyState{
 		commands:    make(map[string]legacyCommand, len(commands)),
 		scriptOwner: make(map[string]string),
+		scriptNames: make(map[string]struct{}),
 		manuals:     make(map[string]struct{}, len(manuals)),
 	}
 
 	for _, c := range commands {
-		items, err := r.GetCommandScripts(c.ID)
+		scripts, err := r.GetCommandScripts(c.ID)
 
 		if err != nil {
-			return nil, fmt.Errorf("backup: listing items of command %d: %w", c.ID, err)
+			return nil, fmt.Errorf("backup: listing scripts of command %d: %w", c.ID, err)
 		}
 
-		command := legacyCommand{id: c.ID, scripts: make(map[string]struct{}, len(items))}
+		command := legacyCommand{id: c.ID, scripts: make(map[string]struct{}, len(scripts))}
 
-		for _, item := range items {
-			command.scripts[item.Script] = struct{}{}
-			state.scriptOwner[item.Script] = c.Name
+		for _, script := range scripts {
+			command.scripts[script.Script] = struct{}{}
+			state.scriptOwner[script.Script] = c.Name
+			state.scriptNames[script.Name] = struct{}{}
 		}
 
 		state.commands[c.Name] = command
@@ -327,7 +497,7 @@ func readLegacyState(r *repositories.Repos) (*legacyState, error) {
 
 // note records something the user may want to know and counts it as skipped.
 // It is for the cases that are not errors but are not silent successes either:
-// an item lost to the global script constraint, or a manual already present.
+// a script lost to the global script constraint, or a manual already present.
 func (rep *legacyReport) note(format string, args ...any) {
 	rep.skipped++
 	rep.notes = append(rep.notes, fmt.Sprintf(format, args...))
@@ -335,8 +505,8 @@ func (rep *legacyReport) note(format string, args ...any) {
 
 // print reports what the run did.
 func (rep *legacyReport) print() {
-	fmt.Printf("legacy: %d commands, %d items and %d manuals imported\n",
-		rep.commands, rep.items, rep.manuals)
+	fmt.Printf("legacy: %d commands, %d scripts and %d manuals imported\n",
+		rep.commands, rep.scripts, rep.manuals)
 
 	if rep.skipped == 0 {
 		return
