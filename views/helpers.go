@@ -14,15 +14,15 @@ const (
 	msgNoCmdsFound        = "No commands found!"
 	msgNoCmdSrcFound      = "No command script found!"
 	msgNoDeletedCmd       = "The command was not deleted!"
+	msgSuccessAppendedCmd = "Command script successfully appended"
+	msgSuccessChangedCmd  = "Command script successfully changed"
 	msgSuccessCreatedCmd  = "Command successfully created"
 	msgSuccessDeletedCmd  = "Command successfully deleted"
 	msgSuccessEditedCmd   = "Command successfully edited"
-	msgSuccessAppendedCmd = "Command script successfully appended"
-	msgSuccessChangedCmd  = "Command script successfully changed"
+	msgSuccessRemoveCmd   = "Command script successfully removed"
 
 	textAppSrcCmd    = "Append script to a command"
 	textChangeSrcCmd = "Change script of a command"
-	textViewCmd      = "View Command"
 	textCmdSrcs      = "Command scripts"
 	textCreateCmd    = "Create new command"
 	textDeleteCmd    = "Delete Command"
@@ -31,6 +31,8 @@ const (
 	textListAllCmds  = "List all commands"
 	textName         = "Name"
 	textScript       = "Script"
+	textViewCmd      = "View Command"
+	textRemSrcCmd    = "Remove script from a command"
 
 	reqDescription = "Description is required"
 	reqScript      = "Script is required"
@@ -188,5 +190,7 @@ Examples:
 
 	londDescAppendScriptCmd = `` // TODO: criar esse conteúdo, precisa representar o que esse comando faz
 
-	londDescChangedScriptCmd = `` // TODO: criar esse conteúdo, precisa representar o que esse comando faz
+	londDescChangeScriptCmd = `` // TODO: criar esse conteúdo, precisa representar o que esse comando faz
+
+	londDescRemoveScriptCmd = `` // TODO: criar esse conteúdo, precisa representar o que esse comando faz
 )

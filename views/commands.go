@@ -29,7 +29,8 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 		editCommand(r),
 		deleteCommand(r),
 		appendCommandScript(r),
-		changeCommandItem(r),
+		changeCommandScript(r),
+		removeCommandScript(r),
 	)
 
 	return rootCmd
@@ -406,11 +407,11 @@ func appendCommandScript(r *repositories.Repos) *cobra.Command {
 	return rootCmd
 }
 
-func changeCommandItem(r *repositories.Repos) *cobra.Command {
+func changeCommandScript(r *repositories.Repos) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "ch <commandName> <scriptName>",
 		Short: textChangeSrcCmd,
-		Long:  londDescChangedScriptCmd,
+		Long:  londDescChangeScriptCmd,
 		Args: func(cmd *cobra.Command, args []string) error {
 			return validateArgs(2, "commandName | scriptName", args)
 		},
@@ -504,19 +505,55 @@ func changeCommandItem(r *repositories.Repos) *cobra.Command {
 	return rootCmd
 }
 
-// // func removeCommandItem(r *repositories.Repos) *cobra.Command {
-// // 	rootCmd := &cobra.Command{
-// // 		Use:   "rm <commandItemId>",
-// // 		Short: "Remove an existing item of an existing command",
-// // 		Args:  cobra.NoArgs,
-// // 		Long:  ``,
-// // 		PreRunE: func(cmd *cobra.Command, args []string) error {
-// // 			return nil
-// // 		},
-// // 		RunE: func(cmd *cobra.Command, args []string) error {
-// // 			return nil
-// // 		},
-// // 	}
+func removeCommandScript(r *repositories.Repos) *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "rm <commandName> <scriptName>",
+		Short: textRemSrcCmd,
+		Long:  londDescRemoveScriptCmd,
+		Args: func(cmd *cobra.Command, args []string) error {
+			return validateArgs(2, "commandName | scriptName", args)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			components.PromptTitle(textRemSrcCmd)
 
-// // 	return rootCmd
-// // }
+			var command = repositories.Command{}
+			var err error
+
+			command, err = r.GetCommand(args[0])
+
+			if err != nil {
+				return err
+			}
+
+			if !command.Exists() {
+				fmt.Println(msgNoCmdFound)
+				return nil
+			}
+
+			var script = repositories.CommandScript{}
+
+			script, err = r.GetCommandScript(command.ID, args[1])
+
+			if err != nil {
+				return err
+			}
+
+			if !script.Exists() {
+				fmt.Println(msgNoCmdSrcFound)
+				return nil
+			}
+
+			err = r.RemoveCommandScript(script.CommandID, script.ID)
+
+			if err != nil {
+				return failTo("remove command script", err)
+			}
+
+			successMsg(strings.Join([]string{msgSuccessRemoveCmd, script.Name}, ": "))
+
+			return nil
+		},
+	}
+
+	return rootCmd
+}
