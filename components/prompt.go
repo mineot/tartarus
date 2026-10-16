@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
 	"tartarus/themes"
 
@@ -14,6 +15,8 @@ import (
 const promptRed = "\x1b[31m"
 const promptReset = "\x1b[0m"
 
+var ErrInterrupted = errors.New("interrupted")
+
 type PromptOpts struct {
 	Label    string
 	Default  string
@@ -21,8 +24,8 @@ type PromptOpts struct {
 }
 
 type ConfirmOpts struct {
-	Question string
-	Default  bool
+	Question   string
+	YesDefault bool
 }
 
 func PromptTitle(title string) {
@@ -32,11 +35,42 @@ func PromptTitle(title string) {
 }
 
 func Prompt(opts PromptOpts) (string, error) {
-	return prompt(os.Stdin, os.Stderr, opts)
+	return interruptible(func() (string, error) {
+		return prompt(os.Stdin, os.Stderr, opts)
+	})
 }
 
 func Confirm(opts ConfirmOpts) (bool, error) {
-	return confirm(os.Stdin, os.Stderr, opts)
+	return interruptible(func() (bool, error) {
+		return confirm(os.Stdin, os.Stderr, opts)
+	})
+}
+
+type interruptResult[T any] struct {
+	value T
+	err   error
+}
+
+func interruptible[T any](fn func() (T, error)) (T, error) {
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt)
+	defer signal.Stop(sig)
+
+	done := make(chan interruptResult[T], 1)
+
+	go func() {
+		value, err := fn()
+		done <- interruptResult[T]{value: value, err: err}
+	}()
+
+	select {
+	case result := <-done:
+		return result.value, result.err
+	case <-sig:
+		var zero T
+
+		return zero, fmt.Errorf("components: prompt: %w", ErrInterrupted)
+	}
 }
 
 func prompt(r io.Reader, w io.Writer, opts PromptOpts) (string, error) {
@@ -81,10 +115,10 @@ func prompt(r io.Reader, w io.Writer, opts PromptOpts) (string, error) {
 }
 
 func confirm(r io.Reader, w io.Writer, opts ConfirmOpts) (bool, error) {
-	hint := "(s/N)"
+	hint := "(y/N)"
 
-	if opts.Default {
-		hint = "(S/n)"
+	if opts.YesDefault {
+		hint = "(Y/n)"
 	}
 
 	for {
@@ -100,14 +134,14 @@ func confirm(r io.Reader, w io.Writer, opts ConfirmOpts) (bool, error) {
 
 		switch strings.ToLower(strings.TrimSpace(line)) {
 		case "":
-			return opts.Default, nil
-		case "s", "sim", "y", "yes":
+			return opts.YesDefault, nil
+		case "y", "yes":
 			return true, nil
-		case "n", "nao", "no":
+		case "no":
 			return false, nil
 		}
 
-		if _, werr := fmt.Fprintf(w, "%sresponda s ou n%s\n", promptRed, promptReset); werr != nil {
+		if _, werr := fmt.Fprintf(w, "%sreplay y ou n%s\n", promptRed, promptReset); werr != nil {
 			return false, fmt.Errorf("components: prompt: %w", werr)
 		}
 	}

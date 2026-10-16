@@ -225,10 +225,11 @@ Examples:
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var command = repositories.Command{}
+			var err error
 
 			components.PromptTitle("Create a new command")
 
-			command.Name, _ = components.Prompt(components.PromptOpts{
+			command.Name, err = components.Prompt(components.PromptOpts{
 				Label:   "Name",
 				Default: "",
 				Validate: func(name string) error {
@@ -236,7 +237,11 @@ Examples:
 				},
 			})
 
-			command.Description, _ = components.Prompt(components.PromptOpts{
+			if err != nil {
+				return err
+			}
+
+			command.Description, err = components.Prompt(components.PromptOpts{
 				Label:   "Description",
 				Default: "",
 				Validate: func(description string) error {
@@ -248,7 +253,11 @@ Examples:
 				},
 			})
 
-			err := r.InsertCommand(&command)
+			if err != nil {
+				return err
+			}
+
+			err = r.InsertCommand(&command)
 
 			if err != nil {
 				return fmt.Errorf("fail to insert command: %w", err)

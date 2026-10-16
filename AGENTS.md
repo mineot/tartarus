@@ -68,7 +68,9 @@ There is no public `NewTable`, `TableModel`, underlying-model accessor or
 
 `main.go` opens and migrates the store, creates the repository, renders the logo
 and calls `views.New(r).ExecuteContext(ctx)`. The store is closed before `main`
-reports an execution error. The current entry point has no legacy restore flag.
+reports an execution error. `main` also recognizes `components.ErrInterrupted`
+and exits with code 130 after printing a newline, instead of reporting it as a
+failure. The current entry point has no legacy restore flag.
 
 The command views are being reworked: `tartarus cmds ls` currently calls
 `Table` with sample rows. Repository loading and the other command handlers
@@ -108,8 +110,18 @@ caller sequences calls to build a multi-step flow.
   substituted. On error the prompt does not advance: the error is printed in red
   (`\x1b[31m`) and the rejected value becomes the new default, so it is shown in
   brackets and can be adjusted.
-- Ctrl+C is not intercepted; it behaves like any other CLI and the process
-  receives SIGINT.
+- Ctrl+C is intercepted by the public `Prompt` and `Confirm` through
+  `os/signal`, which covers only the duration of a prompt. On interrupt the
+  prompt returns `ErrInterrupted`, wrapped as `components: prompt: %w` and
+  matchable with `errors.Is`; `main.go` maps it to exit code 130 and prints a
+  newline so the shell prompt starts on a fresh line. The internal `prompt` and
+  `confirm` used by tests do not intercept signals. The terminal still echoes
+  `^C` before the signal is delivered, which is normal and cannot be removed
+  without raw mode. Outside a prompt the process keeps the default SIGINT
+  behaviour. Because the prompt is read in a goroutine while the signal is
+  watched, an interrupt abandons a goroutine blocked on stdin; that is safe
+  only because a `ErrInterrupted` caller is expected to exit, so do not ignore
+  the error and keep reading.
 
 ### Confirm
 
