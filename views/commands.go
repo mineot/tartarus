@@ -149,7 +149,7 @@ Examples:
 
 			cmdTable := components.Table{
 				Title:    "Command",
-				EmptyMsg: "No Command Found",
+				EmptyMsg: "No command found",
 				Rows: [][]string{
 					{
 						"Name:",
@@ -182,8 +182,8 @@ Examples:
 			}
 
 			cmdScripts := components.Table{
-				Title:    "Command Scripts",
-				EmptyMsg: "No Command Scripts Found",
+				Title:    "Command scripts",
+				EmptyMsg: "No command scripts found",
 				Header:   []string{"Script", "Description"},
 				Rows:     scriptRows,
 			}
@@ -225,6 +225,8 @@ Examples:
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var command = repositories.Command{}
+
+			components.PromptTitle("Create a new command")
 
 			command.Name, _ = components.Prompt(components.PromptOpts{
 				Label:   "Name",

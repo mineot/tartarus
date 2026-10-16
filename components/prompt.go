@@ -6,6 +6,9 @@ import (
 	"io"
 	"os"
 	"strings"
+	"tartarus/themes"
+
+	"charm.land/lipgloss/v2"
 )
 
 const promptRed = "\x1b[31m"
@@ -20,6 +23,12 @@ type PromptOpts struct {
 type ConfirmOpts struct {
 	Question string
 	Default  bool
+}
+
+func PromptTitle(title string) {
+	fmt.Printf("%s\n\n", lipgloss.NewStyle().
+		Foreground(lipgloss.Color(themes.PrimaryColor)).
+		Render(title))
 }
 
 func Prompt(opts PromptOpts) (string, error) {
