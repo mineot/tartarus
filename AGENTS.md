@@ -46,7 +46,7 @@ error return. `Render` writes to `os.Stdout` and drops write errors.
 The former interactive table — `TableOpts`, `Widths`, `Selectable`, ten visible
 rows, scrolling, the footer, `Terminal too small`, mouse reporting and the
 Bubble Tea program lifecycle — does not describe this component.
-`components/table_test.go` does not exist.
+`components/table_test.go` covers the renderer described above.
 
 ## Terminal prompt component
 
@@ -111,12 +111,12 @@ multi-step flow.
   EOF. A closed input with no data returns `io.ErrUnexpectedEOF`, matchable
   through `errors.Is`. There is no context parameter and no `ErrAborted`
   sentinel.
-- `components/prompt_test.go` is not present. When it is restored it should drive
-  the unexported `prompt` and `confirm`, which take an `io.Reader` and an
-  `io.Writer`, so no TTY is needed, covering valid, trimmed, newline-less,
-  defaulted and rejected values, the red reason, the rejected value kept as
-  default, the confirm defaults and answers, write and read errors, and closed
-  input.
+- `components/prompt_test.go` drives the unexported `prompt` and `confirm`,
+  which take an `io.Reader` and an `io.Writer`, so no TTY is needed. It covers
+  valid, trimmed, newline-less, defaulted and rejected values, the red reason,
+  the rejected value kept as default, the confirm defaults and answers, write and
+  read errors, and closed input; the public `Prompt`/`Confirm`/`PromptTitle`
+  wrappers are covered by swapping `os.Stdin`/`os.Stderr`/`os.Stdout`.
 
 ## CLI and views
 
@@ -177,7 +177,8 @@ go test -race ./...
 gofmt -l .
 ```
 
-Tests exist in `store/`, `helpers/`, `repositories/` and `backup/`.
+Tests exist in `store/`, `helpers/`, `repositories/`, `backup/`, `components/`,
+`themes/` and `views/`, plus `main_test.go`.
 
 ## Current state: rework in progress
 
@@ -211,12 +212,16 @@ uncomment, fix or "repair" them unless asked.
 | `helpers/helpers.go` | Live. `GetStorePath` and `SetDevStorePath`. |
 | `helpers/helpers_test.go` | Live. New. |
 | `components/table.go` | Live. Tabwriter-based table renderer; see the contract above. |
-| `components/table_test.go` | Not present. |
+| `components/table_test.go` | Live. New. |
 | `components/prompt.go` | Live. Standalone prompt component; see the contract above. |
-| `components/prompt_test.go` | Not present. |
+| `components/prompt_test.go` | Live. New. |
+| `themes/theme.go` | Live. Lip Gloss text helpers and the logo. |
+| `themes/theme_test.go` | Live. New. |
 | `views/views.go` | Live. Root `tartarus` Cobra command; registers `cmds`. |
 | `views/commands.go` | Live. `cmds` with `ls`/`v`/`c`/`e`/`d`; the `ap`/`ch`/`rm` item handlers are commented out. |
+| `views/commands_test.go` | Live. New. |
 | `main.go` | Live. Opens and migrates the store, renders the logo and executes Cobra. |
+| `main_test.go` | Live. New. |
 
 `store.New` is the only consumer of `helpers.GetStorePath`. The prod/dev policy
 stays in `helpers`; `store` only asks for the path, and `Store.Path` reports
@@ -737,6 +742,11 @@ definitions:
 | `repositories.insertTestCommand`, `insertTestCommandScript`, `insertManual` | set up rows the repository API would not allow |
 | `store.newEmptyStore` | `store.newTestStore` creates an `items` table, which gets in the way of asserting on what `RunMigrations` builds |
 | `helpers.setVersion`, `markRoot` | swap the link-time version and plant a `go.mod` marker |
+| `components.captureStdout`, `withStdin` | capture `os.Stdout`, and point `os.Stdin`/`os.Stderr` at pipes, for `Render` and the public prompt wrappers |
+| `components.failingReader`, `failingWriter` | force the read and write error paths the internal `prompt`/`confirm` wrap |
+| `themes.captureStdout` | capture `RenderLogo`'s output, a second copy for the same reason as the components one |
+| `views.newTestRepos`, `withStdin`, `captureStdout`, `runCommands`, `insertTestCommand` | a store-backed `Repos`, the same two stdio swaps, a driver that builds a fresh `NewCommands` and executes it, and a row the Cobra handlers can act on |
+| `main.captureStdout` | capture `run`'s logo and help output, a third copy of the same helper |
 
 If a helper needs a "why" that is not in this file, add it here. Do not put it
 back in the test.
