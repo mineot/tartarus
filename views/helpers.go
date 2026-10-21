@@ -13,6 +13,7 @@ const (
 	msgNoCmdScrsFound     = "No command scripts found!"
 	msgNoCmdsFound        = "No commands found!"
 	msgNoCmdSrcFound      = "No command script found!"
+	msgNoRemovedCmd       = "The command script was not removed!"
 	msgNoDeletedCmd       = "The command was not deleted!"
 	msgSuccessAppendedCmd = "Command script successfully appended"
 	msgSuccessChangedCmd  = "Command script successfully changed"
@@ -25,13 +26,13 @@ const (
 	textChangeSrcCmd = "Change script of a command"
 	textCmdSrcs      = "Command scripts"
 	textCreateCmd    = "Create new command"
-	textDeleteCmd    = "Delete Command"
+	textDeleteCmd    = "Delete command"
 	textDescription  = "Description"
 	textEditCmd      = "Edit command"
 	textListAllCmds  = "List all commands"
 	textName         = "Name"
 	textScript       = "Script"
-	textViewCmd      = "View Command"
+	textViewCmd      = "View command"
 	textRemSrcCmd    = "Remove script from a command"
 
 	reqDescription = "Description is required"
@@ -112,12 +113,12 @@ What it expects:
     v <name>   the name of the command to display
 
 What it returns:
-  A "Command" table with the rows Name and Description, then a "Command
+  A "View command" table with the columns Name and Description, then a "Command
   scripts" table with the columns Name, Script and Description. If the
   command has no scripts, it prints "No command scripts found" for the
   second table. It exits non-zero when the argument count is wrong or when
-  either database query fails. A name that matches no command is shown with
-  empty details and an empty script table.
+  either database query fails. If no command matches, it prints
+  "No command found!" and exits zero.
 
 Examples:
   tartarus cmds v deploy`
@@ -134,7 +135,7 @@ What it expects:
     Description   required; a non-empty text.
 
 What it returns:
-  On success it prints "Command successfully created <name>". It exits
+  On success it prints "Command successfully created: <name>". It exits
   non-zero when a prompt fails (interrupt or read/write error) or when the
   insert fails (for example, a duplicate name).
 
@@ -157,10 +158,10 @@ What it expects:
   or digits) and must be unique; an already-used name is rejected.
 
 What it returns:
-  On success it prints "Command successfully edited <name>". It exits non-zero
-  when the argument count is wrong, when no command has the given name (the
-  loaded command has no ID, so the update fails), when a prompt fails, or
-  when the update fails (for example, a duplicate name).
+  On success it prints "Command successfully edited: <name>". It exits non-zero
+  when the argument count is wrong, when a prompt fails, or when a database
+  operation fails (for example, a duplicate name). If no command matches,
+  it prints "No command found!" and exits zero.
 
 Examples:
   tartarus cmds e deploy`
@@ -179,18 +180,71 @@ What it expects:
   answer is asked again.
 
 What it returns:
-  When confirmed it prints "Command successfully deleted <name>". When
+  When confirmed it prints "Command successfully deleted: <name>". When
   declined it prints "The command was not deleted!" and exits zero. It exits
-  non-zero when the argument count is wrong, when no command has the given
-  name (the delete fails because the loaded command has no ID), or when the
-  delete fails.
+  non-zero when the argument count is wrong, when a prompt fails, or when a
+  database operation fails. If no command matches, it prints
+  "No command found!" and exits zero.
 
 Examples:
   tartarus cmds d deploy`
 
-	londDescAppendScriptCmd = `` // TODO: criar esse conteúdo, precisa representar o que esse comando faz
+	longDescAppendScriptCmd = `Append a script to an existing command.
 
-	londDescChangeScriptCmd = `` // TODO: criar esse conteúdo, precisa representar o que esse comando faz
+What it does:
+  Loads the command and asks for the script name, script text and description.
 
-	londDescRemoveScriptCmd = `` // TODO: criar esse conteúdo, precisa representar o que esse comando faz
+What it expects:
+  ap <commandName>
+  Name is required: 1-12 ASCII lowercase letters or digits.
+  Script and Description are required. Name and Script must each be unique
+  across all commands.
+
+What it returns:
+  Prints "Command script successfully appended: <commandName>/<scriptName>".
+  A missing command prints "No command found!" and exits zero.
+  Invalid argument counts, prompt failures and database errors exit non-zero.
+
+Examples:
+  tartarus cmds ap deploy`
+
+	longDescChangeScriptCmd = `Change a script of an existing command.
+
+What it does:
+  Loads the command and script, then asks for Name, Script and Description.
+  Empty answers keep the current values. All three fields are required.
+  Name must contain 1-12 ASCII lowercase letters or digits.
+  Name and Script must each be unique across all commands.
+
+What it expects:
+  ch <commandName> <scriptName>
+
+What it returns:
+  Prints "Command script successfully changed: <commandName>/<scriptName>"
+  using the updated script name. A missing command or script prints
+  "No command found!" or "No command script found!" and exits zero.
+  Invalid argument counts, prompt failures and database errors exit non-zero.
+
+Examples:
+  tartarus cmds ch deploy build`
+
+	longDescRemoveScriptCmd = `Remove a script from an existing command.
+
+What it does:
+  Loads the command and script and asks for confirmation before removal.
+  Accepts y/yes or n/no, case-insensitively; an empty answer cancels.
+  Invalid answers are asked again.
+
+What it expects:
+  rm <commandName> <scriptName>
+
+What it returns:
+  Prints "Command script successfully removed: <commandName>/<scriptName>"
+  when confirmed, or "The command script was not removed!" when cancelled.
+  A missing command or script prints "No command found!" or
+  "No command script found!" and exits zero, as does cancellation.
+  Invalid argument counts, prompt failures and database errors exit non-zero.
+
+Examples:
+  tartarus cmds rm deploy build`
 )

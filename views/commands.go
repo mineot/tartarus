@@ -10,8 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var filterRaw string
-
 func NewCommands(r *repositories.Repos) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "cmds",
@@ -37,6 +35,7 @@ func NewCommands(r *repositories.Repos) *cobra.Command {
 }
 
 func listAllCommands(r *repositories.Repos) *cobra.Command {
+	var filterRaw string
 	rootCmd := &cobra.Command{
 		Use:   "ls",
 		Short: textListAllCmds,
@@ -97,10 +96,12 @@ func viewCommand(r *repositories.Repos) *cobra.Command {
 			command, err := r.GetCommand(args[0])
 
 			if err != nil {
+				components.PromptTitle(textViewCmd)
 				return failTo("get command", err)
 			}
 
 			if !command.Exists() {
+				components.PromptTitle(textViewCmd)
 				fmt.Println(msgNoCmdFound)
 				return nil
 			}
@@ -219,7 +220,7 @@ func editCommand(r *repositories.Repos) *cobra.Command {
 			command, err = r.GetCommand(args[0])
 
 			if err != nil {
-				return err
+				return failTo("get command", err)
 			}
 
 			if !command.Exists() {
@@ -287,7 +288,7 @@ func deleteCommand(r *repositories.Repos) *cobra.Command {
 			command, err = r.GetCommand(args[0])
 
 			if err != nil {
-				return err
+				return failTo("get command", err)
 			}
 
 			if !command.Exists() {
@@ -296,7 +297,7 @@ func deleteCommand(r *repositories.Repos) *cobra.Command {
 			}
 
 			question, err := components.Confirm(components.ConfirmOpts{
-				Question:   deleteMsg(fmt.Sprintf("Do you want to delete this command '%s'?", command.Name)),
+				Question:   deleteMsg(fmt.Sprintf("Do you want to delete command '%s' and all its scripts?", command.Name)),
 				YesDefault: false,
 			})
 
@@ -329,7 +330,7 @@ func appendCommandScript(r *repositories.Repos) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "ap <commandName>",
 		Short: textAppSrcCmd,
-		Long:  londDescAppendScriptCmd,
+		Long:  longDescAppendScriptCmd,
 		Args: func(cmd *cobra.Command, args []string) error {
 			return validateArgs(1, "commandName", args)
 		},
@@ -340,7 +341,7 @@ func appendCommandScript(r *repositories.Repos) *cobra.Command {
 			var err error
 
 			if command, err = r.GetCommand(args[0]); err != nil {
-				return err
+				return failTo("get command", err)
 			}
 
 			if !command.Exists() {
@@ -398,7 +399,7 @@ func appendCommandScript(r *repositories.Repos) *cobra.Command {
 				return failTo("append command script", err)
 			}
 
-			successMsg(strings.Join([]string{msgSuccessAppendedCmd, script.Name}, ": "))
+			successMsg(strings.Join([]string{msgSuccessAppendedCmd, command.Name + "/" + script.Name}, ": "))
 
 			return nil
 		},
@@ -411,7 +412,7 @@ func changeCommandScript(r *repositories.Repos) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "ch <commandName> <scriptName>",
 		Short: textChangeSrcCmd,
-		Long:  londDescChangeScriptCmd,
+		Long:  longDescChangeScriptCmd,
 		Args: func(cmd *cobra.Command, args []string) error {
 			return validateArgs(2, "commandName | scriptName", args)
 		},
@@ -424,7 +425,7 @@ func changeCommandScript(r *repositories.Repos) *cobra.Command {
 			command, err = r.GetCommand(args[0])
 
 			if err != nil {
-				return err
+				return failTo("get command", err)
 			}
 
 			if !command.Exists() {
@@ -437,7 +438,7 @@ func changeCommandScript(r *repositories.Repos) *cobra.Command {
 			script, err = r.GetCommandScript(command.ID, args[1])
 
 			if err != nil {
-				return err
+				return failTo("get command script", err)
 			}
 
 			if !script.Exists() {
@@ -496,7 +497,7 @@ func changeCommandScript(r *repositories.Repos) *cobra.Command {
 				return failTo("update command script", err)
 			}
 
-			successMsg(strings.Join([]string{msgSuccessChangedCmd, script.Name}, ": "))
+			successMsg(strings.Join([]string{msgSuccessChangedCmd, command.Name + "/" + script.Name}, ": "))
 
 			return nil
 		},
@@ -509,7 +510,7 @@ func removeCommandScript(r *repositories.Repos) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "rm <commandName> <scriptName>",
 		Short: textRemSrcCmd,
-		Long:  londDescRemoveScriptCmd,
+		Long:  longDescRemoveScriptCmd,
 		Args: func(cmd *cobra.Command, args []string) error {
 			return validateArgs(2, "commandName | scriptName", args)
 		},
@@ -522,7 +523,7 @@ func removeCommandScript(r *repositories.Repos) *cobra.Command {
 			command, err = r.GetCommand(args[0])
 
 			if err != nil {
-				return err
+				return failTo("get command", err)
 			}
 
 			if !command.Exists() {
@@ -535,11 +536,23 @@ func removeCommandScript(r *repositories.Repos) *cobra.Command {
 			script, err = r.GetCommandScript(command.ID, args[1])
 
 			if err != nil {
-				return err
+				return failTo("get command script", err)
 			}
 
 			if !script.Exists() {
 				fmt.Println(msgNoCmdSrcFound)
+				return nil
+			}
+
+			confirmed, err := components.Confirm(components.ConfirmOpts{
+				Question:   deleteMsg(fmt.Sprintf("Do you want to remove script '%s' from command '%s'?", script.Name, command.Name)),
+				YesDefault: false,
+			})
+			if err != nil {
+				return err
+			}
+			if !confirmed {
+				fmt.Printf("\n%s\n", msgNoRemovedCmd)
 				return nil
 			}
 
@@ -549,7 +562,7 @@ func removeCommandScript(r *repositories.Repos) *cobra.Command {
 				return failTo("remove command script", err)
 			}
 
-			successMsg(strings.Join([]string{msgSuccessRemoveCmd, script.Name}, ": "))
+			successMsg(strings.Join([]string{msgSuccessRemoveCmd, command.Name + "/" + script.Name}, ": "))
 
 			return nil
 		},

@@ -189,6 +189,8 @@ func TestConfirmAcceptsYesAndNo(t *testing.T) {
 		{"yes\n", true},
 		{"YES\n", true},
 		{"no\n", false},
+		{"n\n", false},
+		{"N\n", false},
 		{"NO\n", false},
 	}
 
@@ -209,7 +211,7 @@ func TestConfirmAcceptsYesAndNo(t *testing.T) {
 func TestConfirmRepromptsOnAnInvalidAnswer(t *testing.T) {
 	var out strings.Builder
 
-	answer, err := confirm(strings.NewReader("n\nmaybe\ny\n"), &out, ConfirmOpts{Question: "Sure?"})
+	answer, err := confirm(strings.NewReader("invalid\nmaybe\ny\n"), &out, ConfirmOpts{Question: "Sure?"})
 
 	if err != nil {
 		t.Fatalf("confirm: %v", err)
@@ -217,7 +219,7 @@ func TestConfirmRepromptsOnAnInvalidAnswer(t *testing.T) {
 	if !answer {
 		t.Fatalf("want true, got false")
 	}
-	if !strings.Contains(out.String(), "replay y ou n") {
+	if !strings.Contains(out.String(), "Please answer y or n") {
 		t.Fatalf("want the red hint, got %q", out.String())
 	}
 }

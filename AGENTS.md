@@ -99,9 +99,9 @@ multi-step flow.
 
 - `Confirm` writes `Question (y/N): ` or `Question (Y/n): `, depending on
   `YesDefault`, and reads one line.
-- It accepts `y` and `yes` for true and `no` for false, case-insensitively. An
+- It accepts `y` and `yes` for true and `n` and `no` for false, case-insensitively. An
   empty line returns `YesDefault`.
-- Any other answer — `n` included — prints the red hint `replay y ou n` and asks
+- Any other answer prints the red hint `Please answer y or n` and asks
   again. There is no `s`/`sim`/`nao` handling.
 
 ### Errors, line reading and tests
@@ -135,16 +135,23 @@ errors silenced) and registers `views.NewCommands(r)` under `cmds`.
 | Subcommand | Behaviour |
 | --- | --- |
 | `ls` | Reads `GetCommands(filter)` and renders a `Table` with `Name`/`Description`. `-f/--filter` is an optional literal substring; an empty or whitespace-only value is rejected in `PreRunE`. |
-| `v <name>` | `GetCommand(name)`, renders a headerless `Table` (Name/Description), then `GetCommandScripts(command.ID)` in a `Table` with `Name`/`Script`/`Description`. |
+| `v <name>` | `GetCommand(name)`, renders a `Table` with Name/Description headers, then `GetCommandScripts(command.ID)` in a `Table` with `Name`/`Script`/`Description`. |
 | `c` | Prompts interactively for name and description with `components.Prompt`, validates the name with `ValidateCommandName`, and calls `InsertCommand`. |
 | `e <name>` | `GetCommand(name)`, re-prompts with the current values as `Default`, and calls `UpdateCommand`. |
 | `d <name>` | `GetCommand(name)`, asks for confirmation with `components.Confirm`, and calls `DeleteCommand`. |
 
-The three item handlers `appendCommandItem`, `changeCommandItem` and
-`removeCommandItem` (`ap`/`ch`/`rm`) remain commented out at the bottom of
-`views/commands.go` and still reference the old `command_items` names. Do not
-uncomment, fix or "repair" them unless asked; they are the only remaining
-`CommandItem` spelling in the tree.
+The script handlers are active: `ap <commandName>` prompts for Name, Script
+and Description; `ch <commandName> <scriptName>` edits those fields with current
+values as defaults; `rm <commandName> <scriptName>` confirms before removal,
+defaulting to no. Script success messages identify `commandName/scriptName`.
+Deleting a command explicitly warns that all its scripts will be deleted.
+Missing commands/scripts print the operation title, a blank line and the missing
+record message, and exit zero. Read errors retain their cause through `%w`.
+
+Titles use sentence capitalization and are followed by one blank line. Success
+and cancellation messages have one preceding blank line; the two view tables
+are separated by one blank line. Prompts remain on stderr, results on stdout.
+Each list command owns its filter variable; separate instances share no filter.
 
 ## The project
 
@@ -184,10 +191,7 @@ Tests exist in `store/`, `helpers/`, `repositories/`, `backup/`, `components/`,
 
 This repository is being reworked. The former test files have been reactivated
 and adjusted to the current APIs, and the store, repositories and backup layers
-have been converted. The command views are implemented and active; only the
-`ap`/`ch`/`rm` item handlers at the bottom of `views/commands.go` are commented
-out on purpose, and still reference the old `command_items` API. Do not
-uncomment, fix or "repair" them unless asked.
+have been converted. The command views, including the `ap`/`ch`/`rm` script handlers, are implemented and active.
 
 | File | State |
 | --- | --- |
@@ -218,7 +222,7 @@ uncomment, fix or "repair" them unless asked.
 | `themes/theme.go` | Live. Lip Gloss text helpers and the logo. |
 | `themes/theme_test.go` | Live. New. |
 | `views/views.go` | Live. Root `tartarus` Cobra command; registers `cmds`. |
-| `views/commands.go` | Live. `cmds` with `ls`/`v`/`c`/`e`/`d`; the `ap`/`ch`/`rm` item handlers are commented out. |
+| `views/commands.go` | Live. `cmds` with `ls`/`v`/`c`/`e`/`d`/`ap`/`ch`/`rm`. |
 | `views/commands_test.go` | Live. New. |
 | `main.go` | Live. Opens and migrates the store, renders the logo and executes Cobra. |
 | `main_test.go` | Live. New. |
@@ -433,28 +437,28 @@ func (r *Repos) DeleteCommand(id uint64) error
 // command scripts
 func (r *Repos) GetCommandScripts(commandID uint64) ([]CommandScript, error)
 func (r *Repos) GetCommandScriptsByName(commandID uint64, searchTerm string) ([]CommandScript, error)
-func (r *Repos) GetCommandScript(commandID, scriptID uint64) (CommandScript, error)
-func (r *Repos) AppendCommandScript(commandID uint64, script *CommandScript) error
-func (r *Repos) UpdateCommandScript(commandID uint64, script *CommandScript) error
+func (r *Repos) GetCommandScript(commandID uint64, scriptName string) (CommandScript, error)
+func (r *Repos) AppendCommandScript(script *CommandScript) error
+func (r *Repos) UpdateCommandScript(script *CommandScript) error
 func (r *Repos) RemoveCommandScript(commandID, scriptID uint64) error
 ```
 
 `CommandScript` is the repository type for `command_scripts`; the former
 `CommandItem` methods are not the current API. `GetCommands(searchTerm)` returns
 all matching commands ordered by id, without a limit, offset or filtered count.
-A nonempty search is wrapped in `%` and applied with SQLite `LIKE` to name and
-`COALESCE(description, '')`. `%` and `_` are not escaped, so they remain wildcard
-characters. Backup readers use `GetCommands("")`. The pagination/literal-search
-comment above the implementation is stale.
+A nonempty search escapes backslashes, `%` and `_`, then is wrapped in `%`
+and applied with SQLite `LIKE ... ESCAPE` to name and
+`COALESCE(description, '')`. Matching is literal and ASCII case-insensitive.
+Backup readers use `GetCommands("")`.
 
 `CommandScript` carries a required `Name`, and so do `AppendCommandScript` and
 `UpdateCommandScript`. Its name is validated with `ValidateCommandScriptName`,
 which applies the same rule as `ValidateCommandName` — 1–12 ASCII lowercase
 letters/digits — and returns `ErrCommandScriptNameRequired`,
 `ErrCommandScriptNameTooLong` or `ErrCommandScriptNameInvalid`.
-`GetCommandScriptsByName` mirrors `GetCommands(searchTerm)` for the scripts
+`GetCommandScriptsByName` searches the scripts
 of one command: an empty search matches every script of the command, a nonempty
-one is wrapped in `%` and matched with `LIKE` against `name`, and the result is
+one is wrapped in `%` and matched with `LIKE` against `name` (wildcards are not escaped in this separate API), and the result is
 ordered by id; `commandID == 0` returns `ErrCommandIDRequired` before any query.
 
 - **Reads go through `Store.Query`, not `WithTx`.** A read needs no transaction,
@@ -812,9 +816,7 @@ The rename is complete in code and the tests are active:
   `CommandScript`/`scripts`, pass the required script `name`, and no longer use
   the paginated `GetCommands` signature.
 
-The only remaining `command_items`/`CommandItem` spelling is in the disabled
-`views/commands.go` item handlers (`appendCommandItem`, `changeCommandItem`,
-`removeCommandItem`), which are left switched off on purpose.
+The active script handlers use `CommandScript` and the current repository API.
 
 ## Known outstanding work
 

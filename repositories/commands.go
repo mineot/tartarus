@@ -3,6 +3,7 @@ package repositories
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"tartarus/store"
 	"time"
 )
@@ -53,7 +54,7 @@ ORDER BY id
 	selectCommandsWithFilters = `
 SELECT id, name, COALESCE(description, ''), created_at, updated_at
 FROM commands
-WHERE name LIKE ? OR COALESCE(description, '') LIKE ?
+WHERE name LIKE ? ESCAPE '\' OR COALESCE(description, '') LIKE ? ESCAPE '\'
 ORDER BY id
 `
 
@@ -187,16 +188,14 @@ func ValidateCommandScriptName(name string) error {
 	return nil
 }
 
-// GetCommands returns commands in creation order and the total before pagination.
-// A limit of -1 reads all remaining commands. Other limits must be positive;
-// offset must be nonnegative. Search matches literal substrings in name or
-// description using SQLite LIKE semantics. Empty search matches all commands.
-// The page and filtered count are separate reads.
+// GetCommands returns commands in creation order. Search matches literal
+// substrings in name or description using SQLite LIKE (ASCII case-insensitive).
+// Empty search matches all commands.
 func (r *Repos) GetCommands(searchTerm string) ([]Command, error) {
 	var query = selectCommands
 
 	if searchTerm != "" {
-		searchTerm = "%" + searchTerm + "%"
+		searchTerm = "%" + strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(searchTerm) + "%"
 		query = selectCommandsWithFilters
 	}
 

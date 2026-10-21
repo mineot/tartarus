@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"tartarus/helpers"
 	"tartarus/repositories"
 	"tartarus/store"
@@ -503,5 +505,117 @@ func TestDeleteCommandPropagatesAClosedStore(t *testing.T) {
 
 	if _, err := runCommands(t, r, "y\n", "d", "build"); err == nil {
 		t.Fatalf("want the closed store error to propagate")
+	}
+}
+
+func TestCommandScriptLifecycle(t *testing.T) {
+	r := newTestRepos(t)
+	command := insertTestCommand(t, r, "deploy", "ships")
+	out, err := runCommands(t, r, "build\ngo build\ncompiles\n", "ap", "deploy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ansi.Strip(out) != textAppSrcCmd+"\n\n\n"+msgSuccessAppendedCmd+": deploy/build\n" {
+		t.Fatalf("unexpected append output: %q", out)
+	}
+	out, err = runCommands(t, r, "compile\ngo build ./...\nnew description\n", "ch", "deploy", "build")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ansi.Strip(out) != textChangeSrcCmd+"\n\n\n"+msgSuccessChangedCmd+": deploy/compile\n" {
+		t.Fatalf("unexpected change output: %q", out)
+	}
+	script, err := r.GetCommandScript(command.ID, "compile")
+	if err != nil || script.Script != "go build ./..." || script.Description != "new description" {
+		t.Fatalf("unexpected script: %+v, error: %v", script, err)
+	}
+	for _, input := range []string{"n\n", "\n", ""} {
+		out, err = runCommands(t, r, input, "rm", "deploy", "compile")
+		if input == "" {
+			if err == nil {
+				t.Fatal("want a confirmation read error")
+			}
+		} else if err != nil || ansi.Strip(out) != textRemSrcCmd+"\n\n\n"+msgNoRemovedCmd+"\n" {
+			t.Fatalf("unexpected cancellation: %q, error: %v", out, err)
+		}
+		script, err = r.GetCommandScript(command.ID, "compile")
+		if err != nil || !script.Exists() {
+			t.Fatalf("want script preserved: %+v, error: %v", script, err)
+		}
+	}
+	out, err = runCommands(t, r, "y\n", "rm", "deploy", "compile")
+	if err != nil || ansi.Strip(out) != textRemSrcCmd+"\n\n\n"+msgSuccessRemoveCmd+": deploy/compile\n" {
+		t.Fatalf("unexpected removal: %q, error: %v", out, err)
+	}
+	script, err = r.GetCommandScript(command.ID, "compile")
+	if err != nil || script.Exists() {
+		t.Fatalf("want script removed: %+v, error: %v", script, err)
+	}
+}
+
+func TestMissingCommandsHaveConsistentPresentation(t *testing.T) {
+	for _, tc := range []struct {
+		args  []string
+		title string
+	}{
+		{[]string{"v", "missing"}, textViewCmd},
+		{[]string{"e", "missing"}, textEditCmd},
+		{[]string{"d", "missing"}, textDeleteCmd},
+		{[]string{"ap", "missing"}, textAppSrcCmd},
+		{[]string{"ch", "missing", "script"}, textChangeSrcCmd},
+		{[]string{"rm", "missing", "script"}, textRemSrcCmd},
+	} {
+		t.Run(tc.args[0], func(t *testing.T) {
+			out, err := runCommands(t, newTestRepos(t), "", tc.args...)
+			if err != nil || ansi.Strip(out) != tc.title+"\n\n"+msgNoCmdFound+"\n" {
+				t.Fatalf("unexpected missing command output: %q, error: %v", out, err)
+			}
+		})
+	}
+}
+
+func TestListCommandFiltersAreIndependent(t *testing.T) {
+	r := newTestRepos(t)
+	insertTestCommand(t, r, "build", "compiles")
+	insertTestCommand(t, r, "deploy", "ships")
+	first := listAllCommands(r)
+	if err := first.Flags().Set("filter", "build"); err != nil {
+		t.Fatal(err)
+	}
+	second := listAllCommands(r)
+	if err := second.Flags().Set("filter", "deploy"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := captureStdout(t, func() error { return first.Execute() })
+	if err != nil || !strings.Contains(out, "build") || strings.Contains(out, "deploy") {
+		t.Fatalf("unexpected first filter result: %q, error: %v", out, err)
+	}
+}
+
+func TestListCommandSearchesLiteralCharacters(t *testing.T) {
+	r := newTestRepos(t)
+	insertTestCommand(t, r, "literal", `100% under_score back\slash`)
+	insertTestCommand(t, r, "other", "ordinary description")
+	for _, filter := range []string{"%", "_", `\`} {
+		out, err := runCommands(t, r, "", "ls", "-f", filter)
+		if err != nil || !strings.Contains(out, "literal") || strings.Contains(out, "other") {
+			t.Fatalf("filter %q: output %q, error: %v", filter, out, err)
+		}
+	}
+}
+
+func TestScriptCommandsRejectInvalidArgumentsAndMissingScripts(t *testing.T) {
+	r := newTestRepos(t)
+	insertTestCommand(t, r, "deploy", "ships")
+	for _, action := range []string{"ap", "ch", "rm"} {
+		if _, err := runCommands(t, r, "", action); err == nil {
+			t.Fatalf("%s: want argument error", action)
+		}
+	}
+	for _, action := range []string{"ch", "rm"} {
+		out, err := runCommands(t, r, "", action, "deploy", "missing")
+		if err != nil || !strings.HasSuffix(out, "\n\n"+msgNoCmdSrcFound+"\n") {
+			t.Fatalf("%s: unexpected output %q, error: %v", action, out, err)
+		}
 	}
 }

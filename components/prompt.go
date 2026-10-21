@@ -137,11 +137,11 @@ func confirm(r io.Reader, w io.Writer, opts ConfirmOpts) (bool, error) {
 			return opts.YesDefault, nil
 		case "y", "yes":
 			return true, nil
-		case "no":
+		case "n", "no":
 			return false, nil
 		}
 
-		if _, werr := fmt.Fprintf(w, "%sreplay y ou n%s\n", promptRed, promptReset); werr != nil {
+		if _, werr := fmt.Fprintf(w, "%sPlease answer y or n%s\n", promptRed, promptReset); werr != nil {
 			return false, fmt.Errorf("components: prompt: %w", werr)
 		}
 	}
